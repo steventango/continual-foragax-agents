@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
             report = Hypers.select_best_hypers(
                 df,
-                metric='return',
+                metric='reward',
                 prefer=Hypers.Preference.low,
                 time_summary=TimeSummary.mean,
                 statistic=Statistic.mean,
@@ -59,7 +59,7 @@ if __name__ == "__main__":
             xs, ys = extract_learning_curves(
                 df,
                 hyper_vals=report.best_configuration,
-                metric='return',
+                metric='reward',
                 interpolation=lambda x, y: compute_step_return(x, y, exp.total_steps),
             )
 

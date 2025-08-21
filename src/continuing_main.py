@@ -101,7 +101,7 @@ for idx in indices:
         chk.maybe_save()
         interaction = glue.step()
 
-        collector.collect('reward', interaction.reward)
+        collector.collect('reward', interaction.reward.item())
 
         if step % 500 == 0 and step > 0:
             avg_time = 1000 * (time.time() - start_time) / (step + 1)
