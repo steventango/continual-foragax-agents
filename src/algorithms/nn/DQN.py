@@ -1,7 +1,6 @@
 from functools import partial
 from typing import Any, Dict, Tuple
 from ml_instrumentation.Collector import Collector
-from ReplayTables.ReplayBuffer import Batch
 
 from algorithms.nn.NNAgent import NNAgent
 from representations.networks import NetworkBuilder
@@ -19,6 +18,7 @@ import utils.chex as cxu
 class AgentState:
     params: Any
     target_params: Any
+    buffer_state: Any
     optim: optax.OptState
 
 
@@ -41,6 +41,7 @@ class DQN(NNAgent):
         self.state = AgentState(
             params=self.state.params,
             target_params=self.state.params,
+            buffer_state=self.state.buffer_state,
             optim=self.state.optim,
         )
 
@@ -64,19 +65,24 @@ class DQN(NNAgent):
             return
 
         # skip updates if the buffer isn't full yet
-        if self.buffer.size() <= self.batch_size:
+        if not self.buffer.can_sample(self.state.buffer_state):
             return
 
         self.updates += 1
 
-        batch = self.buffer.sample(self.batch_size)
-        weights = self.buffer.isr_weights(batch.trans_id)
-        self.state, metrics = self._computeUpdate(self.state, batch, weights)
+        self.key, buffer_sample_key = jax.random.split(self.key)
+        batch = self.buffer.sample(self.state.buffer_state, buffer_sample_key)
+
+        self.state, metrics = self._computeUpdate(
+            self.state, batch.experience, batch.probabilities
+        )
 
         metrics = jax.device_get(metrics)
 
         priorities = metrics['delta']
-        self.buffer.update_batch(batch, priorities=priorities)
+        self.state.buffer_state = self.buffer.set_priorities(
+            self.state.buffer_state, batch.indices, priorities
+        )
 
         for k, v in metrics.items():
             self.collector.collect(k, np.mean(v).item())
@@ -88,7 +94,7 @@ class DQN(NNAgent):
     # -- Updates --
     # -------------
     @partial(jax.jit, static_argnums=0)
-    def _computeUpdate(self, state: AgentState, batch: Batch, weights: jax.Array):
+    def _computeUpdate(self, state: AgentState, batch: Dict, weights: jax.Array):
         grad_fn = jax.grad(self._loss, has_aux=True)
         grad, metrics = grad_fn(state.params, state.target_params, batch, weights)
 
@@ -98,20 +104,34 @@ class DQN(NNAgent):
         new_state = AgentState(
             params=params,
             target_params=state.target_params,
+            buffer_state=state.buffer_state,
             optim=optim,
         )
 
         return new_state, metrics
 
-    def _loss(self, params: hk.Params, target: hk.Params, batch: Batch, weights: jax.Array):
-        phi = self.phi(params, batch.x).out
-        phi_p = self.phi(target, batch.xp).out
+    def _loss(
+        self, params: hk.Params, target: hk.Params, batch: Dict, weights: jax.Array
+    ):
+        x = batch["x"][:, 0]
+        xp = batch["x"][:, -1]
+        a = batch["a"][:, 0]
+        rs = batch["r"]
+        gs = batch["gamma"]
+        gs = jnp.concatenate([jnp.ones((gs.shape[0], 1)), gs[:, :-1]], axis=1)
+        gs = jnp.cumprod(gs, axis=1)
+
+        r = jnp.sum(rs[:, :-1] * gs[:, :-1], axis=1)
+        g = gs[:, -1]
+
+        phi = self.phi(params, x).out
+        phi_p = self.phi(target, xp).out
 
         qs = self.q(params, phi)
         qsp = self.q(target, phi_p)
 
         batch_loss = jax.vmap(q_loss, in_axes=0)
-        losses, metrics = batch_loss(qs, batch.a, batch.r, batch.gamma, qsp)
+        losses, metrics = batch_loss(qs, a, r, g, qsp)
 
         chex.assert_equal_shape((weights, losses))
         loss = jnp.mean(weights * losses)

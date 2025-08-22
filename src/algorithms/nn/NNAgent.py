@@ -1,4 +1,6 @@
+import flashbax as fbx
 import jax
+import jax.numpy as jnp
 import optax
 import numpy as np
 import utils.chex as cxu
@@ -6,18 +8,17 @@ import utils.chex as cxu
 from abc import abstractmethod
 from typing import Any, Dict, Tuple
 from ml_instrumentation.Collector import Collector
-from ReplayTables.interface import Timestep
-from ReplayTables.registry import build_buffer
 
 from algorithms.BaseAgent import BaseAgent
 from representations.networks import NetworkBuilder
 from utils.checkpoint import checkpointable
-from utils.policies import egreedy_probabilities, sample
+from utils.policies import egreedy_probabilities
 
 @cxu.dataclass
 class AgentState:
     params: Any
     optim: optax.OptState
+    buffer_state: Any
 
 
 @checkpointable(('buffer', 'steps', 'state', 'updates'))
@@ -57,15 +58,35 @@ class NNAgent(BaseAgent):
         # ------------------
         self.buffer_size = params['buffer_size']
         self.batch_size = params['batch']
+        self.buffer_min_size = params.get('buffer_min_size', self.batch_size)
         self.update_freq = params.get('update_freq', 1)
+        self.priority_exponent = params.get('priority_exponent', 0.0)
 
-        self.buffer = build_buffer(
-            buffer_type=params['buffer_type'],
-            max_size=self.buffer_size,
-            lag=self.n_step,
-            rng=self.rng,
-            config=params.get('buffer_config', {}),
+        self.buffer = fbx.make_prioritised_trajectory_buffer(
+            max_length_time_axis=self.buffer_size,
+            min_length_time_axis=self.buffer_min_size,
+            sample_batch_size=self.batch_size,
+            add_batch_size=1,
+            sample_sequence_length=self.n_step + 1,
+            period=1,
+            priority_exponent=self.priority_exponent
         )
+        self.buffer = self.buffer.replace(
+            init=jax.jit(self.buffer.init),
+            add=jax.jit(self.buffer.add, donate_argnums=(0,)),
+            sample=jax.jit(self.buffer.sample),
+            can_sample=jax.jit(self.buffer.can_sample),
+            set_priorities=jax.jit(self.buffer.set_priorities, donate_argnums=(0,)),
+        )
+
+        dummy_timestep = {
+            'x': jnp.zeros(self.observations),
+            'a': jnp.int32(0),
+            'r': jnp.float32(0),
+            'gamma': jnp.float32(0),
+        }
+        buffer_state = self.buffer.init(dummy_timestep)
+        self.last_timestep = dummy_timestep
 
         # --------------------------
         # -- Stateful information --
@@ -73,6 +94,7 @@ class NNAgent(BaseAgent):
         self.state = AgentState(
             params=net_params,
             optim=opt_state,
+            buffer_state=buffer_state,
         )
 
         self.steps = 0
@@ -87,14 +109,14 @@ class NNAgent(BaseAgent):
         ...
 
     @abstractmethod
-    def _values(self, state: Any, x: np.ndarray) -> jax.Array:
+    def _values(self, state: Any, x: jax.Array) -> jax.Array:
         ...
 
     @abstractmethod
     def update(self) -> None:
         ...
 
-    def policy(self, obs: np.ndarray) -> np.ndarray:
+    def policy(self, obs: jax.Array) -> jax.Array:
         q = self.values(obs)
         pi = egreedy_probabilities(q, self.actions, self.epsilon)
         return pi
@@ -102,14 +124,12 @@ class NNAgent(BaseAgent):
     # --------------------------
     # -- Base agent interface --
     # --------------------------
-    def values(self, x: np.ndarray):
-        x = np.asarray(x)
-
+    def values(self, x: jax.Array):
         # if x is a vector, then jax handles a lack of "batch" dimension gracefully
         #   at a 5x speedup
         # if x is a tensor, jax does not handle lack of "batch" dim gracefully
         if len(x.shape) > 1:
-            x = np.expand_dims(x, 0)
+            x = jnp.expand_dims(x, 0)
             q = self._values(self.state, x)[0]
 
         else:
@@ -120,44 +140,38 @@ class NNAgent(BaseAgent):
     # ----------------------
     # -- RLGlue interface --
     # ----------------------
-    def start(self, obs: np.ndarray):
-        self.buffer.flush()
-        x = np.asarray(obs)
-        pi = self.policy(x)
-        a = sample(pi, rng=self.rng)
-        self.buffer.add_step(Timestep(
-            x=x,
-            a=a,
-            r=None,
-            gamma=self.gamma,
-            terminal=False,
-        ))
+    def start(self, obs: jax.Array):
+        pi = self.policy(obs)
+        self.key, sample_key = jax.random.split(self.key)
+        a = jax.random.choice(sample_key, self.actions, p=pi)
+        self.last_timestep.update({
+            'x': obs,
+            'a': a,
+        })
         return a
 
-    def step(self, reward: float, obs: np.ndarray | None, extra: Dict[str, Any]):
-        a = -1
-
-        # sample next action
-        if obs is not None:
-            obs = np.asarray(obs)
-            pi = self.policy(obs)
-            a = sample(pi, rng=self.rng)
+    def step(self, reward: jax.Array, obs: jax.Array, extra: Dict[str, Any]):
+        pi = self.policy(obs)
+        self.key, sample_key = jax.random.split(self.key)
+        a = jax.random.choice(sample_key, self.actions, p=pi)
 
         # see if the problem specified a discount term
         gamma = extra.get('gamma', 1.0)
 
         # possibly process the reward
         if self.reward_clip > 0:
-            reward = np.clip(reward, -self.reward_clip, self.reward_clip)
+            reward = jnp.clip(reward, -self.reward_clip, self.reward_clip)
 
-        self.buffer.add_step(Timestep(
-            x=obs,
-            a=a,
-            r=reward,
-            gamma=self.gamma * gamma,
-            terminal=False,
-        ))
-
+        self.last_timestep.update({
+            'r': reward,
+            'gamma': jnp.float32(self.gamma * gamma),
+        })
+        batch_sequence = jax.tree.map(lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), self.last_timestep)
+        self.state.buffer_state = self.buffer.add(self.state.buffer_state, batch_sequence)
+        self.last_timestep.update({
+            'x': obs,
+            'a': a,
+        })
         self.update()
         return a
 
@@ -166,12 +180,10 @@ class NNAgent(BaseAgent):
         if self.reward_clip > 0:
             reward = np.clip(reward, -self.reward_clip, self.reward_clip)
 
-        self.buffer.add_step(Timestep(
-            x=np.zeros(self.observations),
-            a=-1,
-            r=reward,
-            gamma=0,
-            terminal=True,
-        ))
-
+        self.last_timestep.update({
+            'r': reward,
+            'gamma': jnp.float32(0),
+        })
+        batch_sequence = jax.tree.map(lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), self.last_timestep)
+        self.state.buffer_state = self.buffer.add(self.state.buffer_state, batch_sequence)
         self.update()

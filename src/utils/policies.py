@@ -1,5 +1,5 @@
+import jax.numpy as jnp
 import numpy as np
-from numba import njit
 from typing import Any, Callable, Sequence
 from PyExpUtils.utils.types import NpList
 from PyExpUtils.utils.random import sample
@@ -29,16 +29,12 @@ def createEGreedy(get_values: Callable[[Any], np.ndarray], actions: int, epsilon
 
     return Policy(probs, rng)
 
-@njit(cache=True)
-def egreedy_probabilities(qs: np.ndarray, actions: int, epsilon: float):
+def egreedy_probabilities(qs: jnp.ndarray, actions: int, epsilon: float):
     # compute the greedy policy
-    max_acts = argsmax(qs)
-    pi: np.ndarray = np.zeros(actions)
-    for a in max_acts:
-        pi[a] = 1. / len(max_acts)
+    pi = qs == jnp.max(qs)
 
     # compute a uniform random policy
-    uniform: np.ndarray = np.ones(actions) / actions
+    uniform = jnp.ones(actions) / actions
 
     # epsilon greedy is a mixture of greedy + uniform random
     return (1. - epsilon) * pi + epsilon * uniform

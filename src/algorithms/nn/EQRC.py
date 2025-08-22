@@ -8,6 +8,7 @@ from representations.networks import NetworkBuilder
 from utils.jax import vmap_except, argmax_with_random_tie_breaking
 
 import jax
+import jax.numpy as jnp
 import optax
 import numpy as np
 import haiku as hk
@@ -45,16 +46,19 @@ class EQRC(NNAgent):
             return
 
         # skip updates if the buffer isn't full yet
-        if self.buffer.size() <= self.batch_size:
+        if not self.buffer.can_sample(self.state.buffer_state):
             return
 
-        batch = self.buffer.sample(self.batch_size)
-        self.state, metrics = self._computeUpdate(self.state, batch)
+        self.key, buffer_sample_key = jax.random.split(self.key)
+        batch = self.buffer.sample(self.state.buffer_state, buffer_sample_key)
+        self.state, metrics = self._computeUpdate(self.state, batch.experience)
 
         metrics = jax.device_get(metrics)
 
         priorities = metrics['delta']
-        self.buffer.update_batch(batch, priorities=priorities)
+        self.state.buffer_state = self.buffer.set_priorities(
+            self.state.buffer_state, batch.indices, priorities
+        )
 
         for k, v in metrics.items():
             self.collector.collect(k, np.mean(v).item())
@@ -66,7 +70,7 @@ class EQRC(NNAgent):
     # compute the update and return the new parameter states
     # and optimizer state (i.e. ADAM moving averages)
     @partial(jax.jit, static_argnums=0)
-    def _computeUpdate(self, state: AgentState, batch: Batch):
+    def _computeUpdate(self, state: AgentState, batch: Dict):
         params = state.params
         grad, metrics = jax.grad(self._loss, has_aux=True)(params, batch)
 
@@ -85,23 +89,35 @@ class EQRC(NNAgent):
         new_state = AgentState(
             params=new_params,
             optim=new_optim,
+            buffer_state=state.buffer_state,
         )
 
         return new_state, metrics
 
     # compute the total QRC loss for both sets of parameters (value parameters and h parameters)
-    def _loss(self, params, batch: Batch):
-        phi = self.phi(params, batch.x).out
+    def _loss(self, params, batch: Dict):
+        x = batch["x"][:, 0]
+        xp = batch["x"][:, -1]
+        a = batch["a"][:, 0]
+        rs = batch["r"]
+        gs = batch["gamma"]
+        gs = jnp.concatenate([jnp.ones((gs.shape[0], 1)), gs[:, :-1]], axis=1)
+        gs = jnp.cumprod(gs, axis=1)
+
+        r = jnp.sum(rs[:, :-1] * gs[:, :-1], axis=1)
+        g = gs[:, -1]
+
+        phi = self.phi(params, x).out
         q = self.q(params, phi)
         h = self.h(params, phi)
 
-        phi_p = self.phi(params, batch.xp).out
+        phi_p = self.phi(params, xp).out
         qp = self.q(params, phi_p)
 
         # apply qc loss function to each sample in the minibatch
         # gives back value of the loss individually for parameters of v and h
         # note QC instead of QRC (i.e. no regularization)
-        v_loss, h_loss, metrics = qc_loss(q, batch.a, batch.r, batch.gamma, qp, h, self.epsilon)
+        v_loss, h_loss, metrics = qc_loss(q, a, r, g, qp, h, self.epsilon)
 
         h_loss = h_loss.mean()
         v_loss = v_loss.mean()

@@ -41,6 +41,7 @@ dependencies = [
     'matplotlib',
     "ml-instrument>=0.3.1",
     "continual-foragax>=0.2.1",
+    "flashbax>=0.1.3",
 ]
 
 [dependency-groups]
