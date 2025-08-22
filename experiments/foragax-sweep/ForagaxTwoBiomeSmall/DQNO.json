@@ -1,0 +1,27 @@
+{
+    "agent": "DQNO",
+    "problem": "Foragax",
+    "total_steps": 10000,
+    "episode_cutoff": -1,
+    "metaParameters": {
+        "epsilon": 0.1,
+        "target_refresh": 128,
+        "buffer_type": "uniform",
+        "buffer_size": 4000,
+        "batch": 32,
+        "environment": {
+            "env_id": "ForagaxTwoBiomeSmall"
+        },
+        "optimizer": {
+            "name": "ADAM",
+            "alpha": 0.001,
+            "beta1": 0.9,
+            "beta2": 0.999
+        },
+
+        "representation": {
+            "type": "ForagerNet",
+            "hidden": 64
+        }
+    }
+}
