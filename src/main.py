@@ -110,7 +110,7 @@ for idx in indices:
             agent.cleanup()
 
             # collect some data
-            collector.collect('return', glue.total_reward)
+            collector.collect('return', glue.total_reward.item())
             collector.collect('episode', chk['episode'])
             collector.collect('steps', glue.num_steps)
 
