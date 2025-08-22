@@ -58,37 +58,45 @@ class DQN(NNAgent):
         return self.q(state.params, phi)
 
     def update(self):
-        self.steps += 1
+        self.state, self.steps, self.updates, self.key = self._maybe_update(
+            self.state, self.steps, self.updates, self.key
+        )
+
+    @partial(jax.jit, static_argnums=0)
+    def _maybe_update(self, state: AgentState, steps: int, updates: int, key: jax.Array):
+        steps += 1
 
         # only update every `update_freq` steps
-        if self.steps % self.update_freq != 0:
-            return
-
         # skip updates if the buffer isn't full yet
-        if not self.buffer.can_sample(self.state.buffer_state):
-            return
-
-        self.updates += 1
-
-        self.key, buffer_sample_key = jax.random.split(self.key)
-        batch = self.buffer.sample(self.state.buffer_state, buffer_sample_key)
-
-        self.state, metrics = self._computeUpdate(
-            self.state, batch.experience, batch.probabilities
+        return jax.lax.cond(
+            (steps % self.update_freq == 0) & self.buffer.can_sample(state.buffer_state),
+            lambda: self._update(state, steps, updates, key),
+            lambda: (state, steps, updates, key),
         )
 
-        metrics = jax.device_get(metrics)
+    @partial(jax.jit, static_argnums=0)
+    def _update(self, state: AgentState, steps: int, updates: int, key: jax.Array):
+        updates += 1
+
+        key, buffer_sample_key = jax.random.split(key)
+        batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
+
+        state, metrics = self._computeUpdate(
+            state, batch.experience, batch.probabilities
+        )
 
         priorities = metrics['delta']
-        self.state.buffer_state = self.buffer.set_priorities(
-            self.state.buffer_state, batch.indices, priorities
+        state.buffer_state = self.buffer.set_priorities(
+            state.buffer_state, batch.indices, priorities
         )
 
-        for k, v in metrics.items():
-            self.collector.collect(k, np.mean(v).item())
+        state.target_params = jax.lax.cond(
+            updates % self.target_refresh == 0,
+            lambda: state.params,
+            lambda: state.target_params,
+        )
 
-        if self.updates % self.target_refresh == 0:
-            self.state.target_params = self.state.params
+        return state, steps, updates, key
 
     # -------------
     # -- Updates --
