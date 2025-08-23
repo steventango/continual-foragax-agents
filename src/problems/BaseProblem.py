@@ -1,6 +1,6 @@
 from typing import Optional
 from ml_instrumentation.Collector import Collector
-from rlglue.environment import BaseEnvironment
+from utils.rlglue.environment import BaseEnvironment
 
 from experiment.ExperimentModel import ExperimentModel
 from algorithms.BaseAgent import BaseAgent

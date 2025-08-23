@@ -21,6 +21,10 @@ class AgentState:
     params: Any
     optim: optax.OptState
     buffer_state: Any
+    key: jax.Array
+    last_timestep: Dict[str, jax.Array]
+    steps: int
+    updates: int
 
 
 @checkpointable(("buffer", "steps", "state", "updates"))
@@ -95,7 +99,6 @@ class NNAgent(BaseAgent):
             "gamma": jnp.float32(0),
         }
         buffer_state = self.buffer.init(dummy_timestep)
-        self.last_timestep = dummy_timestep
 
         # --------------------------
         # -- Stateful information --
@@ -104,10 +107,11 @@ class NNAgent(BaseAgent):
             params=net_params,
             optim=opt_state,
             buffer_state=buffer_state,
+            key=self.key,
+            last_timestep=dummy_timestep,
+            steps=0,
+            updates=0,
         )
-
-        self.steps = 0
-        self.updates = 0
 
     # ------------------------
     # -- NN agent interface --
@@ -124,7 +128,7 @@ class NNAgent(BaseAgent):
 
     @abstractmethod
     @partial(jax.jit, static_argnums=0)
-    def _maybe_update(self, state: AgentState, steps: int, updates: int, key: jax.Array) -> tuple[AgentState, int, int, jax.Array]: ...
+    def _maybe_update(self, state: AgentState, key: jax.Array) -> AgentState: ...
 
     def policy(self, obs: jax.Array) -> jax.Array:
         q = self.values(obs)
@@ -140,12 +144,12 @@ class NNAgent(BaseAgent):
 
     @partial(jax.jit, static_argnums=0)
     def act(
-        self, state: AgentState, obs: jax.Array, key: jax.Array
-    ) -> tuple[jax.Array, jax.Array]:
+        self, state: AgentState, obs: jax.Array,
+    ) -> tuple[AgentState, jax.Array]:
         pi = self._policy(state, obs)
-        key, sample_key = jax.random.split(key)
+        state.key, sample_key = jax.random.split(state.key)
         a = jax.random.choice(sample_key, self.actions, p=pi)
-        return a, key
+        return state, a
 
     # --------------------------
     # -- Base agent interface --
@@ -167,29 +171,27 @@ class NNAgent(BaseAgent):
     # -- RLGlue interface --
     # ----------------------
     def start(self, obs: jax.Array):
-        a, self.key = self.act(self.state, obs, self.key)
-        self.last_timestep.update(
+        self.state, a = self._start(self.state, obs)
+        return a
+
+    @partial(jax.jit, static_argnums=0)
+    def _start(self, state: AgentState, obs: jax.Array):
+        state, a = self.act(state, obs)
+        state.last_timestep.update(
             {
                 "x": obs,
                 "a": a,
             }
         )
-        return a
+        return state, a
 
-    def step(self, reward: jax.Array, obs: jax.Array, extra: Dict[str, Any]):
-        (
-            self.state,
-            self.last_timestep,
-            self.steps,
-            self.updates,
-            self.key,
-            a
-        ) = self._step(self.state, self.last_timestep, self.steps, self.updates, reward, obs, extra, self.key)
+    def step(self, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
+        self.state, a = self._step(self.state, reward, obs, extra)
         return a
 
     @partial(jax.jit, static_argnums=0)
-    def _step(self, state: AgentState, last_timestep: dict, steps: int, updates: int, reward: jax.Array, obs: jax.Array, extra: Dict[str, Any], key: jax.Array):
-        a, key = self.act(state, obs, key)
+    def _step(self, state: AgentState, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
+        state, a = self.act(state, obs)
 
         # see if the problem specified a discount term
         gamma = extra.get("gamma", 1.0)
@@ -198,42 +200,47 @@ class NNAgent(BaseAgent):
         if self.reward_clip > 0:
             reward = jnp.clip(reward, -self.reward_clip, self.reward_clip)
 
-        last_timestep.update(
+        state.last_timestep.update(
             {
                 "r": reward,
                 "gamma": jnp.float32(self.gamma * gamma),
             }
         )
         batch_sequence = jax.tree.map(
-            lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), last_timestep
+            lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), state.last_timestep
         )
         state.buffer_state = self.buffer.add(
             state.buffer_state, batch_sequence
         )
-        last_timestep.update(
+        state.last_timestep.update(
             {
                 "x": obs,
                 "a": a,
             }
         )
-        state, steps, updates, key = self._maybe_update(state, steps, updates, key)
-        return state, last_timestep, steps, updates, key, a
+        state = self._maybe_update(state)
+        return state, a
 
-    def end(self, reward: float, extra: Dict[str, Any]):
-        # possibly process the reward
+    def end(self, reward: jax.Array, extra: Dict[str, jax.Array]):
+        self.state = self._end(self.state, reward, extra)
+
+    @partial(jax.jit, static_argnums=0)
+    def _end(self, state, reward: jax.Array, extra: Dict[str, jax.Array]):
+         # possibly process the reward
         if self.reward_clip > 0:
-            reward = np.clip(reward, -self.reward_clip, self.reward_clip)
+            reward = jnp.clip(reward, -self.reward_clip, self.reward_clip)
 
-        self.last_timestep.update(
+        state.last_timestep.update(
             {
                 "r": reward,
                 "gamma": jnp.float32(0),
             }
         )
         batch_sequence = jax.tree.map(
-            lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), self.last_timestep
+            lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), state.last_timestep
         )
-        self.state.buffer_state = self.buffer.add(
-            self.state.buffer_state, batch_sequence
+        state.buffer_state = self.buffer.add(
+            state.buffer_state, batch_sequence
         )
-        self.update()
+        state = self._maybe_update(state)
+        return state

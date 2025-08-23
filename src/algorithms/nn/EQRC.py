@@ -55,26 +55,26 @@ class EQRC(NNAgent):
 
     def update(self):
         self.state, self.steps, self.key = self._maybe_update(
-            self.state, self.steps, self.key
+            self.state,
         )
 
     @partial(jax.jit, static_argnums=0)
-    def _maybe_update(self, state: AgentState, steps: int, updates: int, key: jax.Array):
-        steps += 1
+    def _maybe_update(self, state: AgentState):
+        state.steps += 1
 
         # only update every `update_freq` steps
         # skip updates if the buffer isn't full yet
         return jax.lax.cond(
-            (steps % self.update_freq == 0)
+            (state.steps % self.update_freq == 0)
             & self.buffer.can_sample(state.buffer_state),
-            lambda: self._update(state, steps, updates, key),
-            lambda: (state, steps, updates, key),
+            lambda: self._update(state),
+            lambda: state,
         )
 
     @partial(jax.jit, static_argnums=0)
-    def _update(self, state: AgentState, steps: int, updates: int, key: jax.Array):
-        updates += 1
-        key, buffer_sample_key = jax.random.split(key)
+    def _update(self, state: AgentState):
+        state.updates += 1
+        key, buffer_sample_key = jax.random.split(state.key)
         batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
         state, metrics = self._computeUpdate(state, batch.experience)
 
@@ -83,7 +83,7 @@ class EQRC(NNAgent):
             state.buffer_state, batch.indices, priorities
         )
 
-        return state, steps, updates, key
+        return state
 
     # -------------
     # -- Updates --
@@ -108,7 +108,7 @@ class EQRC(NNAgent):
         updates |= {"h": decay}
         new_params = optax.apply_updates(params, updates)
 
-        new_state = AgentState(
+        new_state = state.replace(
             params=new_params,
             optim=new_optim,
             buffer_state=state.buffer_state,

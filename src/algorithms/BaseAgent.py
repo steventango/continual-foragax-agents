@@ -2,7 +2,7 @@ from typing import Dict, Tuple
 
 import jax
 import numpy as np
-from rlglue.agent import BaseAgent as Base
+from utils.rlglue import BaseAgent as Base
 from ml_instrumentation.Collector import Collector
 
 

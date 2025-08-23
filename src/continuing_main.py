@@ -12,7 +12,7 @@ import jax
 from experiment import ExperimentModel
 from utils.checkpoint import Checkpoint
 from utils.preempt import TimeoutHandler
-from utils.rl_glue import RlGlue
+from utils.rlglue import RlGlue
 from problems.registry import getProblem
 from PyExpUtils.results.tools import getParamsAsDict
 from ml_instrumentation.Collector import Collector
@@ -97,13 +97,15 @@ for idx in indices:
     start_time = time.time()
 
     # if we haven't started yet, then make the first interaction
-    if glue.total_steps == 0:
-        glue.start()
+    glue_state = glue.state
+    if glue.state.total_steps == 0:
+        glue_state, _ = glue._start(glue.state)
 
-    for step in range(glue.total_steps, exp.total_steps):
+    # with jax.profiler.trace("/tmp/jax-trace"):
+    for step in range(glue_state.total_steps, exp.total_steps):
         collector.next_frame()
         chk.maybe_save()
-        interaction = glue.step()
+        glue_state, interaction = glue._step(glue_state)
 
         collector.collect("reward", interaction.reward.item())
 
@@ -112,6 +114,7 @@ for idx in indices:
             fps = step / (time.time() - start_time)
 
             logger.debug(f"{step} {avg_time:.4}ms {int(fps)}")
+        # interaction.reward.block_until_ready()
 
     collector.reset()
     # ------------

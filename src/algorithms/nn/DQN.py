@@ -20,7 +20,10 @@ class AgentState:
     target_params: Any
     buffer_state: Any
     optim: optax.OptState
-
+    key: jax.Array
+    last_timestep: Dict[str, jax.Array]
+    steps: int
+    updates: int
 
 def q_loss(q, a, r, gamma, qp):
     vp = qp.max()
@@ -51,6 +54,10 @@ class DQN(NNAgent):
             target_params=self.state.params,
             buffer_state=self.state.buffer_state,
             optim=self.state.optim,
+            key=self.state.key,
+            last_timestep=self.state.last_timestep,
+            steps=self.state.steps,
+            updates=self.state.updates,
         )
 
     # ------------------------
@@ -66,30 +73,28 @@ class DQN(NNAgent):
         return self.q(state.params, phi)
 
     def update(self):
-        self.state, self.steps, self.updates, self.key = self._maybe_update(
-            self.state, self.steps, self.updates, self.key
-        )
+        self.state = self._maybe_update(self.state)
 
     @partial(jax.jit, static_argnums=0)
     def _maybe_update(
-        self, state: AgentState, steps: int, updates: int, key: jax.Array
+        self, state: AgentState,
     ):
-        steps += 1
+        state.steps += 1
 
         # only update every `update_freq` steps
         # skip updates if the buffer isn't full yet
         return jax.lax.cond(
-            (steps % self.update_freq == 0)
+            (state.steps % self.update_freq == 0)
             & self.buffer.can_sample(state.buffer_state),
-            lambda: self._update(state, steps, updates, key),
-            lambda: (state, steps, updates, key),
+            lambda: self._update(state),
+            lambda: state,
         )
 
     @partial(jax.jit, static_argnums=0)
-    def _update(self, state: AgentState, steps: int, updates: int, key: jax.Array):
-        updates += 1
+    def _update(self, state: AgentState):
+        state.updates += 1
 
-        key, buffer_sample_key = jax.random.split(key)
+        state.key, buffer_sample_key = jax.random.split(state.key)
         batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
 
         state, metrics = self._computeUpdate(
@@ -102,12 +107,12 @@ class DQN(NNAgent):
         )
 
         state.target_params = jax.lax.cond(
-            updates % self.target_refresh == 0,
+            state.updates % self.target_refresh == 0,
             lambda: state.params,
             lambda: state.target_params,
         )
 
-        return state, steps, updates, key
+        return state
 
     # -------------
     # -- Updates --
@@ -125,6 +130,10 @@ class DQN(NNAgent):
             target_params=state.target_params,
             buffer_state=state.buffer_state,
             optim=optim,
+            key=state.key,
+            last_timestep=state.last_timestep,
+            steps=state.steps,
+            updates=state.updates,
         )
 
         return new_state, metrics
