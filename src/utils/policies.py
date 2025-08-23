@@ -3,7 +3,6 @@ import numpy as np
 from typing import Any, Callable, Sequence
 from PyExpUtils.utils.types import NpList
 from PyExpUtils.utils.random import sample
-from PyExpUtils.utils.arrays import argsmax
 
 
 class Policy:

@@ -9,7 +9,6 @@ from utils.jax import huber_loss
 import jax
 import chex
 import optax
-import numpy as np
 import haiku as hk
 import jax.numpy as jnp
 import utils.chex as cxu

@@ -1,7 +1,6 @@
 from functools import partial
 from typing import Dict, Tuple
 from ml_instrumentation.Collector import Collector
-from ReplayTables.interface import Batch
 
 from algorithms.nn.NNAgent import NNAgent, AgentState
 from representations.networks import NetworkBuilder
@@ -10,7 +9,6 @@ from utils.jax import vmap_except, argmax_with_random_tie_breaking
 import jax
 import jax.numpy as jnp
 import optax
-import numpy as np
 import haiku as hk
 import utils.hk as hku
 
