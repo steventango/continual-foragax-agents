@@ -75,7 +75,11 @@ if __name__ == "__main__":
             )
 
             ax.plot(xs[0], res.sample_stat, label=alg, color=COLORS[alg], linewidth=1.0)
-            ax.fill_between(xs[0], res.ci[0], res.ci[1], color=COLORS[alg], alpha=0.2)
+            if len(ys) >= 5:
+                ax.fill_between(xs[0], res.ci[0], res.ci[1], color=COLORS[alg], alpha=0.2)
+            else:
+                for y in ys:
+                    ax.plot(xs[0], y, color=COLORS[alg], linewidth=0.2)
 
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
