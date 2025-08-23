@@ -9,10 +9,10 @@ import logging
 import argparse
 import numpy as np
 import jax
-from rlglue import RlGlue
 from experiment import ExperimentModel
 from utils.checkpoint import Checkpoint
 from utils.preempt import TimeoutHandler
+from utils.rl_glue import RlGlue
 from problems.registry import getProblem
 from PyExpUtils.results.tools import getParamsAsDict
 from ml_instrumentation.Collector import Collector
