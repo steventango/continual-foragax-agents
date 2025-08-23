@@ -74,7 +74,7 @@ class EQRC(NNAgent):
     @partial(jax.jit, static_argnums=0)
     def _update(self, state: AgentState):
         state.updates += 1
-        key, buffer_sample_key = jax.random.split(state.key)
+        state.key, buffer_sample_key = jax.random.split(state.key)
         batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
         state, metrics = self._computeUpdate(state, batch.experience)
 
