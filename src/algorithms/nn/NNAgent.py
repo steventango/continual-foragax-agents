@@ -117,10 +117,14 @@ class NNAgent(BaseAgent):
     def _build_heads(self, builder: NetworkBuilder) -> None: ...
 
     @abstractmethod
-    def _values(self, state: Any, x: jax.Array) -> jax.Array: ...
+    def _values(self, state: AgentState, x: jax.Array) -> jax.Array: ...
 
     @abstractmethod
     def update(self) -> None: ...
+
+    @abstractmethod
+    @partial(jax.jit, static_argnums=0)
+    def _maybe_update(self, state: AgentState, steps: int, updates: int, key: jax.Array) -> tuple[AgentState, int, int, jax.Array]: ...
 
     def policy(self, obs: jax.Array) -> jax.Array:
         q = self.values(obs)
@@ -128,7 +132,7 @@ class NNAgent(BaseAgent):
         return pi
 
     @partial(jax.jit, static_argnums=0)
-    def _policy(self, state: Any, obs: jax.Array) -> jax.Array:
+    def _policy(self, state: AgentState, obs: jax.Array) -> jax.Array:
         obs = jnp.expand_dims(obs, 0)
         q = self._values(state, obs)[0]
         pi = egreedy_probabilities(q, self.actions, self.epsilon)
@@ -136,7 +140,7 @@ class NNAgent(BaseAgent):
 
     @partial(jax.jit, static_argnums=0)
     def act(
-        self, state: Any, obs: jax.Array, key: jax.Array
+        self, state: AgentState, obs: jax.Array, key: jax.Array
     ) -> tuple[jax.Array, jax.Array]:
         pi = self._policy(state, obs)
         key, sample_key = jax.random.split(key)
@@ -173,7 +177,19 @@ class NNAgent(BaseAgent):
         return a
 
     def step(self, reward: jax.Array, obs: jax.Array, extra: Dict[str, Any]):
-        a, self.key = self.act(self.state, obs, self.key)
+        (
+            self.state,
+            self.last_timestep,
+            self.steps,
+            self.updates,
+            self.key,
+            a
+        ) = self._step(self.state, self.last_timestep, self.steps, self.updates, reward, obs, extra, self.key)
+        return a
+
+    @partial(jax.jit, static_argnums=0)
+    def _step(self, state: AgentState, last_timestep: dict, steps: int, updates: int, reward: jax.Array, obs: jax.Array, extra: Dict[str, Any], key: jax.Array):
+        a, key = self.act(state, obs, key)
 
         # see if the problem specified a discount term
         gamma = extra.get("gamma", 1.0)
@@ -182,26 +198,26 @@ class NNAgent(BaseAgent):
         if self.reward_clip > 0:
             reward = jnp.clip(reward, -self.reward_clip, self.reward_clip)
 
-        self.last_timestep.update(
+        last_timestep.update(
             {
                 "r": reward,
                 "gamma": jnp.float32(self.gamma * gamma),
             }
         )
         batch_sequence = jax.tree.map(
-            lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), self.last_timestep
+            lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), last_timestep
         )
-        self.state.buffer_state = self.buffer.add(
-            self.state.buffer_state, batch_sequence
+        state.buffer_state = self.buffer.add(
+            state.buffer_state, batch_sequence
         )
-        self.last_timestep.update(
+        last_timestep.update(
             {
                 "x": obs,
                 "a": a,
             }
         )
-        self.update()
-        return a
+        state, steps, updates, key = self._maybe_update(state, steps, updates, key)
+        return state, last_timestep, steps, updates, key, a
 
     def end(self, reward: float, extra: Dict[str, Any]):
         # possibly process the reward

@@ -59,7 +59,7 @@ class EQRC(NNAgent):
         )
 
     @partial(jax.jit, static_argnums=0)
-    def _maybe_update(self, state: AgentState, steps: int, key: jax.Array):
+    def _maybe_update(self, state: AgentState, steps: int, updates: int, key: jax.Array):
         steps += 1
 
         # only update every `update_freq` steps
@@ -67,12 +67,13 @@ class EQRC(NNAgent):
         return jax.lax.cond(
             (steps % self.update_freq == 0)
             & self.buffer.can_sample(state.buffer_state),
-            lambda: self._update(state, steps, key),
-            lambda: (state, steps, key),
+            lambda: self._update(state, steps, updates, key),
+            lambda: (state, steps, updates, key),
         )
 
     @partial(jax.jit, static_argnums=0)
-    def _update(self, state: AgentState, steps: int, key: jax.Array):
+    def _update(self, state: AgentState, steps: int, updates: int, key: jax.Array):
+        updates += 1
         key, buffer_sample_key = jax.random.split(key)
         batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
         state, metrics = self._computeUpdate(state, batch.experience)
@@ -82,7 +83,7 @@ class EQRC(NNAgent):
             state.buffer_state, batch.indices, priorities
         )
 
-        return state, steps, key
+        return state, steps, updates, key
 
     # -------------
     # -- Updates --
