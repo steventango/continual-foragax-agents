@@ -90,6 +90,7 @@ if __name__ == "__main__":
         save(
             save_path=f'{path}/plots',
             plot_name=env,
+            save_type='pdf',
             f=fig,
             height_ratio=2/3,
         )
