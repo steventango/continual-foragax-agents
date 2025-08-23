@@ -6,6 +6,7 @@ import numpy as np
 import utils.chex as cxu
 
 from abc import abstractmethod
+from functools import partial
 from typing import Any, Dict, Tuple
 from ml_instrumentation.Collector import Collector
 
@@ -121,6 +122,19 @@ class NNAgent(BaseAgent):
         pi = egreedy_probabilities(q, self.actions, self.epsilon)
         return pi
 
+    @partial(jax.jit, static_argnums=0)
+    def _policy(self, state: Any, obs: jax.Array) -> jax.Array:
+        obs = jnp.expand_dims(obs, 0)
+        q = self._values(state, obs)[0]
+        pi = egreedy_probabilities(q, self.actions, self.epsilon)
+        return pi
+
+    @partial(jax.jit, static_argnums=0)
+    def act(self, state: Any, obs: jax.Array, key: jax.Array) -> tuple[jax.Array, jax.Array]:
+        pi = self._policy(state, obs)
+        key, sample_key = jax.random.split(key)
+        a = jax.random.choice(sample_key, self.actions, p=pi)
+        return a, key
     # --------------------------
     # -- Base agent interface --
     # --------------------------
@@ -135,15 +149,13 @@ class NNAgent(BaseAgent):
         else:
             q = self._values(self.state, x)
 
-        return jax.device_get(q)
+        return q
 
     # ----------------------
     # -- RLGlue interface --
     # ----------------------
     def start(self, obs: jax.Array):
-        pi = self.policy(obs)
-        self.key, sample_key = jax.random.split(self.key)
-        a = jax.random.choice(sample_key, self.actions, p=pi)
+        a, self.key = self.act(self.state, obs, self.key)
         self.last_timestep.update({
             'x': obs,
             'a': a,
@@ -151,9 +163,7 @@ class NNAgent(BaseAgent):
         return a
 
     def step(self, reward: jax.Array, obs: jax.Array, extra: Dict[str, Any]):
-        pi = self.policy(obs)
-        self.key, sample_key = jax.random.split(self.key)
-        a = jax.random.choice(sample_key, self.actions, p=pi)
+        a, self.key = self.act(self.state, obs, self.key)
 
         # see if the problem specified a discount term
         gamma = extra.get('gamma', 1.0)
