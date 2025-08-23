@@ -53,6 +53,8 @@ if __name__ == "__main__":
                 time_summary=TimeSummary.mean,
                 statistic=Statistic.mean,
             )
+            print(alg)
+            Hypers.pretty_print(report)
 
             exp = alg_result.exp
 
