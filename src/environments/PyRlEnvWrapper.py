@@ -14,4 +14,10 @@ class PyRlEnvWrapper(BaseEnvironment):
     def step(self, action: jax.Array):
         action = action.item()
         obs, reward, terminal, truncated, info = self.env.step(action)
-        return jnp.asarray(obs, dtype=jnp.float32), jnp.float32(reward), terminal, truncated, info
+        return (
+            jnp.asarray(obs, dtype=jnp.float32),
+            jnp.float32(reward),
+            terminal,
+            truncated,
+            info,
+        )

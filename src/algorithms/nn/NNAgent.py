@@ -15,6 +15,7 @@ from representations.networks import NetworkBuilder
 from utils.checkpoint import checkpointable
 from utils.policies import egreedy_probabilities
 
+
 @cxu.dataclass
 class AgentState:
     params: Any
@@ -22,19 +23,26 @@ class AgentState:
     buffer_state: Any
 
 
-@checkpointable(('buffer', 'steps', 'state', 'updates'))
+@checkpointable(("buffer", "steps", "state", "updates"))
 class NNAgent(BaseAgent):
-    def __init__(self, observations: Tuple[int, ...], actions: int, params: Dict, collector: Collector, seed: int):
+    def __init__(
+        self,
+        observations: Tuple[int, ...],
+        actions: int,
+        params: Dict,
+        collector: Collector,
+        seed: int,
+    ):
         super().__init__(observations, actions, params, collector, seed)
 
         # ------------------------------
         # -- Configuration Parameters --
         # ------------------------------
-        self.rep_params: Dict = params['representation']
-        self.optimizer_params: Dict = params['optimizer']
+        self.rep_params: Dict = params["representation"]
+        self.optimizer_params: Dict = params["optimizer"]
 
-        self.epsilon = params['epsilon']
-        self.reward_clip = params.get('reward_clip', 0)
+        self.epsilon = params["epsilon"]
+        self.reward_clip = params.get("reward_clip", 0)
 
         # ---------------------
         # -- NN Architecture --
@@ -48,20 +56,20 @@ class NNAgent(BaseAgent):
         # -- Optimizer --
         # ---------------
         self.optimizer = optax.adam(
-            self.optimizer_params['alpha'],
-            self.optimizer_params['beta1'],
-            self.optimizer_params['beta2'],
+            self.optimizer_params["alpha"],
+            self.optimizer_params["beta1"],
+            self.optimizer_params["beta2"],
         )
         opt_state = self.optimizer.init(net_params)
 
         # ------------------
         # -- Data ingress --
         # ------------------
-        self.buffer_size = params['buffer_size']
-        self.batch_size = params['batch']
-        self.buffer_min_size = params.get('buffer_min_size', self.batch_size)
-        self.update_freq = params.get('update_freq', 1)
-        self.priority_exponent = params.get('priority_exponent', 0.0)
+        self.buffer_size = params["buffer_size"]
+        self.batch_size = params["batch"]
+        self.buffer_min_size = params.get("buffer_min_size", self.batch_size)
+        self.update_freq = params.get("update_freq", 1)
+        self.priority_exponent = params.get("priority_exponent", 0.0)
 
         self.buffer = fbx.make_prioritised_trajectory_buffer(
             max_length_time_axis=self.buffer_size,
@@ -70,7 +78,7 @@ class NNAgent(BaseAgent):
             add_batch_size=1,
             sample_sequence_length=self.n_step + 1,
             period=1,
-            priority_exponent=self.priority_exponent
+            priority_exponent=self.priority_exponent,
         )
         self.buffer = self.buffer.replace(
             init=jax.jit(self.buffer.init),
@@ -81,10 +89,10 @@ class NNAgent(BaseAgent):
         )
 
         dummy_timestep = {
-            'x': jnp.zeros(self.observations),
-            'a': jnp.int32(0),
-            'r': jnp.float32(0),
-            'gamma': jnp.float32(0),
+            "x": jnp.zeros(self.observations),
+            "a": jnp.int32(0),
+            "r": jnp.float32(0),
+            "gamma": jnp.float32(0),
         }
         buffer_state = self.buffer.init(dummy_timestep)
         self.last_timestep = dummy_timestep
@@ -106,16 +114,13 @@ class NNAgent(BaseAgent):
     # ------------------------
 
     @abstractmethod
-    def _build_heads(self, builder: NetworkBuilder) -> None:
-        ...
+    def _build_heads(self, builder: NetworkBuilder) -> None: ...
 
     @abstractmethod
-    def _values(self, state: Any, x: jax.Array) -> jax.Array:
-        ...
+    def _values(self, state: Any, x: jax.Array) -> jax.Array: ...
 
     @abstractmethod
-    def update(self) -> None:
-        ...
+    def update(self) -> None: ...
 
     def policy(self, obs: jax.Array) -> jax.Array:
         q = self.values(obs)
@@ -130,11 +135,14 @@ class NNAgent(BaseAgent):
         return pi
 
     @partial(jax.jit, static_argnums=0)
-    def act(self, state: Any, obs: jax.Array, key: jax.Array) -> tuple[jax.Array, jax.Array]:
+    def act(
+        self, state: Any, obs: jax.Array, key: jax.Array
+    ) -> tuple[jax.Array, jax.Array]:
         pi = self._policy(state, obs)
         key, sample_key = jax.random.split(key)
         a = jax.random.choice(sample_key, self.actions, p=pi)
         return a, key
+
     # --------------------------
     # -- Base agent interface --
     # --------------------------
@@ -156,32 +164,42 @@ class NNAgent(BaseAgent):
     # ----------------------
     def start(self, obs: jax.Array):
         a, self.key = self.act(self.state, obs, self.key)
-        self.last_timestep.update({
-            'x': obs,
-            'a': a,
-        })
+        self.last_timestep.update(
+            {
+                "x": obs,
+                "a": a,
+            }
+        )
         return a
 
     def step(self, reward: jax.Array, obs: jax.Array, extra: Dict[str, Any]):
         a, self.key = self.act(self.state, obs, self.key)
 
         # see if the problem specified a discount term
-        gamma = extra.get('gamma', 1.0)
+        gamma = extra.get("gamma", 1.0)
 
         # possibly process the reward
         if self.reward_clip > 0:
             reward = jnp.clip(reward, -self.reward_clip, self.reward_clip)
 
-        self.last_timestep.update({
-            'r': reward,
-            'gamma': jnp.float32(self.gamma * gamma),
-        })
-        batch_sequence = jax.tree.map(lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), self.last_timestep)
-        self.state.buffer_state = self.buffer.add(self.state.buffer_state, batch_sequence)
-        self.last_timestep.update({
-            'x': obs,
-            'a': a,
-        })
+        self.last_timestep.update(
+            {
+                "r": reward,
+                "gamma": jnp.float32(self.gamma * gamma),
+            }
+        )
+        batch_sequence = jax.tree.map(
+            lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), self.last_timestep
+        )
+        self.state.buffer_state = self.buffer.add(
+            self.state.buffer_state, batch_sequence
+        )
+        self.last_timestep.update(
+            {
+                "x": obs,
+                "a": a,
+            }
+        )
         self.update()
         return a
 
@@ -190,10 +208,16 @@ class NNAgent(BaseAgent):
         if self.reward_clip > 0:
             reward = np.clip(reward, -self.reward_clip, self.reward_clip)
 
-        self.last_timestep.update({
-            'r': reward,
-            'gamma': jnp.float32(0),
-        })
-        batch_sequence = jax.tree.map(lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), self.last_timestep)
-        self.state.buffer_state = self.buffer.add(self.state.buffer_state, batch_sequence)
+        self.last_timestep.update(
+            {
+                "r": reward,
+                "gamma": jnp.float32(0),
+            }
+        )
+        batch_sequence = jax.tree.map(
+            lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), self.last_timestep
+        )
+        self.state.buffer_state = self.buffer.add(
+            self.state.buffer_state, batch_sequence
+        )
         self.update()

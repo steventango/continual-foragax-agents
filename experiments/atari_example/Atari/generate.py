@@ -1,10 +1,11 @@
 import sys
 import os
-sys.path.append(os.getcwd() + '/src')
+
+sys.path.append(os.getcwd() + "/src")
 
 from environments.Atari import atari_games
 
-games = ', '.join(f'"{game}"' for game in atari_games)
+games = ", ".join(f'"{game}"' for game in atari_games)
 
 dqn = f"""{{
     "agent": "DQN",
@@ -67,14 +68,14 @@ eqrc = f"""{{
 """
 
 specs = [
-    ('DQN', dqn),
-    ('EQRC', eqrc),
+    ("DQN", dqn),
+    ("EQRC", eqrc),
 ]
 
-base = 'experiments/example/Atari'
+base = "experiments/example/Atari"
 
-for (agent, spec) in specs:
-    path = f'{base}/{agent}.json'
+for agent, spec in specs:
+    path = f"{base}/{agent}.json"
     os.makedirs(base, exist_ok=True)
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         f.write(spec)

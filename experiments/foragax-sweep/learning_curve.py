@@ -1,6 +1,7 @@
 import os
 import sys
-sys.path.append(os.getcwd() + '/src')
+
+sys.path.append(os.getcwd() + "/src")
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,18 +12,22 @@ from utils.results import ResultCollection
 from PyExpPlotting.matplot import save, setDefaultConference
 import rlevaluation.hypers as Hypers
 from rlevaluation.statistics import Statistic
-from rlevaluation.temporal import TimeSummary, extract_learning_curves, curve_percentile_bootstrap_ci
+from rlevaluation.temporal import (
+    TimeSummary,
+    extract_learning_curves,
+    curve_percentile_bootstrap_ci,
+)
 from rlevaluation.config import data_definition
 from rlevaluation.interpolation import compute_step_return
 
-setDefaultConference('jmlr')
+setDefaultConference("jmlr")
 
 
 COLORS = {
-    'DQN': 'tab:blue',
-    'EQRC': 'purple',
-    'ESARSA': 'tab:orange',
-    'SoftmaxAC': 'tab:green',
+    "DQN": "tab:blue",
+    "EQRC": "purple",
+    "ESARSA": "tab:orange",
+    "SoftmaxAC": "tab:green",
 }
 
 
@@ -30,8 +35,8 @@ if __name__ == "__main__":
     results = ResultCollection(Model=ExperimentModel)
     data_definition(
         hyper_cols=results.get_hyperparameter_columns(),
-        seed_col='seed',
-        time_col='frame',
+        seed_col="seed",
+        time_col="frame",
         environment_col=None,
         algorithm_col=None,
         make_global=True,
@@ -48,7 +53,7 @@ if __name__ == "__main__":
 
             report = Hypers.select_best_hypers(
                 df,
-                metric='reward',
+                metric="reward",
                 prefer=Hypers.Preference.low,
                 time_summary=TimeSummary.mean,
                 statistic=Statistic.mean,
@@ -61,12 +66,12 @@ if __name__ == "__main__":
             xs, ys = extract_learning_curves(
                 df,
                 hyper_vals=report.best_configuration,
-                metric='reward',
+                metric="reward",
                 interpolation=lambda x, y: compute_step_return(x, y, exp.total_steps),
             )
 
-            xs = np.asarray(xs)[:, ::exp.total_steps // 1000]
-            ys = np.asarray(ys)[:, ::exp.total_steps // 1000]
+            xs = np.asarray(xs)[:, :: exp.total_steps // 1000]
+            ys = np.asarray(ys)[:, :: exp.total_steps // 1000]
             assert np.all(np.isclose(xs[0], xs))
 
             res = curve_percentile_bootstrap_ci(
@@ -78,19 +83,21 @@ if __name__ == "__main__":
 
             ax.plot(xs[0], res.sample_stat, label=alg, color=COLORS[alg], linewidth=1.0)
             if len(ys) >= 5:
-                ax.fill_between(xs[0], res.ci[0], res.ci[1], color=COLORS[alg], alpha=0.2)
+                ax.fill_between(
+                    xs[0], res.ci[0], res.ci[1], color=COLORS[alg], alpha=0.2
+                )
             else:
                 for y in ys:
                     ax.plot(xs[0], y, color=COLORS[alg], linewidth=0.2)
 
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
         path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
         save(
-            save_path=f'{path}/plots',
+            save_path=f"{path}/plots",
             plot_name=env,
-            save_type='pdf',
+            save_type="pdf",
             f=fig,
-            height_ratio=2/3,
+            height_ratio=2 / 3,
         )

@@ -14,6 +14,7 @@ import haiku as hk
 import jax.numpy as jnp
 import utils.chex as cxu
 
+
 @cxu.dataclass
 class AgentState:
     params: Any
@@ -29,14 +30,22 @@ def q_loss(q, a, r, gamma, qp):
     delta = target - q[a]
 
     return huber_loss(1.0, q[a], target), {
-        'delta': delta,
+        "delta": delta,
     }
 
+
 class DQN(NNAgent):
-    def __init__(self, observations: Tuple, actions: int, params: Dict, collector: Collector, seed: int):
+    def __init__(
+        self,
+        observations: Tuple,
+        actions: int,
+        params: Dict,
+        collector: Collector,
+        seed: int,
+    ):
         super().__init__(observations, actions, params, collector, seed)
         # set up the target network parameters
-        self.target_refresh = params['target_refresh']
+        self.target_refresh = params["target_refresh"]
 
         self.state = AgentState(
             params=self.state.params,
@@ -49,11 +58,11 @@ class DQN(NNAgent):
     # -- NN agent interface --
     # ------------------------
     def _build_heads(self, builder: NetworkBuilder) -> None:
-        self.q = builder.addHead(lambda: hk.Linear(self.actions, name='q'))
+        self.q = builder.addHead(lambda: hk.Linear(self.actions, name="q"))
 
     # internal compiled version of the value function
     @partial(jax.jit, static_argnums=0)
-    def _values(self, state: AgentState, x: jax.Array): # type: ignore
+    def _values(self, state: AgentState, x: jax.Array):  # type: ignore
         phi = self.phi(state.params, x).out
         return self.q(state.params, phi)
 
@@ -63,13 +72,16 @@ class DQN(NNAgent):
         )
 
     @partial(jax.jit, static_argnums=0)
-    def _maybe_update(self, state: AgentState, steps: int, updates: int, key: jax.Array):
+    def _maybe_update(
+        self, state: AgentState, steps: int, updates: int, key: jax.Array
+    ):
         steps += 1
 
         # only update every `update_freq` steps
         # skip updates if the buffer isn't full yet
         return jax.lax.cond(
-            (steps % self.update_freq == 0) & self.buffer.can_sample(state.buffer_state),
+            (steps % self.update_freq == 0)
+            & self.buffer.can_sample(state.buffer_state),
             lambda: self._update(state, steps, updates, key),
             lambda: (state, steps, updates, key),
         )
@@ -85,7 +97,7 @@ class DQN(NNAgent):
             state, batch.experience, batch.probabilities
         )
 
-        priorities = metrics['delta']
+        priorities = metrics["delta"]
         state.buffer_state = self.buffer.set_priorities(
             state.buffer_state, batch.indices, priorities
         )

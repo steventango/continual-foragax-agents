@@ -8,6 +8,7 @@ from algorithms.tc.TCAgent import TCAgent
 from utils.checkpoint import checkpointable
 from utils.policies import egreedy_probabilities
 
+
 # NOTE: this uses index-based features e.g. coming from a tile-coder
 # would need to update this to use a standard dot-product if not
 # using sparse features
@@ -21,18 +22,27 @@ def _update(w, x, a, xp, pi, r, gamma, alpha):
 
     w[a][x] = w[a][x] + alpha / len(x) * delta
 
+
 @njit(cache=True)
 def value(w, x):
     return w.T[x].sum(axis=0)
 
-@checkpointable(('w', ))
+
+@checkpointable(("w",))
 class ESARSA(TCAgent):
-    def __init__(self, observations: Tuple, actions: int, params: Dict, collector: Collector, seed: int):
+    def __init__(
+        self,
+        observations: Tuple,
+        actions: int,
+        params: Dict,
+        collector: Collector,
+        seed: int,
+    ):
         super().__init__(observations, actions, params, collector, seed)
 
         # define parameter contract
-        self.alpha = params['alpha']
-        self.epsilon = params['epsilon']
+        self.alpha = params["alpha"]
+        self.epsilon = params["epsilon"]
 
         # create initial weights
         self.w = np.zeros((actions, self.rep.features()), dtype=np.float64)

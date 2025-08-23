@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.append(os.getcwd())
 
 import time
@@ -24,24 +25,24 @@ from ml_instrumentation.metadata import attach_metadata
 # -- Command Args --
 # ------------------
 parser = argparse.ArgumentParser()
-parser.add_argument('-e', '--exp', type=str, required=True)
-parser.add_argument('-i', '--idxs', nargs='+', type=int, required=True)
-parser.add_argument('--save_path', type=str, default='./')
-parser.add_argument('--checkpoint_path', type=str, default='./checkpoints/')
-parser.add_argument('--silent', action='store_true', default=False)
-parser.add_argument('--gpu', action='store_true', default=False)
+parser.add_argument("-e", "--exp", type=str, required=True)
+parser.add_argument("-i", "--idxs", nargs="+", type=int, required=True)
+parser.add_argument("--save_path", type=str, default="./")
+parser.add_argument("--checkpoint_path", type=str, default="./checkpoints/")
+parser.add_argument("--silent", action="store_true", default=False)
+parser.add_argument("--gpu", action="store_true", default=False)
 
 args = parser.parse_args()
 
 # ---------------------------
 # -- Library Configuration --
 # ---------------------------
-device = 'gpu' if args.gpu else 'cpu'
-jax.config.update('jax_platform_name', device)
+device = "gpu" if args.gpu else "cpu"
+jax.config.update("jax_platform_name", device)
 
 logging.basicConfig(level=logging.ERROR)
-logger = logging.getLogger('exp')
-prod = 'cdr' in socket.gethostname() or args.silent
+logger = logging.getLogger("exp")
+prod = "cdr" in socket.gethostname() or args.silent
 if not prod:
     logger.setLevel(logging.DEBUG)
 
@@ -60,25 +61,28 @@ for idx in indices:
     chk.load_if_exists()
     timeout_handler.before_cancel(chk.save)
 
-    collector = chk.build('collector', lambda: Collector(
-        # tmp_file='/mnt/i/tmp.db',
-        # specify which keys to actually store and ultimately save
-        # Options are:
-        #  - Identity() (save everything)
-        #  - Window(n)  take a window average of size n
-        #  - Subsample(n) save one of every n elements
-        config={
-            'return': Identity(),
-            'episode': Identity(),
-            'steps': Identity(),
-            'delta': Pipe(
-                MovingAverage(0.99),
-                Subsample(100),
-            ),
-        },
-        # by default, ignore keys that are not explicitly listed above
-        default=Ignore(),
-    ))
+    collector = chk.build(
+        "collector",
+        lambda: Collector(
+            # tmp_file='/mnt/i/tmp.db',
+            # specify which keys to actually store and ultimately save
+            # Options are:
+            #  - Identity() (save everything)
+            #  - Window(n)  take a window average of size n
+            #  - Subsample(n) save one of every n elements
+            config={
+                "return": Identity(),
+                "episode": Identity(),
+                "steps": Identity(),
+                "delta": Pipe(
+                    MovingAverage(0.99),
+                    Subsample(100),
+                ),
+            },
+            # by default, ignore keys that are not explicitly listed above
+            default=Ignore(),
+        ),
+    )
     collector.set_experiment_id(idx)
     run = exp.getRun(idx)
 
@@ -86,12 +90,12 @@ for idx in indices:
     np.random.seed(run)
 
     # build stateful things and attach to checkpoint
-    problem = chk.build('p', lambda: Problem(exp, idx, collector))
-    agent = chk.build('a', problem.getAgent)
-    env = chk.build('e', problem.getEnvironment)
+    problem = chk.build("p", lambda: Problem(exp, idx, collector))
+    agent = chk.build("a", problem.getAgent)
+    env = chk.build("e", problem.getEnvironment)
 
-    glue = chk.build('glue', lambda: RlGlue(agent, env))
-    chk.initial_value('episode', 0)
+    glue = chk.build("glue", lambda: RlGlue(agent, env))
+    chk.initial_value("episode", 0)
 
     # Run the experiment
     start_time = time.time()
@@ -105,24 +109,28 @@ for idx in indices:
         chk.maybe_save()
         interaction = glue.step()
 
-        if interaction.term or (exp.episode_cutoff > -1 and glue.num_steps >= exp.episode_cutoff):
+        if interaction.term or (
+            exp.episode_cutoff > -1 and glue.num_steps >= exp.episode_cutoff
+        ):
             # allow agent to cleanup traces or other stateful episodic info
             agent.cleanup()
 
             # collect some data
-            collector.collect('return', glue.total_reward.item())
-            collector.collect('episode', chk['episode'])
-            collector.collect('steps', glue.num_steps)
+            collector.collect("return", glue.total_reward.item())
+            collector.collect("episode", chk["episode"])
+            collector.collect("steps", glue.num_steps)
 
             # track how many episodes are completed (cutoff is counted as termination for this count)
-            chk['episode'] += 1
+            chk["episode"] += 1
 
             # compute the average time-per-step in ms
             avg_time = 1000 * (time.time() - start_time) / (step + 1)
             fps = step / (time.time() - start_time)
 
-            episode = chk['episode']
-            logger.debug(f'{episode} {step} {glue.total_reward} {avg_time:.4}ms {int(fps)}')
+            episode = chk["episode"]
+            logger.debug(
+                f"{episode} {step} {glue.total_reward} {avg_time:.4}ms {int(fps)}"
+            )
 
             glue.start()
 
@@ -132,10 +140,10 @@ for idx in indices:
     # -- Saving --
     # ------------
     context = exp.buildSaveContext(idx, base=args.save_path)
-    save_path = context.resolve('results.db')
+    save_path = context.resolve("results.db")
     meta = getParamsAsDict(exp, idx)
-    meta |= {'seed': exp.getRun(idx)}
+    meta |= {"seed": exp.getRun(idx)}
     attach_metadata(save_path, idx, meta)
-    collector.merge(context.resolve('results.db'))
+    collector.merge(context.resolve("results.db"))
     collector.close()
     chk.delete()

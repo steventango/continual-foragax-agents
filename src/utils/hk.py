@@ -14,6 +14,7 @@ class AccumulatedOutput:
     activations: Dict[str, jax.Array]
     out: jax.Array
 
+
 def accumulatingSequence(fs: Sequence[Layer]):
     def _inner(x: jax.Array):
         out: Dict[str, jax.Array] = {}
@@ -25,6 +26,7 @@ def accumulatingSequence(fs: Sequence[Layer]):
                 out[f.name] = y
 
         return AccumulatedOutput(activations=out, out=y)
+
     return _inner
 
 
@@ -35,7 +37,7 @@ class DuelingHeads(hk.Module):
         w_init: Optional[Init] = None,
         b_init: Optional[Init] = None,
         name: Optional[str] = None,
-        optimistic: bool = False
+        optimistic: bool = False,
     ):
         super().__init__(name=name)
 
@@ -44,21 +46,25 @@ class DuelingHeads(hk.Module):
         self.w_init = w_init or hk.initializers.VarianceScaling()
         self.b_init = b_init or hk.initializers.VarianceScaling()
         if optimistic:
-            assert b_init is None, 'Cannot specify optimism and a custom bias initialization'
+            assert b_init is None, (
+                "Cannot specify optimism and a custom bias initialization"
+            )
             self.b_init = hk.initializers.Constant(1)
 
     def __call__(self, inputs: jax.Array) -> jax.Array:
         if not inputs.shape:
-            raise ValueError('Input must not be scalar.')
+            raise ValueError("Input must not be scalar.")
 
         self.input_size = inputs.shape[-1]
         dtype = inputs.dtype
 
-        wa = hk.get_parameter('wa', [self.input_size, self.output_size], dtype, init=self.w_init)
-        ba = hk.get_parameter('ba', [self.output_size], dtype, init=self.b_init)
+        wa = hk.get_parameter(
+            "wa", [self.input_size, self.output_size], dtype, init=self.w_init
+        )
+        ba = hk.get_parameter("ba", [self.output_size], dtype, init=self.b_init)
 
-        wv = hk.get_parameter('wv', [self.input_size, 1], dtype, init=self.w_init)
-        bv = hk.get_parameter('bv', [1], dtype, init=self.b_init)
+        wv = hk.get_parameter("wv", [self.input_size, 1], dtype, init=self.w_init)
+        bv = hk.get_parameter("bv", [1], dtype, init=self.b_init)
 
         adv = inputs.dot(wa) + ba
         v = inputs.dot(wv) + bv

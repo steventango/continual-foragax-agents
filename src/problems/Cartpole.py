@@ -4,6 +4,7 @@ from ml_instrumentation.Collector import Collector
 from experiment.ExperimentModel import ExperimentModel
 from problems.BaseProblem import BaseProblem
 
+
 class Cartpole(BaseProblem):
     def __init__(self, exp: ExperimentModel, idx: int, collector: Collector):
         super().__init__(exp, idx, collector)
@@ -15,7 +16,7 @@ class Cartpole(BaseProblem):
 
         # encode the observation ranges for this problem
         # useful for tile-coding
-        self.rep_params['input_ranges'] = [
+        self.rep_params["input_ranges"] = [
             [-x_thresh, x_thresh],
             [-6, 6],
             [-theta_thresh, theta_thresh],

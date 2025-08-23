@@ -7,17 +7,18 @@ from algorithms.nn.EQRC import EQRC
 from algorithms.tc.ESARSA import ESARSA
 from algorithms.tc.SoftmaxAC import SoftmaxAC
 
+
 def getAgent(name) -> Type[BaseAgent]:
-    if name == 'DQN':
+    if name == "DQN":
         return DQN
 
-    if name == 'EQRC':
+    if name == "EQRC":
         return EQRC
 
-    if name == 'ESARSA':
+    if name == "ESARSA":
         return ESARSA
 
-    if name == 'SoftmaxAC':
+    if name == "SoftmaxAC":
         return SoftmaxAC
 
-    raise Exception('Unknown algorithm')
+    raise Exception("Unknown algorithm")

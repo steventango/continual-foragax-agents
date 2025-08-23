@@ -11,27 +11,35 @@ from algorithms.BaseAgent import BaseAgent
 from representations.TileCoder import SparseTileCoder, TileCoderConfig
 from utils.checkpoint import checkpointable
 
-@checkpointable(('rep', 'lag'))
+
+@checkpointable(("rep", "lag"))
 class TCAgent(BaseAgent):
-    def __init__(self, observations: Tuple[int, ...], actions: int, params: Dict, collector: Collector, seed: int):
+    def __init__(
+        self,
+        observations: Tuple[int, ...],
+        actions: int,
+        params: Dict,
+        collector: Collector,
+        seed: int,
+    ):
         super().__init__(observations, actions, params, collector, seed)
         self.lag = LagBuffer(self.n_step)
 
-        self.rep_params: Dict = params['representation']
-        self.rep = SparseTileCoder(TileCoderConfig(
-            tiles=self.rep_params['tiles'],
-            tilings=self.rep_params['tilings'],
-            dims=observations[0],
-            input_ranges=self.rep_params['input_ranges'],
-        ))
+        self.rep_params: Dict = params["representation"]
+        self.rep = SparseTileCoder(
+            TileCoderConfig(
+                tiles=self.rep_params["tiles"],
+                tilings=self.rep_params["tilings"],
+                dims=observations[0],
+                input_ranges=self.rep_params["input_ranges"],
+            )
+        )
 
     @abstractmethod
-    def policy(self, obs: np.ndarray) -> np.ndarray:
-        ...
+    def policy(self, obs: np.ndarray) -> np.ndarray: ...
 
     @abstractmethod
-    def update(self, x, a, xp, r, gamma):
-        ...
+    def update(self, x, a, xp, r, gamma): ...
 
     # ----------------------
     # -- RLGlue interface --
@@ -42,13 +50,15 @@ class TCAgent(BaseAgent):
         x = self.rep.encode(obs)
         pi = self.policy(x)
         a = sample(pi, rng=self.rng)
-        self.lag.add(Timestep(
-            x=x,
-            a=a,
-            r=None,
-            gamma=0,
-            terminal=False,
-        ))
+        self.lag.add(
+            Timestep(
+                x=x,
+                a=a,
+                r=None,
+                gamma=0,
+                terminal=False,
+            )
+        )
         return a
 
     def step(self, reward: float, obs: np.ndarray | None, extra: Dict[str, Any]):
@@ -62,7 +72,7 @@ class TCAgent(BaseAgent):
             a = sample(pi, rng=self.rng)
 
         # see if the problem specified a discount term
-        gamma = extra.get('gamma', 1.0)
+        gamma = extra.get("gamma", 1.0)
 
         interaction = Timestep(
             x=xp,

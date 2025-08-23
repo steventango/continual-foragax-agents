@@ -7,6 +7,7 @@ from ml_instrumentation.Collector import Collector
 
 from algorithms.tc.TCAgent import TCAgent
 
+
 @njit(cache=True)
 def _update(w, theta, x, a, n_a, xp, r, pi, gamma, alpha):
     v = w[x].sum()
@@ -23,9 +24,11 @@ def _update(w, theta, x, a, n_a, xp, r, pi, gamma, alpha):
 
     return delta
 
+
 @njit(cache=True)
 def compute_logits(theta, x):
     return theta.T[x].sum(axis=0)
+
 
 @njit(cache=True)
 def softmax(logits: np.ndarray, tau: float):
@@ -34,14 +37,22 @@ def softmax(logits: np.ndarray, tau: float):
     den = num.sum()
     return num / den
 
-@checkpointable(('w', 'theta'))
+
+@checkpointable(("w", "theta"))
 class SoftmaxAC(TCAgent):
-    def __init__(self, observations: Tuple, actions: int, params: Dict, collector: Collector, seed: int):
+    def __init__(
+        self,
+        observations: Tuple,
+        actions: int,
+        params: Dict,
+        collector: Collector,
+        seed: int,
+    ):
         super().__init__(observations, actions, params, collector, seed)
 
         # define parameter contract
-        self.alpha = params['alpha']
-        self.tau = params['tau']
+        self.alpha = params["alpha"]
+        self.tau = params["tau"]
 
         # create initial weights
         self.w = np.zeros((self.rep.features()), dtype=np.float32)
