@@ -5,6 +5,7 @@ sys.path.append(os.getcwd() + "/src")
 
 import matplotlib.pyplot as plt
 import numpy as np
+import polars as pl
 from experiment.ExperimentModel import ExperimentModel
 from utils.results import ResultCollection
 
@@ -51,10 +52,29 @@ if __name__ == "__main__":
             if df is None:
                 continue
 
+            df = (
+                df
+                .with_columns(
+                    pl.col("reward").str.json_decode().cast(pl.List(pl.Float32))
+                )
+                .explode("reward")
+                .with_columns(
+                    pl.int_range(0, pl.len()).over("id").alias("frame")
+                )
+                .with_columns(
+                    pl.col("reward")
+                    .ewm_mean(alpha=1e-3, adjust=False)
+                    .over("id")
+                    .alias("ewm_reward")
+                )
+            )
+
+            # df = df.filter(pl.col("frame") % 500 == 0)
+
             report = Hypers.select_best_hypers(
                 df,
-                metric="reward",
-                prefer=Hypers.Preference.low,
+                metric="ewm_reward",
+                prefer=Hypers.Preference.high,
                 time_summary=TimeSummary.mean,
                 statistic=Statistic.mean,
             )
@@ -66,7 +86,7 @@ if __name__ == "__main__":
             xs, ys = extract_learning_curves(
                 df,
                 hyper_vals=report.best_configuration,
-                metric="reward",
+                metric="ewm_reward",
                 interpolation=lambda x, y: compute_step_return(x, y, exp.total_steps),
             )
 

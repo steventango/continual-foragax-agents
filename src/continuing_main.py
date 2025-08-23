@@ -3,12 +3,14 @@ import sys
 
 sys.path.append(os.getcwd())
 
+import json
 import time
 import socket
 import logging
 import argparse
 import numpy as np
 import jax
+import jax.numpy as jnp
 from experiment import ExperimentModel
 from utils.checkpoint import Checkpoint
 from utils.preempt import TimeoutHandler
@@ -16,9 +18,9 @@ from utils.rlglue import RlGlue
 from problems.registry import getProblem
 from PyExpUtils.results.tools import getParamsAsDict
 from ml_instrumentation.Collector import Collector
-from ml_instrumentation.Sampler import Ignore, MovingAverage, Subsample
-from ml_instrumentation.utils import Pipe
+from ml_instrumentation.Sampler import Ignore, Identity
 from ml_instrumentation.metadata import attach_metadata
+from jax_tqdm.scan_pbar import scan_tqdm
 
 # ------------------
 # -- Command Args --
@@ -71,10 +73,7 @@ for idx in indices:
             #  - Window(n)  take a window average of size n
             #  - Subsample(n) save one of every n elements
             config={
-                "reward": Pipe(
-                    MovingAverage(0.999),
-                    Subsample(500),
-                ),
+                "reward": Identity(),
             },
             # by default, ignore keys that are not explicitly listed above
             default=Ignore(),
@@ -101,20 +100,18 @@ for idx in indices:
     if glue.state.total_steps == 0:
         glue_state, _ = glue._start(glue.state)
 
-    # with jax.profiler.trace("/tmp/jax-trace"):
-    for step in range(glue_state.total_steps, exp.total_steps):
-        collector.next_frame()
-        chk.maybe_save()
-        glue_state, interaction = glue._step(glue_state)
+    n = int(exp.total_steps - glue_state.total_steps)
+    unroll = (2 ** jnp.abs(jnp.log10(n) - 3)).astype(int).item()
 
-        collector.collect("reward", interaction.reward.item())
+    @scan_tqdm(n, print_rate = n // 10)
+    def step(carry, _):
+        carry, interaction = glue._step(carry)
+        return carry, interaction.reward
 
-        if step % 500 == 0 and step > 0:
-            avg_time = 1000 * (time.time() - start_time) / (step + 1)
-            fps = step / (time.time() - start_time)
+    glue_state, rewards = jax.lax.scan(step, glue_state, jnp.arange(n), unroll=unroll)
 
-            logger.debug(f"{step} {avg_time:.4}ms {int(fps)}")
-        # interaction.reward.block_until_ready()
+    collector.next_frame()
+    collector.collect("reward", json.dumps(rewards.tolist()))
 
     collector.reset()
     # ------------
