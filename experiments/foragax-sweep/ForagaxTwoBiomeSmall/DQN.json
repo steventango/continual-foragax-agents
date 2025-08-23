@@ -1,10 +1,11 @@
 {
-    "agent": "EQRC",
+    "agent": "DQN",
     "problem": "Foragax",
     "total_steps": 10000000,
     "episode_cutoff": -1,
     "metaParameters": {
         "epsilon": 0.05,
+        "target_refresh": 128,
         "buffer_type": "uniform",
         "buffer_size": 10000,
         "buffer_min_size": 10000,
