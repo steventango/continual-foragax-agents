@@ -1,20 +1,20 @@
+import json
 import os
 import sys
+
+from experiment.data import post_process_data
 
 sys.path.append(os.getcwd() + "/src")
 
 import matplotlib.pyplot as plt
 import numpy as np
-import polars as pl
 from experiment.ExperimentModel import ExperimentModel
 from utils.results import ResultCollection
 
 
 from PyExpPlotting.matplot import save, setDefaultConference
-import rlevaluation.hypers as Hypers
 from rlevaluation.statistics import Statistic
 from rlevaluation.temporal import (
-    TimeSummary,
     extract_learning_curves,
     curve_percentile_bootstrap_ci,
 )
@@ -34,6 +34,7 @@ COLORS = {
 
 if __name__ == "__main__":
     results = ResultCollection(Model=ExperimentModel)
+    results.paths = [path for path in results.paths if "hypers" not in path]
     data_definition(
         hyper_cols=results.get_hyperparameter_columns(),
         seed_col="seed",
@@ -52,39 +53,20 @@ if __name__ == "__main__":
             if df is None:
                 continue
 
-            df = (
-                df
-                .with_columns(
-                    pl.col("reward").str.json_decode().cast(pl.List(pl.Float32))
-                )
-                .explode("reward")
-                .with_columns(
-                    pl.int_range(0, pl.len()).over("id").alias("frame")
-                )
-                .with_columns(
-                    pl.col("reward")
-                    .ewm_mean(alpha=1e-3, adjust=False)
-                    .over("id")
-                    .alias("ewm_reward")
-                )
-            )
+            df = post_process_data(df)
 
-            report = Hypers.select_best_hypers(
-                df,
-                metric="ewm_reward",
-                prefer=Hypers.Preference.high,
-                time_summary=TimeSummary.mean,
-                statistic=Statistic.mean,
+            parts = alg_result.exp_path.split(os.path.sep)
+            best_configuration_path = (
+                f"{os.path.sep.join(parts[:-2])}/hypers/{os.path.sep.join(parts[-2:])}"
             )
-            print(alg)
-            Hypers.pretty_print(report)
-            print(report.best_configuration)
+            with open(best_configuration_path) as f:
+                best_configuration = json.load(f)
 
             exp = alg_result.exp
 
             xs, ys = extract_learning_curves(
                 df,
-                hyper_vals=report.best_configuration,
+                hyper_vals=best_configuration,
                 metric="ewm_reward",
                 interpolation=lambda x, y: compute_step_return(x, y, exp.total_steps),
             )

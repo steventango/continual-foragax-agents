@@ -40,12 +40,12 @@ def update_best_config(alg: str, report: HyperSelectionResult, file: str):
 
 
 def generate_hyper_sweep_table(
-    algs: list[str], reports: list[HyperSelectionResult], file: str
+    alg_reports: dict[str, HyperSelectionResult], file: str
 ):
     dir_path = os.path.dirname(file)
 
     table = {}
-    for i, (alg, report) in enumerate(zip(algs, reports)):
+    for i, (alg, report) in enumerate(alg_reports.items()):
         sweep_path = glob.glob(f"{dir_path}/**/{alg}.json", recursive=True)[0]
         path = sweep_path.replace("-sweep", "")
         with open(sweep_path, "r") as f:
