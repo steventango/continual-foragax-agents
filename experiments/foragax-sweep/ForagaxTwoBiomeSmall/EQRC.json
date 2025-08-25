@@ -6,7 +6,7 @@
     "metaParameters": {
         "epsilon": 0.05,
         "buffer_size": 10000,
-        "buffer_min_size": 10000,
+        "buffer_min_size": "buffer_size",
         "batch": 32,
         "environment": {
             "env_id": "ForagaxTwoBiomeSmall",

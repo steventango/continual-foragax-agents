@@ -73,6 +73,10 @@ class NNAgent(BaseAgent):
         self.buffer_size = params["buffer_size"]
         self.batch_size = params["batch"]
         self.buffer_min_size = params.get("buffer_min_size", self.batch_size)
+        if self.buffer_min_size == "buffer_size":
+            self.buffer_min_size = self.buffer_size
+        elif self.buffer_min_size == "batch_size":
+            self.buffer_min_size = self.batch_size
         self.update_freq = params.get("update_freq", 1)
         self.priority_exponent = params.get("priority_exponent", 0.0)
 
