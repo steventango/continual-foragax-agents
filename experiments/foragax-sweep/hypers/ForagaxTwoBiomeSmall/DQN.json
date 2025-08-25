@@ -1,17 +1,17 @@
 {
-    "optimizer.name": "ADAM",
-    "representation.hidden": 64,
-    "epsilon": 0.05,
-    "representation.type": "ForagerNet",
-    "environment.env_id": "ForagaxTwoBiomeSmall",
-    "target_refresh": 128,
-    "optimizer.beta2": 0.9,
-    "environment.aperture_size": 5,
     "batch": 32,
     "buffer_min_size": 10000,
-    "optimizer.beta1": 0.9,
     "buffer_size": 10000,
+    "environment.aperture_size": 5,
+    "environment.env_id": "ForagaxTwoBiomeSmall",
+    "epsilon": 0.05,
     "experiment.seed_offset": 1000000,
     "optimizer.alpha": 0.01,
-    "optimizer.eps": 1e-08
+    "optimizer.beta1": 0.9,
+    "optimizer.beta2": 0.9,
+    "optimizer.eps": 1e-08,
+    "optimizer.name": "ADAM",
+    "representation.hidden": 64,
+    "representation.type": "ForagerNet",
+    "target_refresh": 128
 }

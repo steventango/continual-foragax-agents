@@ -1,24 +1,25 @@
-import glob
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
 from rlevaluation.hypers import HyperSelectionResult
 
 
-def update_best_config(alg: str, report: HyperSelectionResult, file: str):
-    dir_path = Path(file).parent
+def update_best_config(alg: str, report: HyperSelectionResult, exp_path: Path):
+    dir_path = exp_path.parent
     sweep_path = next(dir_path.glob(f"**/{alg}.json"))
     path = Path(str(sweep_path).replace("-sweep", ""))
     with open(sweep_path, "r") as f:
         sweep_config = json.load(f)
-    with open(path, "r") as f:
-        config = json.load(f)
+    if path.exists():
+        with open(path, "r") as f:
+            config = json.load(f)
+    else:
+        config = sweep_config.copy()
 
-    for config_param, best_config in zip(
-        report.config_params, report.best_configuration
-    ):
+    for config_param, best_config in report.best_configuration.items():
         if pd.isnull(best_config):
             continue
         parts = config_param.split(".")
@@ -39,22 +40,45 @@ def update_best_config(alg: str, report: HyperSelectionResult, file: str):
         json.dump(config, f, indent=4)
 
 
-def generate_hyper_sweep_table(
-    alg_reports: dict[str, HyperSelectionResult], file: str
-):
-    dir_path = Path(file).parent
 
+hyper_to_pretty_map = {
+    "batch": "Minibatch size",
+    "buffer_size": "Replay memory size",
+    "buffer_min_size": "Minimum replay history",
+    "buffer_strategy": "Buffer sampling strategy",
+    "epsilon": "\\epsilon-greedy \\epsilon",
+    "gamma": "Discount factor \\gamma",
+    "optimizer.alpha": "Step size",
+    "optimizer.beta1": "Adam $\\beta_1$",
+    "optimizer.beta2": "Adam $\\beta_2$",
+    "optimizer.eps": "Adam $\\epsilon$",
+    "optimizer.name": "Optimizer",
+    "target_refresh": "Target network update frequency",
+    "update_freq": "Update frequency",
+}
+drop_non_hypers = [
+    "experiment.seed_offset",
+    "environment.env_id",
+    "representation.type",
+    "representation.hidden",
+]
+
+
+def generate_hyper_sweep_table(
+    alg_reports: dict[str, Any], path: Path
+):
     table = {}
-    for i, (alg, report) in enumerate(alg_reports.items()):
-        sweep_path = next(dir_path.glob(f"**/{alg}.json"))
+    default_table = {}
+    for i, (alg, data) in enumerate(alg_reports.items()):
+        result = data["result"]
+        report = data["report"]
+        sweep_path = result.exp_path
         path = Path(str(sweep_path).replace("-sweep", ""))
         with open(sweep_path, "r") as f:
             sweep_config = json.load(f)
         with open(path, "r") as f:
             config = json.load(f)
-        for config_param, best_config in zip(
-            report.config_params, report.best_configuration
-        ):
+        for config_param, best_config in report.best_configuration.items():
             if pd.isnull(best_config):
                 continue
             parts = config_param.split(".")
@@ -65,6 +89,9 @@ def generate_hyper_sweep_table(
                 curr_sweep = curr_sweep[part]
             choices = curr_sweep[parts[-1]]
             if not isinstance(choices, list):
+                if config_param not in default_table:
+                    default_table[config_param] = {}
+                default_table[config_param][alg] = choices
                 continue
             if config_param not in table:
                 table[config_param] = {}
@@ -81,44 +108,64 @@ def generate_hyper_sweep_table(
     df = df.reindex(
         [
             "optimizer.alpha",
-            "update_freq",
-            "target_refresh",
             "optimizer.beta2",
             "optimizer.eps",
         ]
     )
-    df = df.rename(
-        index={
-            "optimizer.alpha": "Step size",
-            "update_freq": "Update period",
-            "target_refresh": "Target network update frequency",
-            "optimizer.beta2": "Adam $\\beta_2$",
-            "optimizer.eps": "Adam $\\epsilon$",
-        }
+    df = df.drop(index=drop_non_hypers, errors="ignore")
+    df = df.rename(index=hyper_to_pretty_map)
+
+    df_choices = df[df.columns[-1:]]
+    table_choices = (
+        df_choices.style.map_index(lambda _: "font-weight: bold;", axis="columns")
+        .format(format_choices, escape="latex", na_rep="")
+        .to_latex(convert_css=True)
     )
-    df1 = df[df.columns[:-1]]
-    table1 = df1.to_latex(float_format=format_float)
-    print(table1)
-    df2 = df[df.columns[-1:]]
-    table2 = df2.to_latex(formatters={"Choices": format_choice})
-    print(table2)
+
+    df_default = pd.DataFrame(default_table).T.reset_index()
+    df_default.columns = ["Hyperparameter"] + algs
+    df_default = df_default.set_index("Hyperparameter")
+    df_default = df_default.drop(index=drop_non_hypers, errors="ignore")
+    df_default = df_default.rename(index=hyper_to_pretty_map)
+    table_default = (
+        df_default.style.map_index(lambda _: "font-weight: bold;", axis="columns")
+        .format(format_default, escape="latex", na_rep="")
+        .to_latex(convert_css=True)
+    )
+
+    df_selected = df[df.columns[:-1]]
+    table_selected = (
+        df_selected.style.map_index(lambda _: "font-weight: bold;", axis="columns")
+        .format(format_default, escape="latex", na_rep="")
+        .to_latex(convert_css=True)
+    )
+
+    return table_choices, table_default, table_selected
 
 
-def format_float(number: float):
-    string = f"{number:g}"
+def format_default(s):
+    if isinstance(s, str):
+        if s == "ADAM":
+            return "Adam"
+        return s
+    string = f"{s:g}"
     string = string.replace("1e-08", "$10^{-8}$")
     string = string.replace("1e-05", "$10^{-5}$")
     string = string.replace("3e-05", r"$3 \times 10^{-5}$")
     string = string.replace("0.0001", "$10^{-4}$")
     string = string.replace("0.0003", r"$3 \times 10^{-4}$")
     string = string.replace("0.001", "$10^{-3}$")
+    string = string.replace("0.003", r"$3 \times 10^{-3}$")
+    string = string.replace("0.01", "$10^{-2}$")
     return string
 
 
-def format_choice(choices: list):
-    string = json.dumps([format_float(choice) for choice in choices])
-    string = string.replace("[", "\\{").replace("]", "\\}")
-    string = string.replace("$", "")
-    string = string.replace('"', "")
-    string = "$" + string + "$"
-    return string
+def format_choices(s):
+    if isinstance(s, list):
+        string = json.dumps([format_default(choice) for choice in s])
+        string = string.replace("[", "\\{").replace("]", "\\}")
+        string = string.replace("$", "")
+        string = string.replace('"', "")
+        string = "$" + string + "$"
+        return string
+    return format_default(s)

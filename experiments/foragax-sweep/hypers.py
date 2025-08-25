@@ -49,7 +49,15 @@ def main():
             statistic=Statistic.mean,
         )
         Hypers.pretty_print(report)
-        print(report.best_configuration)
+        best_configuration = {
+            k: v
+            for k, v in sorted(
+                report.best_configuration.items(),
+                key=lambda item: item[0],
+            )
+        }
+
+        print(best_configuration)
         exp_path = Path(alg_result.exp_path)
         best_configuration_path = (
             exp_path.parent.parent / "hypers" / exp_path.parent.name / exp_path.name
@@ -59,14 +67,22 @@ def main():
             best_configuration_path,
             "w",
         ) as f:
-            json.dump(report.best_configuration, f, indent=4)
+            json.dump(best_configuration, f, indent=4)
 
-        alg_reports[alg] = report
+        alg_reports[alg] = {
+            "result": alg_result,
+            "report": report
+        }
 
-        # update_best_config(alg, report, __file__)
+        update_best_config(alg, report, exp_path)
 
     path = Path(__file__).relative_to(Path.cwd()).parent
-    # generate_hyper_sweep_table(alg_reports, __file__)
+    table_choices, table_default, table_selected = generate_hyper_sweep_table(
+        alg_reports, path
+    )
+    (path / "hypers" / "choices.tex").write_text(table_choices)
+    (path / "hypers" / "default.tex").write_text(table_default)
+    (path / "hypers" / "selected.tex").write_text(table_selected)
 
 
 if __name__ == "__main__":
