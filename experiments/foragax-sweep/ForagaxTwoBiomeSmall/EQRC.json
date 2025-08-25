@@ -4,13 +4,13 @@
     "total_steps": 100000,
     "episode_cutoff": -1,
     "metaParameters": {
-        "epsilon": 0.05,
+        "epsilon": [0.05, 0.1],
         "buffer_size": 10000,
         "buffer_min_size": "buffer_size",
         "batch": 32,
         "environment": {
             "env_id": "ForagaxTwoBiomeSmall",
-            "aperture_size": 5
+            "aperture_size": [3, 5, 7, 9, 11, 13, 15]
         },
         "experiment": {
             "seed_offset": 1000000
@@ -18,10 +18,10 @@
         "gamma": 0.99,
         "optimizer": {
             "name": "Adam",
-            "alpha": [1e-2, 3e-3, 1e-3, 3e-3, 1e-4, 3e-5],
+            "alpha": [3e-3, 1e-3, 3e-3, 1e-4, 3e-5],
             "beta1": 0.9,
-            "beta2": [0.9, 0.999],
-            "eps": [1e-3, 1e-4, 1e-5, 1e-8]
+            "beta2": [0.9, 0.99, 0.999],
+            "eps": [1e-3, 1e-5, 1e-8]
         },
         "representation": {
             "type": "ForagerNet",
