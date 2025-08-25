@@ -106,7 +106,7 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
         elif name == "ForagerNet":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
             layers = [
-                hk.Conv2D(16, 3, 2, w_init=w_init, name="phi"),
+                hk.Conv2D(16, 3, 1, w_init=w_init, name="phi"),
                 jax.nn.relu,
                 hk.Flatten(name="phi"),
             ]
