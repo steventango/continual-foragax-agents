@@ -63,6 +63,7 @@ class NNAgent(BaseAgent):
             self.optimizer_params["alpha"],
             self.optimizer_params["beta1"],
             self.optimizer_params["beta2"],
+            self.optimizer_params["eps"],
         )
         opt_state = self.optimizer.init(net_params)
 
