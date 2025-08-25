@@ -23,7 +23,7 @@ class BaseProblem:
         self.env: Optional[BaseEnvironment] = None
         self.gamma: Optional[float] = None
 
-        self.seed = exp.getRun(idx)
+        self.seed = exp.getRun(idx) + self.exp_params.get("seed_offset", 0)
 
         self.observations = (0,)
         self.actions = 0

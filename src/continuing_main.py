@@ -83,7 +83,8 @@ for idx in indices:
     run = exp.getRun(idx)
 
     # set random seeds accordingly
-    np.random.seed(run)
+    hypers = exp.get_hypers(idx)
+    seed = run + hypers.get("experiment", {}).get("seed_offset", 0)
 
     # build stateful things and attach to checkpoint
     problem = chk.build("p", lambda: Problem(exp, idx, collector))
