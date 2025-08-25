@@ -69,8 +69,6 @@ if __name__ == "__main__":
                 )
             )
 
-            # df = df.filter(pl.col("frame") % 500 == 0)
-
             report = Hypers.select_best_hypers(
                 df,
                 metric="ewm_reward",
@@ -80,6 +78,7 @@ if __name__ == "__main__":
             )
             print(alg)
             Hypers.pretty_print(report)
+            print(report.best_configuration)
 
             exp = alg_result.exp
 

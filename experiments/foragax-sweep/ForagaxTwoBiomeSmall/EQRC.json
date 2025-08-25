@@ -5,20 +5,23 @@
     "episode_cutoff": -1,
     "metaParameters": {
         "epsilon": 0.05,
-        "buffer_type": "uniform",
         "buffer_size": 10000,
         "buffer_min_size": 10000,
         "batch": 32,
         "environment": {
-            "env_id": "ForagaxTwoBiomeSmall"
+            "env_id": "ForagaxTwoBiomeSmall",
+            "aperture_size": 5
+        },
+        "experiment": {
+            "seed_offset": 1000000
         },
         "optimizer": {
             "name": "ADAM",
-            "alpha": 0.001,
+            "alpha": [1e-2, 3e-3, 1e-3, 3e-3, 1e-4, 3e-5],
             "beta1": 0.9,
-            "beta2": 0.999
+            "beta2": [0.9, 0.999],
+            "eps": [1e-3, 1e-4, 1e-5, 1e-8]
         },
-
         "representation": {
             "type": "ForagerNet",
             "hidden": 64
