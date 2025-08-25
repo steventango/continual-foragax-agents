@@ -104,7 +104,7 @@ for idx in indices:
     n = int(exp.total_steps - glue_state.total_steps)
     unroll = (2 ** jnp.abs(jnp.log10(n) - 3)).astype(int).item()
 
-    @scan_tqdm(n, print_rate = n // 10)
+    @scan_tqdm(n, print_rate = max(n // 10, 1))
     def step(carry, _):
         carry, interaction = glue._step(carry)
         return carry, interaction.reward
