@@ -1,25 +1,24 @@
 import json
-import os
 import sys
+from pathlib import Path
 
 from experiment.data import post_process_data
 
-sys.path.append(os.getcwd() + "/src")
+sys.path.append(str(Path.cwd() / "src"))
 
 import matplotlib.pyplot as plt
 import numpy as np
-from experiment.ExperimentModel import ExperimentModel
-from utils.results import ResultCollection
-
-
 from PyExpPlotting.matplot import save, setDefaultConference
-from rlevaluation.statistics import Statistic
-from rlevaluation.temporal import (
-    extract_learning_curves,
-    curve_percentile_bootstrap_ci,
-)
 from rlevaluation.config import data_definition
 from rlevaluation.interpolation import compute_step_return
+from rlevaluation.statistics import Statistic
+from rlevaluation.temporal import (
+    curve_percentile_bootstrap_ci,
+    extract_learning_curves,
+)
+
+from experiment.ExperimentModel import ExperimentModel
+from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
 
@@ -55,9 +54,9 @@ if __name__ == "__main__":
 
             df = post_process_data(df)
 
-            parts = alg_result.exp_path.split(os.path.sep)
+            exp_path = Path(alg_result.exp_path)
             best_configuration_path = (
-                f"{os.path.sep.join(parts[:-2])}/hypers/{os.path.sep.join(parts[-2:])}"
+                exp_path.parent.parent / "hypers" / exp_path.parent.name / exp_path.name
             )
             with open(best_configuration_path) as f:
                 best_configuration = json.load(f)
@@ -94,7 +93,7 @@ if __name__ == "__main__":
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
-        path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
+        path = Path(__file__).relative_to(Path.cwd()).parent
         save(
             save_path=f"{path}/plots",
             plot_name=env,

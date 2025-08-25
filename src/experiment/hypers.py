@@ -1,6 +1,6 @@
 import glob
 import json
-import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -8,9 +8,9 @@ from rlevaluation.hypers import HyperSelectionResult
 
 
 def update_best_config(alg: str, report: HyperSelectionResult, file: str):
-    dir_path = os.path.dirname(file)
-    sweep_path = glob.glob(f"{dir_path}/**/{alg}.json", recursive=True)[0]
-    path = sweep_path.replace("-sweep", "")
+    dir_path = Path(file).parent
+    sweep_path = next(dir_path.glob(f"**/{alg}.json"))
+    path = Path(str(sweep_path).replace("-sweep", ""))
     with open(sweep_path, "r") as f:
         sweep_config = json.load(f)
     with open(path, "r") as f:
@@ -42,12 +42,12 @@ def update_best_config(alg: str, report: HyperSelectionResult, file: str):
 def generate_hyper_sweep_table(
     alg_reports: dict[str, HyperSelectionResult], file: str
 ):
-    dir_path = os.path.dirname(file)
+    dir_path = Path(file).parent
 
     table = {}
     for i, (alg, report) in enumerate(alg_reports.items()):
-        sweep_path = glob.glob(f"{dir_path}/**/{alg}.json", recursive=True)[0]
-        path = sweep_path.replace("-sweep", "")
+        sweep_path = next(dir_path.glob(f"**/{alg}.json"))
+        path = Path(str(sweep_path).replace("-sweep", ""))
         with open(sweep_path, "r") as f:
             sweep_config = json.load(f)
         with open(path, "r") as f:
@@ -69,11 +69,11 @@ def generate_hyper_sweep_table(
             if config_param not in table:
                 table[config_param] = {}
             table[config_param][alg] = best_config
-            if i == len(algs) - 1:
+            if i == len(alg_reports) - 1:
                 table[config_param]["Choices"] = choices
 
     df = pd.DataFrame(table).T.reset_index()
-    algs = [alg.split("-")[-1] for alg in algs]
+    algs = [alg.split("-")[-1] for alg in alg_reports]
     df.columns = ["Hyperparameter"] + algs + ["Choices"]
     # sort df by specific order on Hyperparameter
     # order desired: optimizer.alpha, update_freq , target_refresh, optimizer.beta2, optimizer.eps

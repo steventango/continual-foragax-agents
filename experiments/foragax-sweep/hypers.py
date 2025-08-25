@@ -1,9 +1,9 @@
-import os
 import sys
+from pathlib import Path
 
 from experiment.hypers import generate_hyper_sweep_table, update_best_config
 
-sys.path.append(os.getcwd() + "/src")
+sys.path.append(str(Path.cwd() / "src"))
 
 import json
 
@@ -50,11 +50,11 @@ def main():
         )
         Hypers.pretty_print(report)
         print(report.best_configuration)
-        parts = alg_result.exp_path.split(os.path.sep)
+        exp_path = Path(alg_result.exp_path)
         best_configuration_path = (
-            f"{os.path.sep.join(parts[:-2])}/hypers/{os.path.sep.join(parts[-2:])}"
+            exp_path.parent.parent / "hypers" / exp_path.parent.name / exp_path.name
         )
-        os.makedirs(os.path.dirname(best_configuration_path), exist_ok=True)
+        best_configuration_path.parent.mkdir(parents=True, exist_ok=True)
         with open(
             best_configuration_path,
             "w",
@@ -65,7 +65,7 @@ def main():
 
         # update_best_config(alg, report, __file__)
 
-    path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
+    path = Path(__file__).relative_to(Path.cwd()).parent
     # generate_hyper_sweep_table(alg_reports, __file__)
 
 
