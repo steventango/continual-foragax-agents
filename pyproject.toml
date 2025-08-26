@@ -31,7 +31,6 @@ dependencies = [
     'jax>=0.2.14',
     'dm-haiku>=0.0.4',
     'optax>=0.0.8',
-    'numpy>=2.0.0',
     'PyFixedReps-andnp~=4.0',
     'PyExpUtils-andnp~=8.0',
     'pyrlenvs-andnp~=2.0',
