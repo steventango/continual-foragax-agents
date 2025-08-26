@@ -10,7 +10,7 @@
         "batch": 32,
         "environment": {
             "env_id": "ForagaxTwoBiomeSmall",
-            "aperture_size": [3, 5, 7, 9, 11, 13, 15]
+            "aperture_size": 9
         },
         "experiment": {
             "seed_offset": 1000000
