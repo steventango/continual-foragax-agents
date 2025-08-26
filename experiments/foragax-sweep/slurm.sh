@@ -1,1 +1,2 @@
-python scripts/slurm.py --cluster clusters/fir.json --runs 5 -e experiments/foragax-sweep/ForagaxTwoBiomeSmall/*.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-c8-m2-s128.json --runs 5 -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-3/*.json experiments/foragax-sweep/ForagaxTwoBiomeSmall-5/*.json experiments/foragax-sweep/ForagaxTwoBiomeSmall-7/*.json experiments/foragax-sweep/ForagaxTwoBiomeSmall-9/*.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-c8-m2-s32.json --runs 5 -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-11/*.json experiments/foragax-sweep/ForagaxTwoBiomeSmall-13/*.json experiments/foragax-sweep/ForagaxTwoBiomeSmall-15/*.json --entry src/continuing_main.py
