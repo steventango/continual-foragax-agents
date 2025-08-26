@@ -9,7 +9,7 @@ cp $path/requirements.txt $SLURM_TMPDIR/
 cd $SLURM_TMPDIR
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install .
 
 # TODO: for some reason, pip cannot install any of the current wheels for this package.
 # this is a pretty bad hack, but...
