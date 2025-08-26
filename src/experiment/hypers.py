@@ -65,80 +65,81 @@ drop_non_hypers = [
 
 
 def generate_hyper_sweep_table(
-    alg_reports: dict[str, Any], path: Path
+    env_reports: dict[str, dict[str, Any]], path: Path
 ):
     table = {}
     default_table = {}
-    for i, (alg, data) in enumerate(alg_reports.items()):
-        result = data["result"]
-        report = data["report"]
-        sweep_path = result.exp_path
-        path = Path(str(sweep_path).replace("-sweep", ""))
-        with open(sweep_path, "r") as f:
-            sweep_config = json.load(f)
-        with open(path, "r") as f:
-            config = json.load(f)
-        for config_param, best_config in report.best_configuration.items():
-            if pd.isnull(best_config):
-                continue
-            parts = config_param.split(".")
-            curr = config["metaParameters"]
-            curr_sweep = sweep_config["metaParameters"]
-            for part in parts[:-1]:
-                curr = curr[part]
-                curr_sweep = curr_sweep[part]
-            choices = curr_sweep[parts[-1]]
-            if not isinstance(choices, list):
-                if config_param not in default_table:
-                    default_table[config_param] = {}
-                default_table[config_param][alg] = choices
-                continue
-            if config_param not in table:
-                table[config_param] = {}
-            table[config_param][alg] = best_config
-            if i == len(alg_reports) - 1:
-                table[config_param]["Choices"] = choices
+    for j, (env, alg_reports) in enumerate(env_reports.items()):
+        for i, (alg, data) in enumerate(alg_reports.items()):
+            result = data["result"]
+            report = data["report"]
+            sweep_path = result.exp_path
+            path = Path(str(sweep_path).replace("-sweep", ""))
+            with open(sweep_path, "r") as f:
+                sweep_config = json.load(f)
+            with open(path, "r") as f:
+                config = json.load(f)
+            for config_param, best_config in report.best_configuration.items():
+                if pd.isnull(best_config):
+                    continue
+                parts = config_param.split(".")
+                curr = config["metaParameters"]
+                curr_sweep = sweep_config["metaParameters"]
+                for part in parts[:-1]:
+                    curr = curr[part]
+                    curr_sweep = curr_sweep[part]
+                choices = curr_sweep[parts[-1]]
+                if not isinstance(choices, list):
+                    if config_param not in default_table:
+                        default_table[config_param] = {}
+                    default_table[config_param][alg] = choices
+                    continue
+                if config_param not in table:
+                    table[config_param] = {}
+                table[config_param][alg] = best_config
+                if i == len(alg_reports) - 1:
+                    table[config_param]["Choices"] = choices
 
-    df = pd.DataFrame(table).T.reset_index()
-    algs = [alg.split("-")[-1] for alg in alg_reports]
-    df.columns = ["Hyperparameter"] + algs + ["Choices"]
-    # sort df by specific order on Hyperparameter
-    # order desired: optimizer.alpha, update_freq , target_refresh, optimizer.beta2, optimizer.eps
-    df = df.set_index("Hyperparameter")
-    df = df.reindex(
-        [
-            "optimizer.alpha",
-            "optimizer.beta2",
-            "optimizer.eps",
-        ]
-    )
-    df = df.drop(index=drop_non_hypers, errors="ignore")
-    df = df.rename(index=hyper_to_pretty_map)
+        df = pd.DataFrame(table).T.reset_index()
+        algs = [alg.split("-")[-1] for alg in alg_reports]
+        df.columns = ["Hyperparameter"] + algs + ["Choices"]
+        # sort df by specific order on Hyperparameter
+        # order desired: optimizer.alpha, update_freq , target_refresh, optimizer.beta2, optimizer.eps
+        df = df.set_index("Hyperparameter")
+        df = df.reindex(
+            [
+                "optimizer.alpha",
+                "optimizer.beta2",
+                "optimizer.eps",
+            ]
+        )
+        df = df.drop(index=drop_non_hypers, errors="ignore")
+        df = df.rename(index=hyper_to_pretty_map)
 
-    df_choices = df[df.columns[-1:]]
-    table_choices = (
-        df_choices.style.map_index(lambda _: "font-weight: bold;", axis="columns")
-        .format(format_choices, escape="latex", na_rep="")
-        .to_latex(convert_css=True)
-    )
+        df_choices = df[df.columns[-1:]]
+        table_choices = (
+            df_choices.style.map_index(lambda _: "font-weight: bold;", axis="columns")
+            .format(format_choices, escape="latex", na_rep="")
+            .to_latex(convert_css=True)
+        )
 
-    df_default = pd.DataFrame(default_table).T.reset_index()
-    df_default.columns = ["Hyperparameter"] + algs
-    df_default = df_default.set_index("Hyperparameter")
-    df_default = df_default.drop(index=drop_non_hypers, errors="ignore")
-    df_default = df_default.rename(index=hyper_to_pretty_map)
-    table_default = (
-        df_default.style.map_index(lambda _: "font-weight: bold;", axis="columns")
-        .format(format_default, escape="latex", na_rep="")
-        .to_latex(convert_css=True)
-    )
+        df_default = pd.DataFrame(default_table).T.reset_index()
+        df_default.columns = ["Hyperparameter"] + algs
+        df_default = df_default.set_index("Hyperparameter")
+        df_default = df_default.drop(index=drop_non_hypers, errors="ignore")
+        df_default = df_default.rename(index=hyper_to_pretty_map)
+        table_default = (
+            df_default.style.map_index(lambda _: "font-weight: bold;", axis="columns")
+            .format(format_default, escape="latex", na_rep="")
+            .to_latex(convert_css=True)
+        )
 
-    df_selected = df[df.columns[:-1]]
-    table_selected = (
-        df_selected.style.map_index(lambda _: "font-weight: bold;", axis="columns")
-        .format(format_default, escape="latex", na_rep="")
-        .to_latex(convert_css=True)
-    )
+        df_selected = df[df.columns[:-1]]
+        table_selected = (
+            df_selected.style.map_index(lambda _: "font-weight: bold;", axis="columns")
+            .format(format_default, escape="latex", na_rep="")
+            .to_latex(convert_css=True)
+        )
 
     return table_choices, table_default, table_selected
 

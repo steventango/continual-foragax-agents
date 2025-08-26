@@ -1,15 +1,16 @@
-from collections.abc import Callable, Iterable, Sequence
 import importlib
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
+
+import polars as pl
+from ml_instrumentation.reader import get_run_ids, load_all_results
 from PyExpUtils.models.ExperimentDescription import (
     ExperimentDescription,
     loadExperiment,
 )
-from PyExpUtils.results.tools import getHeader, getParamsAsDict
 from PyExpUtils.results.indices import listIndices
-from ml_instrumentation.reader import load_all_results, get_run_ids
-
-import polars as pl
+from PyExpUtils.results.tools import getHeader, getParamsAsDict
+from tqdm import tqdm
 
 
 class Result[Exp: ExperimentDescription]:
@@ -27,11 +28,46 @@ class Result[Exp: ExperimentDescription]:
             return None
 
         dfs: list[pl.DataFrame] = []
-        for param_id in range(self.exp.numPermutations()):
+        for param_id in tqdm(range(self.exp.numPermutations())):
             params = getParamsAsDict(self.exp, param_id)
             run_ids = get_run_ids(db_path, params)
 
             df = load_all_results(db_path, self.metrics, run_ids)
+            dfs.append(df)
+
+        return pl.concat(dfs)
+
+    def load_mean_ewm_reward(self):
+        db_path = self.exp.buildSaveContext(0).resolve("results.db")
+
+        if not Path(db_path).exists():
+            return None
+
+        dfs: list[pl.DataFrame] = []
+        for param_id in tqdm(range(self.exp.numPermutations())):
+            params = getParamsAsDict(self.exp, param_id)
+            run_ids = get_run_ids(db_path, params)
+
+            df = load_all_results(db_path, self.metrics, run_ids)
+
+            ewm_df = (
+                df.lazy()
+                .select(["id", "reward"])
+                .with_columns(
+                    pl.col("reward").str.json_decode().cast(pl.List(pl.Float32))
+                )
+                .explode("reward")
+                .group_by("id", maintain_order=True)
+                .agg(
+                    pl.col("reward")
+                    .ewm_mean(alpha=1e-3, adjust=False)
+                    .mean()
+                    .alias("mean_ewm_reward")
+                )
+                .collect()
+            )
+
+            df = df.join(ewm_df, on="id", how="left").drop("reward")
             dfs.append(df)
 
         return pl.concat(dfs)

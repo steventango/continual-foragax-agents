@@ -30,55 +30,56 @@ def main():
         algorithm_col=None,
         make_global=True,
     )
-    alg_reports = {}
-    for alg_result in results:
-        alg = alg_result.filename
+    env_reports = {}
+    for env, sub_results in results.groupby_directory(level=2):
+        alg_reports = {}
+        for alg_result in sub_results:
+            alg = alg_result.filename
 
-        df = alg_result.load()
-        if df is None:
-            continue
+            df = alg_result.load_mean_ewm_reward()
+            if df is None:
+                continue
 
-        df = post_process_data(df)
-
-        print(alg)
-        report = Hypers.select_best_hypers(
-            df,
-            metric="ewm_reward",
-            prefer=Hypers.Preference.high,
-            time_summary=TimeSummary.mean,
-            statistic=Statistic.mean,
-        )
-        Hypers.pretty_print(report)
-        best_configuration = {
-            k: v
-            for k, v in sorted(
-                report.best_configuration.items(),
-                key=lambda item: item[0],
+            print(alg)
+            report = Hypers.select_best_hypers(
+                df,
+                metric="ewm_reward",
+                prefer=Hypers.Preference.high,
+                time_summary=TimeSummary.mean,
+                statistic=Statistic.mean,
             )
-        }
+            Hypers.pretty_print(report)
+            best_configuration = {
+                k: v
+                for k, v in sorted(
+                    report.best_configuration.items(),
+                    key=lambda item: item[0],
+                )
+            }
 
-        print(best_configuration)
-        exp_path = Path(alg_result.exp_path)
-        best_configuration_path = (
-            exp_path.parent.parent / "hypers" / exp_path.parent.name / exp_path.name
-        )
-        best_configuration_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(
-            best_configuration_path,
-            "w",
-        ) as f:
-            json.dump(best_configuration, f, indent=4)
+            print(best_configuration)
+            exp_path = Path(alg_result.exp_path)
+            best_configuration_path = (
+                exp_path.parent.parent / "hypers" / exp_path.parent.name / exp_path.name
+            )
+            best_configuration_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(
+                best_configuration_path,
+                "w",
+            ) as f:
+                json.dump(best_configuration, f, indent=4)
 
-        alg_reports[alg] = {
-            "result": alg_result,
-            "report": report
-        }
+            alg_reports[alg] = {
+                "result": alg_result,
+                "report": report
+            }
 
-        update_best_config(alg, report, exp_path)
+            update_best_config(alg, report, exp_path)
+        env_reports[env] = alg_reports
 
     path = Path(__file__).relative_to(Path.cwd()).parent
     table_choices, table_default, table_selected = generate_hyper_sweep_table(
-        alg_reports, path
+        env_reports, path
     )
     (path / "hypers" / "choices.tex").write_text(table_choices)
     (path / "hypers" / "default.tex").write_text(table_default)
