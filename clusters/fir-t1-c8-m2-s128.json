@@ -2,8 +2,8 @@
     "type": "single_node",
 
     "account": "rrg-whitem",
-    "time": "2:59:00",
+    "time": "1:00:00",
     "cores": 8,
     "mem_per_core": "2G",
-    "sequential": 32
+    "sequential": 128
 }
