@@ -15,6 +15,7 @@
         "experiment": {
             "seed_offset": 0
         },
+        "gamma": 0.99,
         "optimizer": {
             "name": "Adam",
             "alpha": 0.0001,
