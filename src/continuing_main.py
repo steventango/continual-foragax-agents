@@ -132,6 +132,11 @@ for idx in indices:
     # ------------
     context = exp.buildSaveContext(idx, base=args.save_path)
     save_path = context.resolve("results.db")
+    data_path = context.resolve(f"data/{idx}.npz")
+    context.ensureExists(data_path, is_file=True)
+    start = time.time()
+    np.savez_compressed(data_path, rewards=rewards)
+    end = time.time()
     meta = getParamsAsDict(exp, idx)
     meta |= {"seed": exp.getRun(idx)}
     attach_metadata(save_path, idx, meta)
