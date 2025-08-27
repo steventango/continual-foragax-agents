@@ -1,0 +1,14 @@
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s4.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-3/DQN.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s1.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-3/EQRC.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s1.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-5/DQN.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s1.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-5/EQRC.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s1.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-7/DQN.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s1.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-7/EQRC.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s1.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-9/DQN.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s1.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-9/EQRC.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s1.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-11/DQN.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s1.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-11/EQRC.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s1.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-13/DQN.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s1.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-13/EQRC.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s1.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-15/DQN.json --entry src/continuing_main.py
+python scripts/slurm.py --cluster clusters/fir-t1-c8-m2-s1.json --runs 30 -e experiments/foragax/ForagaxTwoBiomeSmall-15/EQRC.json --entry src/continuing_main.py
