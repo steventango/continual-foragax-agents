@@ -18,7 +18,9 @@ from utils.rlglue import RlGlue
 from problems.registry import getProblem
 from PyExpUtils.results.tools import getParamsAsDict
 from ml_instrumentation.Collector import Collector
-from ml_instrumentation.Sampler import Ignore, Identity
+from ml_instrumentation.Sampler import Ignore, MovingAverage, Subsample
+from utils.ml_instrumentation.Sampler import Last, Mean
+from ml_instrumentation.utils import Pipe
 from ml_instrumentation.metadata import attach_metadata
 from jax_tqdm.scan_pbar import scan_tqdm
 
@@ -73,7 +75,15 @@ for idx in indices:
             #  - Window(n)  take a window average of size n
             #  - Subsample(n) save one of every n elements
             config={
-                "reward": Identity(),
+                "ewm_reward": Pipe(
+                    MovingAverage(0.999),
+                    Subsample(exp.total_steps // 1000),
+                ),
+                "mean_ewm_reward": Pipe(
+                    MovingAverage(0.999),
+                    Mean(),
+                    Last(),
+                ),
             },
             # by default, ignore keys that are not explicitly listed above
             default=Ignore(),
@@ -104,15 +114,17 @@ for idx in indices:
     n = int(exp.total_steps - glue_state.total_steps)
     unroll = (2 ** jnp.abs(jnp.log10(n) - 3)).astype(int).item()
 
-    @scan_tqdm(n, print_rate = max(n // 10, 1))
+    @scan_tqdm(n, print_rate=max(n // 10, 1))
     def step(carry, _):
         carry, interaction = glue._step(carry)
         return carry, interaction.reward
 
     glue_state, rewards = jax.lax.scan(step, glue_state, jnp.arange(n), unroll=unroll)
 
-    collector.next_frame()
-    collector.collect("reward", json.dumps(rewards.tolist()))
+    for reward in rewards:
+        collector.next_frame()
+        collector.collect("ewm_reward", reward.item())
+        collector.collect("mean_ewm_reward", reward.item())
 
     collector.reset()
     # ------------
