@@ -14,7 +14,7 @@ from PyExpUtils.runner.utils import approximate_cost
 from PyExpUtils.utils.generator import group
 
 import experiment.ExperimentModel as Experiment
-from utils.PyExpUtils.runner.utils import gather_missing_indices
+from utils.results import gather_missing_indices
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cluster", type=str, required=True)
