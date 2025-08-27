@@ -1,0 +1,33 @@
+{
+    "agent": "W0-DQN",
+    "problem": "Foragax",
+    "total_steps": 100000,
+    "episode_cutoff": -1,
+    "metaParameters": {
+        "epsilon": [0.05, 0.1],
+        "target_refresh": [32, 64, 128],
+        "buffer_size": 10000,
+        "buffer_min_size": ["buffer_size"],
+        "batch": 32,
+        "environment": {
+            "env_id": "ForagaxTwoBiomeSmall",
+            "aperture_size": 11
+        },
+        "experiment": {
+            "seed_offset": 1000000
+        },
+        "gamma": 0.99,
+        "w0_regularization": [1e-1, 1e-2, 1e-3, 1e-4, 1e-5],
+        "optimizer": {
+            "name": "Adam",
+            "alpha": [3e-3, 1e-3, 3e-3, 1e-4, 3e-5],
+            "beta1": 0.9,
+            "beta2": [0.9, 0.99, 0.999],
+            "eps": [1e-3, 1e-5, 1e-8]
+        },
+        "representation": {
+            "type": "ForagerNet",
+            "hidden": 64
+        }
+    }
+}
