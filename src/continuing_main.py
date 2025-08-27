@@ -19,7 +19,8 @@ from problems.registry import getProblem
 from PyExpUtils.results.tools import getParamsAsDict
 from ml_instrumentation.Collector import Collector
 from ml_instrumentation.Sampler import Ignore, MovingAverage, Subsample
-from utils.ml_instrumentation.Sampler import Last, Mean
+from utils.ml_instrumentation.Sampler import Mean
+from utils.ml_instrumentation.utils import Last
 from ml_instrumentation.utils import Pipe
 from ml_instrumentation.metadata import attach_metadata
 from jax_tqdm.scan_pbar import scan_tqdm
@@ -79,10 +80,9 @@ for idx in indices:
                     MovingAverage(0.999),
                     Subsample(exp.total_steps // 1000),
                 ),
-                "mean_ewm_reward": Pipe(
+                "mean_ewm_reward": Last(
                     MovingAverage(0.999),
                     Mean(),
-                    Last(),
                 ),
             },
             # by default, ignore keys that are not explicitly listed above
