@@ -1,6 +1,6 @@
 #!/bin/bash
 
-module load python/3.11 arrow
+module load python/3.11 arrow/19 gcc
 
 # make sure home folder has a venv
 if [ ! -d ~/.venv ]; then
