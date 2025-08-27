@@ -1,29 +1,23 @@
 from functools import partial
 from typing import Any, Dict, Tuple
+
+import chex
+import haiku as hk
+import jax
+import jax.numpy as jnp
+import optax
 from ml_instrumentation.Collector import Collector
 
+import utils.chex as cxu
+from algorithms.nn.NNAgent import AgentState as BaseAgentState
 from algorithms.nn.NNAgent import NNAgent
 from representations.networks import NetworkBuilder
 from utils.jax import huber_loss
 
-import jax
-import chex
-import optax
-import haiku as hk
-import jax.numpy as jnp
-import utils.chex as cxu
-
 
 @cxu.dataclass
-class AgentState:
-    params: Any
+class AgentState(BaseAgentState):
     target_params: Any
-    buffer_state: Any
-    optim: optax.OptState
-    key: jax.Array
-    last_timestep: Dict[str, jax.Array]
-    steps: int
-    updates: int
 
 def q_loss(q, a, r, gamma, qp):
     vp = qp.max()
@@ -58,6 +52,7 @@ class DQN(NNAgent):
             last_timestep=self.state.last_timestep,
             steps=self.state.steps,
             updates=self.state.updates,
+            epsilon=self.state.epsilon,
         )
 
     # ------------------------
@@ -77,10 +72,9 @@ class DQN(NNAgent):
 
     @partial(jax.jit, static_argnums=0)
     def _maybe_update(
-        self, state: AgentState,
+        self,
+        state: AgentState,
     ):
-        state.steps += 1
-
         # only update every `update_freq` steps
         # skip updates if the buffer isn't full yet
         return jax.lax.cond(
@@ -134,6 +128,7 @@ class DQN(NNAgent):
             last_timestep=state.last_timestep,
             steps=state.steps,
             updates=state.updates,
+            epsilon=state.epsilon,
         )
 
         return new_state, metrics

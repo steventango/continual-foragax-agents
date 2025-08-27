@@ -73,7 +73,6 @@ class EQRC(NNAgent):
 
     @partial(jax.jit, static_argnums=0)
     def _update(self, state: AgentState):
-        state.updates += 1
         state.key, buffer_sample_key = jax.random.split(state.key)
         batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
         state, metrics = self._computeUpdate(state, batch.experience)
@@ -94,7 +93,7 @@ class EQRC(NNAgent):
     @partial(jax.jit, static_argnums=0)
     def _computeUpdate(self, state: AgentState, batch: Dict):
         params = state.params
-        grad, metrics = jax.grad(self._loss, has_aux=True)(params, batch)
+        grad, metrics = jax.grad(self._loss, has_aux=True)(params, state.epsilon, batch)
 
         updates, new_optim = self.optimizer.update(grad, state.optim, params)
         assert isinstance(updates, dict)
@@ -117,7 +116,7 @@ class EQRC(NNAgent):
         return new_state, metrics
 
     # compute the total QRC loss for both sets of parameters (value parameters and h parameters)
-    def _loss(self, params, batch: Dict):
+    def _loss(self, params, epsilon, batch: Dict):
         x = batch["x"][:, 0]
         xp = batch["x"][:, -1]
         a = batch["a"][:, 0]
@@ -139,7 +138,7 @@ class EQRC(NNAgent):
         # apply qc loss function to each sample in the minibatch
         # gives back value of the loss individually for parameters of v and h
         # note QC instead of QRC (i.e. no regularization)
-        v_loss, h_loss, metrics = qc_loss(q, a, r, g, qp, h, self.epsilon)
+        v_loss, h_loss, metrics = qc_loss(q, a, r, g, qp, h, epsilon)
 
         h_loss = h_loss.mean()
         v_loss = v_loss.mean()

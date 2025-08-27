@@ -1,3 +1,4 @@
+import jax
 import jax.numpy as jnp
 import numpy as np
 from typing import Any, Callable, Sequence
@@ -38,7 +39,7 @@ def createEGreedy(
     return Policy(probs, rng)
 
 
-def egreedy_probabilities(qs: jnp.ndarray, actions: int, epsilon: float):
+def egreedy_probabilities(qs: jnp.ndarray, actions: int, epsilon: jax.Array):
     # compute the greedy policy
     pi = qs == jnp.max(qs)
 

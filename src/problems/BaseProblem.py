@@ -15,6 +15,7 @@ class BaseProblem:
         self.collector = collector
 
         self.params = exp.get_hypers(idx)
+        self.params["total_steps"] = exp.total_steps
         self.env_params = self.params.get("environment", {})
         self.exp_params = self.params.get("experiment", {})
         self.rep_params = self.params.get("representation", {})

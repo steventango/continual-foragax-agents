@@ -1,15 +1,16 @@
+from abc import abstractmethod
+from dataclasses import replace
+from functools import partial
+from typing import Any, Dict, Tuple
+
 import flashbax as fbx
 import jax
 import jax.numpy as jnp
-import optax
-import numpy as np
-import utils.chex as cxu
 
-from abc import abstractmethod
-from functools import partial
-from typing import Any, Dict, Tuple
+import optax
 from ml_instrumentation.Collector import Collector
 
+import utils.chex as cxu
 from algorithms.BaseAgent import BaseAgent
 from representations.networks import NetworkBuilder
 from utils.checkpoint import checkpointable
@@ -25,6 +26,7 @@ class AgentState:
     last_timestep: Dict[str, jax.Array]
     steps: int
     updates: int
+    epsilon: jax.Array
 
 
 @checkpointable(("buffer", "steps", "state", "updates"))
@@ -45,7 +47,19 @@ class NNAgent(BaseAgent):
         self.rep_params: Dict = params["representation"]
         self.optimizer_params: Dict = params["optimizer"]
 
-        self.epsilon = params["epsilon"]
+        self.epsilon_linear_decay = params.get("epsilon_linear_decay")
+        self.total_steps = params["total_steps"]
+        if self.epsilon_linear_decay is not None:
+            self.initial_epsilon = params["initial_epsilon"]
+            self.final_epsilon = params["final_epsilon"]
+            self.epsilon = self.initial_epsilon
+        else:
+            self.epsilon = params["epsilon"]
+        assert self.epsilon is not None or (
+            self.epsilon_linear_decay is not None
+            and self.initial_epsilon is not None
+            and self.final_epsilon is not None
+        )
         self.reward_clip = params.get("reward_clip", 0)
 
         # ---------------------
@@ -116,6 +130,7 @@ class NNAgent(BaseAgent):
             last_timestep=dummy_timestep,
             steps=0,
             updates=0,
+            epsilon=self.epsilon,
         )
 
     # ------------------------
@@ -135,16 +150,28 @@ class NNAgent(BaseAgent):
     @partial(jax.jit, static_argnums=0)
     def _maybe_update(self, state: AgentState, key: jax.Array) -> AgentState: ...
 
+    @partial(jax.jit, static_argnums=0)
+    def _decay_epsilon(self, state: AgentState):
+        if self.epsilon_linear_decay is not None:
+            decay_steps = self.epsilon_linear_decay * self.total_steps
+            progress = state.steps / decay_steps
+            calculated_epsilon = (
+                self.initial_epsilon
+                + (self.final_epsilon - self.initial_epsilon) * progress
+            )
+            state.epsilon = jnp.maximum(calculated_epsilon, self.final_epsilon)
+        return state
+
     def policy(self, obs: jax.Array) -> jax.Array:
         q = self.values(obs)
-        pi = egreedy_probabilities(q, self.actions, self.epsilon)
+        pi = egreedy_probabilities(q, self.actions, self.state.epsilon)
         return pi
 
     @partial(jax.jit, static_argnums=0)
     def _policy(self, state: AgentState, obs: jax.Array) -> jax.Array:
         obs = jnp.expand_dims(obs, 0)
         q = self._values(state, obs)[0]
-        pi = egreedy_probabilities(q, self.actions, self.epsilon)
+        pi = egreedy_probabilities(q, self.actions, state.epsilon)
         return pi
 
     @partial(jax.jit, static_argnums=0)
@@ -188,6 +215,8 @@ class NNAgent(BaseAgent):
                 "a": a,
             }
         )
+        state = replace(state, steps=state.steps + 1)
+        state = self._decay_epsilon(state)
         return state, a
 
     def step(self, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
@@ -224,6 +253,8 @@ class NNAgent(BaseAgent):
             }
         )
         state = self._maybe_update(state)
+        state = replace(state, steps=state.steps + 1)
+        state = self._decay_epsilon(state)
         return state, a
 
     def end(self, reward: jax.Array, extra: Dict[str, jax.Array]):
@@ -248,4 +279,6 @@ class NNAgent(BaseAgent):
             state.buffer_state, batch_sequence
         )
         state = self._maybe_update(state)
+        state = replace(state, steps=state.steps + 1)
+        state = self._decay_epsilon(state)
         return state
