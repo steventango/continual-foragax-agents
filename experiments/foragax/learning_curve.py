@@ -25,6 +25,7 @@ COLORS = {
     "DQN": "tab:blue",
     "EQRC": "purple",
     "ESARSA": "tab:orange",
+    "Random": "black",
     "SoftmaxAC": "tab:green",
 }
 
@@ -44,6 +45,7 @@ if __name__ == "__main__":
         fig, ax = plt.subplots(1, 1)
         for alg_result in sub_results:
             alg = alg_result.filename
+            print(f"{env} {alg}")
 
             df = alg_result.load()
             if df is None:
