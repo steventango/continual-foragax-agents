@@ -23,6 +23,7 @@ parser.add_argument("-e", type=str, nargs="+", required=True)
 parser.add_argument("--entry", type=str, default="src/main.py")
 parser.add_argument("--results", type=str, default="./")
 parser.add_argument("--debug", action="store_true", default=False)
+parser.add_argument("--force", action="store_true", default=False)
 
 cmdline = parser.parse_args()
 
@@ -92,7 +93,7 @@ perc = (cost / ANNUAL_ALLOCATION) * 100
 print(
     f"Expected to use {cost:.2f} core years, which is {perc:.4f}% of our annual allocation"
 )
-if not cmdline.debug:
+if not cmdline.debug and not cmdline.force:
     input("Press Enter to confirm or ctrl+c to exit")
 
 # start scheduling
