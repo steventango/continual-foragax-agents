@@ -5,16 +5,13 @@ sys.path.append(os.getcwd() + "/src")
 
 import matplotlib.pyplot as plt
 import numpy as np
-import polars as pl
 from experiment.ExperimentModel import ExperimentModel
 from utils.results import ResultCollection
 
 
 from PyExpPlotting.matplot import save, setDefaultConference
-import rlevaluation.hypers as Hypers
 from rlevaluation.statistics import Statistic
 from rlevaluation.temporal import (
-    TimeSummary,
     extract_learning_curves,
     curve_percentile_bootstrap_ci,
 )
@@ -51,24 +48,6 @@ if __name__ == "__main__":
             df = alg_result.load()
             if df is None:
                 continue
-
-            df = (
-                df
-                .with_columns(
-                    pl.col("reward").str.json_decode().cast(pl.List(pl.Float32))
-                )
-                .explode("reward")
-                .with_columns(
-                    pl.int_range(0, pl.len()).over("id").alias(dd.time_col)
-                )
-                .with_columns(
-                    pl.col("reward")
-                    .ewm_mean(alpha=1e-3, adjust=False)
-                    .over("id")
-                    .alias("ewm_reward")
-                )
-                .select(dd.seed_col, dd.time_col, "ewm_reward")
-            )
 
             cols = set(dd.hyper_cols).intersection(df.columns)
             hyper_vals = {
