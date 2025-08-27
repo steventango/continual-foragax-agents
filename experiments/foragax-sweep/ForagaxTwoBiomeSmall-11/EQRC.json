@@ -4,7 +4,7 @@
     "total_steps": 100000,
     "episode_cutoff": -1,
     "metaParameters": {
-        "epsilon": [0.05, 0.1],
+        "epsilon": 0.05,
         "buffer_size": 10000,
         "buffer_min_size": ["buffer_size"],
         "batch": 32,

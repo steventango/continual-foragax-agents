@@ -6,7 +6,7 @@
     "metaParameters": {
         "epsilon": 0.05,
         "buffer_size": 10000,
-        "buffer_min_size": ["buffer_size"],
+        "buffer_min_size": "buffer_size",
         "batch": 32,
         "environment": {
             "env_id": "ForagaxTwoBiomeSmall",
@@ -20,8 +20,8 @@
             "name": "Adam",
             "alpha": 0.0001,
             "beta1": 0.9,
-            "beta2": 0.9,
-            "eps": 1e-05
+            "beta2": 0.999,
+            "eps": 0.001
         },
         "representation": {
             "type": "ForagerNet",
