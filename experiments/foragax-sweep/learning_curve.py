@@ -2,8 +2,6 @@ import json
 import sys
 from pathlib import Path
 
-from experiment.data import post_process_data
-
 sys.path.append(str(Path.cwd() / "src"))
 
 import matplotlib.pyplot as plt
@@ -45,19 +43,21 @@ if __name__ == "__main__":
 
     for env, sub_results in results.groupby_directory(level=2):
         fig, ax = plt.subplots(1, 1)
+        if env != "ForagaxTwoBiomeSmall-5": continue
         for alg_result in sub_results:
             alg = alg_result.filename
+            print(f"{env} {alg}")
 
             df = alg_result.load()
             if df is None:
                 continue
 
-            df = post_process_data(df)
-
             exp_path = Path(alg_result.exp_path)
             best_configuration_path = (
                 exp_path.parent.parent / "hypers" / exp_path.parent.name / exp_path.name
             )
+            if not best_configuration_path.exists():
+                continue
             with open(best_configuration_path) as f:
                 best_configuration = json.load(f)
 

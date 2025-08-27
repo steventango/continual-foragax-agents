@@ -14,13 +14,12 @@ from rlevaluation.temporal import (
     TimeSummary,
 )
 
-from experiment.data import post_process_data
 from experiment.ExperimentModel import ExperimentModel
 from utils.results import ResultCollection
 
 
 def main():
-    results = ResultCollection(Model=ExperimentModel)
+    results = ResultCollection(Model=ExperimentModel, metrics=["mean_ewm_reward"])
     results.paths = [path for path in results.paths if "hypers" not in path]
     data_definition(
         hyper_cols=results.get_hyperparameter_columns(),
@@ -36,14 +35,14 @@ def main():
         for alg_result in sub_results:
             alg = alg_result.filename
 
-            df = alg_result.load_mean_ewm_reward()
+            df = alg_result.load()
             if df is None:
                 continue
 
-            print(alg)
+            print(f"{env} {alg}")
             report = Hypers.select_best_hypers(
                 df,
-                metric="ewm_reward",
+                metric="mean_ewm_reward",
                 prefer=Hypers.Preference.high,
                 time_summary=TimeSummary.mean,
                 statistic=Statistic.mean,
