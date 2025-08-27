@@ -43,14 +43,10 @@ if __name__ == "__main__":
 
     for env, sub_results in results.groupby_directory(level=2):
         fig, ax = plt.subplots(1, 1)
-        if env != "ForagaxTwoBiomeSmall-5": continue
+
         for alg_result in sub_results:
             alg = alg_result.filename
             print(f"{env} {alg}")
-
-            df = alg_result.load()
-            if df is None:
-                continue
 
             exp_path = Path(alg_result.exp_path)
             best_configuration_path = (
@@ -60,6 +56,11 @@ if __name__ == "__main__":
                 continue
             with open(best_configuration_path) as f:
                 best_configuration = json.load(f)
+
+            df = alg_result.load_by_params(best_configuration)
+            if df is None:
+                continue
+            df = df.sort("id", "frame")
 
             exp = alg_result.exp
 

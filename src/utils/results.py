@@ -30,7 +30,17 @@ class Result[Exp: ExperimentDescription]:
         for param_id in range(self.exp.numPermutations()):
             params = getParamsAsDict(self.exp, param_id)
             run_ids.update(get_run_ids(db_path, params))
+        run_ids = sorted(run_ids)
+        df = load_all_results(db_path, self.metrics, run_ids)
+        return df
 
+    def load_by_params(self, params: dict):
+        db_path = self.exp.buildSaveContext(0).resolve("results.db")
+
+        if not Path(db_path).exists():
+            return None
+
+        run_ids = get_run_ids(db_path, params)
         df = load_all_results(db_path, self.metrics, run_ids)
         return df
 
