@@ -5,5 +5,5 @@
     "time": "1:00:00",
     "cores": 8,
     "mem_per_core": "2G",
-    "sequential": 4
+    "sequential": 1
 }
