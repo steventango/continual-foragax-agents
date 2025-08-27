@@ -1,8 +1,8 @@
 import importlib
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
+from typing import Generic, TypeVar
 
-from utils.ml_instrumentation.reader import get_run_ids
 from ml_instrumentation.reader import load_all_results
 from PyExpUtils.models.ExperimentDescription import (
     ExperimentDescription,
@@ -11,8 +11,12 @@ from PyExpUtils.models.ExperimentDescription import (
 from PyExpUtils.results.indices import listIndices
 from PyExpUtils.results.tools import getHeader, getParamsAsDict
 
+from utils.ml_instrumentation.reader import get_run_ids
 
-class Result[Exp: ExperimentDescription]:
+Exp = TypeVar("Exp", bound=ExperimentDescription)
+
+
+class Result(Generic[Exp]):
     def __init__(
         self, exp_path: str | Path, exp: Exp, metrics: Sequence[str] | None = None
     ):
@@ -49,7 +53,7 @@ class Result[Exp: ExperimentDescription]:
         return self.exp_path.split("/")[-1].removesuffix(".json")
 
 
-class ResultCollection[Exp: ExperimentDescription]:
+class ResultCollection(Generic[Exp]):
     def __init__(
         self,
         path: str | Path | None = None,
