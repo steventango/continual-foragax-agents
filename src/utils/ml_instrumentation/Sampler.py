@@ -9,14 +9,14 @@ class Last(Sampler):
 
     def next(self, v: float):
         self.last = v
-        return self.last
+        return None
 
     def next_eval(self, c: Callable[[], float]):
         v = c()
         return self.next(v)
 
     def end(self):
-        return None
+        return self.last
 
 
 class Mean(Sampler):
