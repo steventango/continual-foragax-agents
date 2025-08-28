@@ -1,8 +1,8 @@
 import os
 import sys
+from pathlib import Path
 
 sys.path.append(os.getcwd() + "/src")
-
 import argparse
 import dataclasses
 import math
@@ -16,6 +16,7 @@ from runner.Slurm import (
     SingleNodeOptions,
     buildParallel,
     fromFile,
+    get_script_name,
     schedule,
     to_cmdline_flags,
 )
@@ -131,6 +132,8 @@ for path in missing:
             print(to_cmdline_flags(sub))
             print(script)
             exit()
+
+        script_name = get_script_name(Path(path), l)
 
         schedule(script, sub)
 

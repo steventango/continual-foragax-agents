@@ -1,7 +1,8 @@
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Optional
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional
 
 import PyExpUtils.runner.Slurm as Slurm
 from PyExpUtils.utils.cmdline import flagString
@@ -142,3 +143,47 @@ def schedule(
 
     if cleanup:
         os.remove(script_name)
+
+
+def get_script_name(path: Path, group: List[int]):
+    # Get the path relative to the base 'experiments' directory
+    # This effectively removes the prefix in a path-aware way
+    relative_path = path.relative_to("experiments")
+
+    # Remove the final extension (.json) to get the stem of the path
+    path_stem = relative_path.stem
+
+    # Convert the resulting Path object back to a string and replace separators
+    string_part = str(path_stem).replace("/", "_")
+
+    # 2. Process the list part to handle consecutive integers as ranges
+    if not group:
+        list_part = ""
+    else:
+        # Sort and remove duplicates to handle ranges correctly
+        numbers = sorted(list(set(group)))
+        ranges = []
+        start_range = numbers[0]
+
+        for i in range(1, len(numbers)):
+            # If the sequence is broken, finalize the previous range
+            if numbers[i] != numbers[i - 1] + 1:
+                end_range = numbers[i - 1]
+                if start_range == end_range:
+                    ranges.append(str(start_range))
+                else:
+                    ranges.append(f"{start_range}-{end_range}")
+                start_range = numbers[i]
+
+        # Add the last range
+        end_range = numbers[-1]
+        if start_range == end_range:
+            ranges.append(str(start_range))
+        else:
+            ranges.append(f"{start_range}-{end_range}")
+
+        list_part = "_".join(ranges)
+
+    # 3. Combine everything into the final filename
+    final_filename = f"{string_part}_{list_part}.sh"
+    return final_filename
