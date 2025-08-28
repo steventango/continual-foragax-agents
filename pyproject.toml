@@ -46,6 +46,9 @@ dependencies = [
 ]
 
 [dependency-groups]
+cuda = [
+    "jax[cuda]>=0.7.1",
+]
 dev = [
     'pip',
     'ruff',
