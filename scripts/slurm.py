@@ -59,7 +59,7 @@ srun --ntasks=$SLURM_NNODES --ntasks-per-node=1 tar -xf {venv_origin} -C {venv}
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
-export XLA_PYTHON_CLIENT_MEM_FRACTION={1 / jobs}
+export XLA_PYTHON_CLIENT_MEM_FRACTION={.95 / jobs}
 {parallel}
     """
 
@@ -81,7 +81,7 @@ threads = slurm.threads_per_task if isinstance(slurm, SingleNodeOptions) else 1
 tasks_per_core = slurm.tasks_per_core if isinstance(slurm, SingleNodeOptions) else 1
 
 # compute how many "tasks" to clump into each job
-groupSize = int(slurm.cores / threads * tasks_per_core) * slurm.sequential
+groupSize = math.ceil(slurm.cores / threads * tasks_per_core) * slurm.sequential
 
 # compute how much time the jobs are going to take
 hours, minutes, seconds = slurm.time.split(":")
@@ -113,7 +113,7 @@ for path in missing:
         print("scheduling:", path, l)
         # make sure to only request the number of CPU cores necessary
         tasks = min([groupSize, len(l)])
-        par_tasks = max(int(tasks // slurm.sequential * tasks_per_core), 1)
+        par_tasks = max(math.ceil(tasks // slurm.sequential * tasks_per_core), 1)
         cores = par_tasks * threads
         sub = dataclasses.replace(slurm, cores=cores)
 
