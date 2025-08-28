@@ -25,6 +25,7 @@ COLORS = {
     "DQN": "tab:blue",
     "EQRC": "purple",
     "ESARSA": "tab:orange",
+    "Random": "black",
     "SoftmaxAC": "tab:green",
 }
 
