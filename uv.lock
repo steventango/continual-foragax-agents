@@ -1772,7 +1772,6 @@ name = "rl-control-template"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
-    { name = "ale-py" },
     { name = "chex" },
     { name = "continual-foragax" },
     { name = "dm-haiku" },
@@ -1810,7 +1809,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ale-py" },
     { name = "chex", specifier = ">=0.1.5" },
     { name = "continual-foragax", specifier = ">=0.2.1" },
     { name = "dm-haiku", specifier = ">=0.0.4" },
