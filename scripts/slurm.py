@@ -80,7 +80,7 @@ threads = slurm.threads_per_task if isinstance(slurm, SingleNodeOptions) else 1
 tasks_per_core = slurm.tasks_per_core if isinstance(slurm, SingleNodeOptions) else 1
 
 # compute how many "tasks" to clump into each job
-groupSize = int(slurm.cores / threads) * slurm.sequential
+groupSize = int(slurm.cores / threads * tasks_per_core) * slurm.sequential
 
 # compute how much time the jobs are going to take
 hours, minutes, seconds = slurm.time.split(":")
