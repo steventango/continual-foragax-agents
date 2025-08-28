@@ -59,7 +59,7 @@ srun --ntasks=$SLURM_NNODES --ntasks-per-node=1 tar -xf {venv_origin} -C {venv}
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
-export XLA_PYTHON_CLIENT_MEM_FRACTION={.95 / jobs}
+export XLA_PYTHON_CLIENT_MEM_FRACTION={.8 / jobs}
 {parallel}
     """
 
@@ -113,7 +113,7 @@ for path in missing:
         print("scheduling:", path, l)
         # make sure to only request the number of CPU cores necessary
         tasks = min([groupSize, len(l)])
-        par_tasks = max(math.ceil(tasks // slurm.sequential * tasks_per_core), 1)
+        par_tasks = max(math.ceil(tasks / slurm.sequential * tasks_per_core), 1)
         cores = par_tasks * threads
         sub = dataclasses.replace(slurm, cores=cores)
 
