@@ -6,6 +6,6 @@
     "gpus": 1,
     "cores": 15,
     "mem_per_core": "4G",
-    "sequential": 4,
+    "sequential": 2,
     "tasks_per_core": 1
 }
