@@ -1,12 +1,13 @@
 import json
-import sys
+import os
 from pathlib import Path
+import sys
 
-sys.path.append(str(Path.cwd() / "src"))
+sys.path.append(os.getcwd() + "/src")
 
 import matplotlib.pyplot as plt
 import numpy as np
-from PyExpPlotting.matplot import save, setDefaultConference
+from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 from rlevaluation.interpolation import compute_step_return
 from rlevaluation.statistics import Statistic
@@ -19,21 +20,27 @@ from experiment.ExperimentModel import ExperimentModel
 from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
-
+setFonts(20)
 
 COLORS = {
-    "DQN": "tab:blue",
-    "EQRC": "purple",
-    "ESARSA": "tab:orange",
+    "DQN-3": "#00ffff",
+    "DQN-5": "#3ddcff",
+    "DQN-7": "#57abff",
+    "DQN-9": "#8b8cff",
+    "DQN-11": "#b260ff",
+    "DQN-13": "#d72dff",
+    "DQN-15": "#ff00ff",
     "Random": "black",
-    "SoftmaxAC": "tab:green",
 }
 
+SINGLE = {
+    "Random"
+}
 
 if __name__ == "__main__":
     results = ResultCollection(Model=ExperimentModel)
     results.paths = [path for path in results.paths if "hypers" not in path]
-    data_definition(
+    dd = data_definition(
         hyper_cols=results.get_hyperparameter_columns(),
         seed_col="seed",
         time_col="frame",
@@ -42,12 +49,17 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    for env, sub_results in results.groupby_directory(level=2):
-        fig, ax = plt.subplots(1, 1)
+    fig, ax = plt.subplots(1, 1)
 
+    env = "unknown"
+    for env_aperture, sub_results in sorted(
+        results.groupby_directory(level=2), key=lambda x: int(x[0].split("-")[-1])
+    ):
+        env, aperture = env_aperture.split("-", 1)
+        aperture = int(aperture)
         for alg_result in sub_results:
             alg = alg_result.filename
-            print(f"{env} {alg}")
+            print(f"{env_aperture} {alg}")
 
             exp_path = Path(alg_result.exp_path)
             best_configuration_path = (
@@ -63,11 +75,15 @@ if __name__ == "__main__":
                 continue
             df = df.sort("id", "frame")
 
+
+            cols = set(dd.hyper_cols).intersection(df.columns)
+            hyper_vals = {col: df[col][0] for col in cols}
+
             exp = alg_result.exp
 
             xs, ys = extract_learning_curves(
                 df,
-                hyper_vals=best_configuration,
+                hyper_vals=hyper_vals,
                 metric="ewm_reward",
                 interpolation=lambda x, y: compute_step_return(x, y, exp.total_steps),
             )
@@ -83,23 +99,38 @@ if __name__ == "__main__":
                 iterations=10000,
             )
 
-            ax.plot(xs[0], res.sample_stat, label=alg, color=COLORS[alg], linewidth=1.0)
+            if alg not in SINGLE:
+                label = f"{alg}-{aperture}"
+            else:
+                label = alg
+            ax.plot(
+                xs[0],
+                res.sample_stat,
+                label=label,
+                color=COLORS[label],
+                linewidth=1.0,
+            )
             if len(ys) >= 5:
                 ax.fill_between(
-                    xs[0], res.ci[0], res.ci[1], color=COLORS[alg], alpha=0.2
+                    xs[0], res.ci[0], res.ci[1], color=COLORS[label], alpha=0.2
                 )
             else:
                 for y in ys:
-                    ax.plot(xs[0], y, color=COLORS[alg], linewidth=0.2)
+                    ax.plot(xs[0], y, color=COLORS[label], linewidth=0.2)
+
+        ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+        ax.set_xlabel("Time steps")
+        ax.set_ylabel("Average Reward")
+        ax.legend(ncol=1, loc="center left", bbox_to_anchor=(1, 0.5), frameon=False)
 
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
-        path = Path(__file__).relative_to(Path.cwd()).parent
-        save(
-            save_path=f"{path}/plots",
-            plot_name=env,
-            save_type="pdf",
-            f=fig,
-            height_ratio=2 / 3,
-        )
+    path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
+    save(
+        save_path=f"{path}/plots",
+        plot_name=env,
+        save_type="pdf",
+        f=fig,
+        height_ratio=2 / 3,
+    )
