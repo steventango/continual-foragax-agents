@@ -12,7 +12,7 @@ from functools import partial
 import PyExpUtils.runner.Slurm as Slurm
 from PyExpUtils.runner.utils import approximate_cost
 from PyExpUtils.utils.generator import group
-from runner.Slurm import buildParallel, fromFile, SingleNodeOptions
+from runner.Slurm import SingleNodeOptions, fromFile, schedule, to_cmdline_flags
 
 import experiment.ExperimentModel as Experiment
 from utils.results import gather_missing_indices
@@ -52,7 +52,8 @@ srun --ntasks=$SLURM_NNODES --ntasks-per-node=1 tar -xf {venv_origin} -C {venv}
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
-export XLA_PYTHON_CLIENT_MEM_FRACTION={1/cores}
+export XLA_PYTHON_CLIENT_MEM_FRACTION={1 / cores}
+nvidia-smi
 {parallel}
     """
 
@@ -111,21 +112,21 @@ for path in missing:
 
         # build the executable string
         # instead of activating the venv every time, just use its python directly
-        gpu_str = "--gpu" if sub.gpus and sub.gpus > 0 else ""
+        gpu_str = "--gpu" if sub.gpus else ""
         runner = f"{venv}/.venv/bin/python {cmdline.entry} {gpu_str} -e {path} --save_path {cmdline.results} --checkpoint_path=$SCRATCH/checkpoints/{project_name} -i "
 
         # generate the gnu-parallel command for dispatching to many CPUs across server nodes
-        parallel = buildParallel(runner, l, sub)
+        parallel = Slurm.buildParallel(runner, l, sub)
 
         # generate the bash script which will be scheduled
         script = getJobScript(parallel, cores)
 
         if cmdline.debug:
-            print(Slurm.to_cmdline_flags(sub))
+            print(to_cmdline_flags(sub))
             print(script)
             exit()
 
-        Slurm.schedule(script, sub, skip_validation=True)
+        schedule(script, sub)
 
         # DO NOT REMOVE. This will prevent you from overburdening the slurm scheduler. Be a good citizen.
         time.sleep(2)
