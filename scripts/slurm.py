@@ -48,7 +48,7 @@ venv = "$SLURM_TMPDIR"
 
 # the contents of the string below will be the bash script that is scheduled on compute canada
 # change the script accordingly (e.g. add the necessary `module load X` commands)
-def getJobScript(parallel, cores):
+def getJobScript(parallel, group_size):
     return f"""#!/bin/bash
 
 #SBATCH --signal=B:SIGTERM@180
@@ -58,7 +58,7 @@ srun --ntasks=$SLURM_NNODES --ntasks-per-node=1 tar -xf {venv_origin} -C {venv}
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
-export XLA_PYTHON_CLIENT_MEM_FRACTION={1 / cores}
+export XLA_PYTHON_CLIENT_MEM_FRACTION={1 / group_size}
 {parallel}
     """
 
@@ -125,7 +125,7 @@ for path in missing:
         parallel = buildParallel(runner, l, sub)
 
         # generate the bash script which will be scheduled
-        script = getJobScript(parallel, cores)
+        script = getJobScript(parallel, groupSize)
 
         if cmdline.debug:
             print(to_cmdline_flags(sub))
