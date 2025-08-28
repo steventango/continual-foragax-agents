@@ -4,8 +4,8 @@
     "account": "aip-amw8",
     "time": "1:00:00",
     "gpus": 1,
-    "cores": 16,
+    "cores": 15,
     "mem_per_core": "4G",
-    "sequential": 1,
-    "tasks_per_core": 2
+    "sequential": 4,
+    "tasks_per_core": 1
 }
