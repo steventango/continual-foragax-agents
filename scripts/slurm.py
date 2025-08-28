@@ -12,6 +12,7 @@ from functools import partial
 import PyExpUtils.runner.Slurm as Slurm
 from PyExpUtils.runner.utils import approximate_cost
 from PyExpUtils.utils.generator import group
+from runner.Slurm import buildParallel, fromFile, SingleNodeOptions
 
 import experiment.ExperimentModel as Experiment
 from utils.results import gather_missing_indices
@@ -41,7 +42,7 @@ venv = "$SLURM_TMPDIR"
 
 # the contents of the string below will be the bash script that is scheduled on compute canada
 # change the script accordingly (e.g. add the necessary `module load X` commands)
-def getJobScript(parallel):
+def getJobScript(parallel, cores):
     return f"""#!/bin/bash
 
 #SBATCH --signal=B:SIGTERM@180
@@ -51,6 +52,7 @@ srun --ntasks=$SLURM_NNODES --ntasks-per-node=1 tar -xf {venv_origin} -C {venv}
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
+export XLA_PYTHON_CLIENT_MEM_FRACTION={1/cores}
 {parallel}
     """
 
@@ -66,9 +68,9 @@ if not cmdline.debug and not os.path.exists(venv_origin):
 # ----------------
 # Scheduling logic
 # ----------------
-slurm = Slurm.fromFile(cmdline.cluster)
+slurm = fromFile(cmdline.cluster)
 
-threads = slurm.threads_per_task if isinstance(slurm, Slurm.SingleNodeOptions) else 1
+threads = slurm.threads_per_task if isinstance(slurm, SingleNodeOptions) else 1
 
 # compute how many "tasks" to clump into each job
 groupSize = int(slurm.cores / threads) * slurm.sequential
@@ -109,13 +111,14 @@ for path in missing:
 
         # build the executable string
         # instead of activating the venv every time, just use its python directly
-        runner = f"{venv}/.venv/bin/python {cmdline.entry} -e {path} --save_path {cmdline.results} --checkpoint_path=$SCRATCH/checkpoints/{project_name} -i "
+        gpu_str = "--gpu" if sub.gpus and sub.gpus > 0 else ""
+        runner = f"{venv}/.venv/bin/python {cmdline.entry} {gpu_str} -e {path} --save_path {cmdline.results} --checkpoint_path=$SCRATCH/checkpoints/{project_name} -i "
 
         # generate the gnu-parallel command for dispatching to many CPUs across server nodes
-        parallel = Slurm.buildParallel(runner, l, sub)
+        parallel = buildParallel(runner, l, sub)
 
         # generate the bash script which will be scheduled
-        script = getJobScript(parallel)
+        script = getJobScript(parallel, cores)
 
         if cmdline.debug:
             print(Slurm.to_cmdline_flags(sub))
