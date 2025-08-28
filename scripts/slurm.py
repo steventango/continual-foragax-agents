@@ -135,7 +135,7 @@ for path in missing:
 
         script_name = get_script_name(Path(path), l)
 
-        schedule(script, sub)
+        schedule(script, sub, script_name)
 
         # DO NOT REMOVE. This will prevent you from overburdening the slurm scheduler. Be a good citizen.
         time.sleep(2)
