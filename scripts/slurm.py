@@ -12,7 +12,13 @@ from functools import partial
 import PyExpUtils.runner.Slurm as Slurm
 from PyExpUtils.runner.utils import approximate_cost
 from PyExpUtils.utils.generator import group
-from runner.Slurm import SingleNodeOptions, fromFile, schedule, to_cmdline_flags
+from runner.Slurm import (
+    SingleNodeOptions,
+    buildParallel,
+    fromFile,
+    schedule,
+    to_cmdline_flags,
+)
 
 import experiment.ExperimentModel as Experiment
 from utils.results import gather_missing_indices
@@ -71,6 +77,7 @@ if not cmdline.debug and not os.path.exists(venv_origin):
 slurm = fromFile(cmdline.cluster)
 
 threads = slurm.threads_per_task if isinstance(slurm, SingleNodeOptions) else 1
+tasks_per_core = slurm.tasks_per_core if isinstance(slurm, SingleNodeOptions) else 1
 
 # compute how many "tasks" to clump into each job
 groupSize = int(slurm.cores / threads) * slurm.sequential
@@ -106,7 +113,7 @@ for path in missing:
         # make sure to only request the number of CPU cores necessary
         tasks = min([groupSize, len(l)])
         par_tasks = max(int(tasks // slurm.sequential), 1)
-        cores = par_tasks * threads
+        cores = par_tasks * threads // tasks_per_core
         sub = dataclasses.replace(slurm, cores=cores)
 
         # build the executable string
@@ -115,7 +122,7 @@ for path in missing:
         runner = f"{venv}/.venv/bin/python {cmdline.entry} {gpu_str} -e {path} --save_path {cmdline.results} --checkpoint_path=$SCRATCH/checkpoints/{project_name} -i "
 
         # generate the gnu-parallel command for dispatching to many CPUs across server nodes
-        parallel = Slurm.buildParallel(runner, l, sub)
+        parallel = buildParallel(runner, l, sub)
 
         # generate the bash script which will be scheduled
         script = getJobScript(parallel, cores)
