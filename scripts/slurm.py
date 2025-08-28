@@ -125,7 +125,7 @@ for path in missing:
             print(script)
             exit()
 
-        Slurm.schedule(script, sub)
+        Slurm.schedule(script, sub, skip_validation=True)
 
         # DO NOT REMOVE. This will prevent you from overburdening the slurm scheduler. Be a good citizen.
         time.sleep(2)
