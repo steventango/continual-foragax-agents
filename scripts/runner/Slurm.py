@@ -151,7 +151,7 @@ def get_script_name(path: Path, group: List[int]):
     relative_path = path.relative_to("experiments")
 
     # Remove the final extension (.json) to get the stem of the path
-    path_stem = relative_path.stem
+    path_stem = relative_path.with_suffix("")
 
     # Convert the resulting Path object back to a string and replace separators
     string_part = str(path_stem).replace("/", "_")

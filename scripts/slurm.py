@@ -127,13 +127,13 @@ for path in missing:
 
         # generate the bash script which will be scheduled
         script = getJobScript(parallel, par_tasks)
+        script_name = get_script_name(Path(path), l)
 
         if cmdline.debug:
+            print(script_name)
             print(to_cmdline_flags(sub))
             print(script)
             exit()
-
-        script_name = get_script_name(Path(path), l)
 
         schedule(script, sub, script_name)
 
