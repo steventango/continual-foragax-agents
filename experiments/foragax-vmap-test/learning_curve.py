@@ -75,8 +75,8 @@ if __name__ == "__main__":
                 interpolation=lambda x, y: compute_step_return(x, y, exp.total_steps),
             )
 
-            xs = np.asarray(xs)[:, :: exp.total_steps // 1000]
-            ys = np.asarray(ys)[:, :: exp.total_steps // 1000]
+            xs = np.asarray(xs)
+            ys = np.asarray(ys)
             assert np.all(np.isclose(xs[0], xs))
 
             res = curve_percentile_bootstrap_ci(
@@ -97,7 +97,7 @@ if __name__ == "__main__":
                 color=COLORS[label],
                 linewidth=1.0,
             )
-            if len(ys) >= 5:
+            if len(ys) > 5:
                 ax.fill_between(
                     xs[0], res.ci[0], res.ci[1], color=COLORS[label], alpha=0.2
                 )
