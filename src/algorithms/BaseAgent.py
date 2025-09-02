@@ -2,8 +2,9 @@ from typing import Dict, Tuple
 
 import jax
 import numpy as np
-from utils.rlglue import BaseAgent as Base
 from ml_instrumentation.Collector import Collector
+
+from utils.rlglue import BaseAgent as Base
 
 
 class BaseAgent(Base):
@@ -22,7 +23,7 @@ class BaseAgent(Base):
 
         self.seed = seed
         self.rng = np.random.default_rng(seed)
-        self.key = jax.random.PRNGKey(seed)
+        self.key = jax.random.key(seed)
 
         self.gamma = params.get("gamma", 1)
         self.n_step = params.get("n_step", 1)

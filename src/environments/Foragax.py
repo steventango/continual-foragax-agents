@@ -18,10 +18,7 @@ class Foragax(BaseEnvironment):
     def __init__(self, seed: int, **env_params):
         self.env = make(**env_params)
         self.seed = seed
-        self.state = EnvState(
-            state=None,
-            key=jax.random.PRNGKey(seed)
-        )
+        self.state = EnvState(state=None, key=jax.random.key(seed))
 
     def start(self) -> jax.Array:
         self.state, obs = self._start(self.state)
