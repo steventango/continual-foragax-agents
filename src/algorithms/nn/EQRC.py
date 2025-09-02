@@ -92,13 +92,11 @@ class EQRC(NNAgent):
     @partial(jax.jit, static_argnums=0)
     def _computeUpdate(self, state: AgentState, batch: Dict):
         params = state.params
-        grad, metrics = jax.grad(self._loss, has_aux=True)(params, state.epsilon, batch)
-        optimizer = optax.adam(
-            self.optimizer_params["alpha"],
-            self.optimizer_params["beta1"],
-            self.optimizer_params["beta2"],
-            self.optimizer_params["eps"],
+        hypers = state.hypers
+        grad, metrics = jax.grad(self._loss, has_aux=True)(
+            params, hypers.epsilon, batch
         )
+        optimizer = optax.adam(**hypers.optimizer.__dict__)
         updates, new_optim = optimizer.update(grad, state.optim, params)
         assert isinstance(updates, dict)
 
@@ -136,7 +134,8 @@ class EQRC(NNAgent):
         # apply qc loss function to each sample in the minibatch
         # gives back value of the loss individually for parameters of v and h
         # note QC instead of QRC (i.e. no regularization)
-        v_loss, h_loss, metrics = qc_loss(q, a, r, g, qp, h, epsilon)
+        batch_loss = vmap_except(qc_loss, exclude=["epsilon"])
+        v_loss, h_loss, metrics = batch_loss(q, a, r, g, qp, h, epsilon)
 
         h_loss = h_loss.mean()
         v_loss = v_loss.mean()

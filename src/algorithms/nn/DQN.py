@@ -111,12 +111,7 @@ class DQN(NNAgent):
     def _computeUpdate(self, state: AgentState, batch: Dict, weights: jax.Array):
         grad_fn = jax.grad(self._loss, has_aux=True)
         grad, metrics = grad_fn(state.params, state.target_params, batch, weights)
-        optimizer = optax.adam(
-            self.optimizer_params["alpha"],
-            self.optimizer_params["beta1"],
-            self.optimizer_params["beta2"],
-            self.optimizer_params["eps"],
-        )
+        optimizer = optax.adam(**state.hypers.optimizer.__dict__)
         updates, optim = optimizer.update(grad, state.optim, state.params)
         params = optax.apply_updates(state.params, updates)
 

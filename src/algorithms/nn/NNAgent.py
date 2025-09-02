@@ -17,8 +17,17 @@ from utils.policies import egreedy_probabilities
 
 
 @cxu.dataclass
+class OptimizerHypers:
+    learning_rate: float
+    b1: float
+    b2: float
+    eps: float
+
+
+@cxu.dataclass
 class Hypers:
     epsilon: jax.Array
+    optimizer: OptimizerHypers
 
 
 @cxu.dataclass
@@ -77,12 +86,13 @@ class NNAgent(BaseAgent):
         # ---------------
         # -- Optimizer --
         # ---------------
-        optimizer = optax.adam(
-            self.optimizer_params["alpha"],
-            self.optimizer_params["beta1"],
-            self.optimizer_params["beta2"],
-            self.optimizer_params["eps"],
+        optimizer_hypers = OptimizerHypers(
+            learning_rate=self.optimizer_params["alpha"],
+            b1=self.optimizer_params["beta1"],
+            b2=self.optimizer_params["beta2"],
+            eps=self.optimizer_params["eps"],
         )
+        optimizer = optax.adam(**optimizer_hypers.__dict__)
         opt_state = optimizer.init(net_params)
 
         # ------------------
@@ -127,7 +137,7 @@ class NNAgent(BaseAgent):
         # --------------------------
         # -- Stateful information --
         # --------------------------
-        hypers = Hypers(epsilon=epsilon)
+        hypers = Hypers(epsilon=epsilon, optimizer=optimizer_hypers)
         self.state = AgentState(
             params=net_params,
             optim=opt_state,
