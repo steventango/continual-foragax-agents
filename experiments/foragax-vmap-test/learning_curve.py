@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 sys.path.append(os.getcwd() + "/src")
 
@@ -59,7 +60,10 @@ if __name__ == "__main__":
             alg = alg_result.filename
             print(f"{env_aperture} {alg}")
 
+            print("loading data...")
+            start = time.time()
             df = alg_result.load()
+            print(f"data loaded in {time.time() - start:.2f}s")
             if df is None:
                 continue
 
@@ -68,23 +72,29 @@ if __name__ == "__main__":
 
             exp = alg_result.exp
 
+            print("extracting learning curve")
+            start = time.time()
             xs, ys = extract_learning_curves(
                 df,
                 hyper_vals=hyper_vals,
                 metric="ewm_reward",
-                interpolation=lambda x, y: compute_step_return(x, y, exp.total_steps),
             )
+            print(f"learning curve extracted in {time.time() - start:.2f}s")
 
             xs = np.asarray(xs)
             ys = np.asarray(ys)
+            print(xs.shape, ys.shape)
             assert np.all(np.isclose(xs[0], xs))
 
+            print("computing confidence intervals")
+            start = time.time()
             res = curve_percentile_bootstrap_ci(
                 rng=np.random.default_rng(0),
                 y=ys,
                 statistic=Statistic.mean,
                 iterations=10000,
             )
+            print(f"confidence intervals computed in {time.time() - start:.2f}s")
 
             if alg not in SINGLE:
                 label = f"{alg}-{aperture}"

@@ -1,3 +1,7 @@
-mkdir -p results/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN/logs
+mkdir -p results/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN/logs\
 
-{ time python src/continuing_main.py --gpu -e experiments/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN.json -i 0 1 2 3 4; } &> results/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN/logs/vmap.log
+start=0
+end=199
+indices=($(seq $start $end))
+
+{ time python src/continuing_main.py --gpu -e experiments/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN.json -i ${indices[@]}; } &> results/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN/logs/vmap.log

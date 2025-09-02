@@ -1,6 +1,0 @@
-mkdir -p results/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN/logs
-{ time python src/continuing_main.py --gpu -e experiments/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN.json -i 0; } &> results/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN/logs/0-sequential.log
-{ time python src/continuing_main.py --gpu -e experiments/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN.json -i 1; } &> results/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN/logs/1-sequential.log
-{ time python src/continuing_main.py --gpu -e experiments/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN.json -i 2; } &> results/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN/logs/2-sequential.log
-{ time python src/continuing_main.py --gpu -e experiments/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN.json -i 3; } &> results/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN/logs/3-sequential.log
-{ time python src/continuing_main.py --gpu -e experiments/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN.json -i 4; } &> results/foragax-vmap-test/ForagaxTwoBiomeSmall-15/DQN/logs/4-sequential.log
