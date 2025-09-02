@@ -1,6 +1,6 @@
+from dataclasses import replace
 from functools import partial
 from typing import Any, Dict, Tuple
-from dataclasses import replace
 
 import chex
 import haiku as hk
@@ -70,7 +70,7 @@ class DQN(NNAgent):
         # skip updates if the buffer isn't full yet
         return jax.lax.cond(
             (state.steps % self.update_freq == 0)
-            & state.buffer.can_sample(state.buffer_state),
+            & self.buffer.can_sample(state.buffer_state),
             lambda: self._update(state),
             lambda: state,
         )
@@ -80,14 +80,14 @@ class DQN(NNAgent):
         updates = state.updates + 1
 
         state.key, buffer_sample_key = jax.random.split(state.key)
-        batch = state.buffer.sample(state.buffer_state, buffer_sample_key)
+        batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
 
         state, metrics = self._computeUpdate(
             state, batch.experience, batch.probabilities
         )
 
         priorities = metrics["delta"]
-        buffer_state = state.buffer.set_priorities(
+        buffer_state = self.buffer.set_priorities(
             state.buffer_state, batch.indices, priorities
         )
 
@@ -111,8 +111,13 @@ class DQN(NNAgent):
     def _computeUpdate(self, state: AgentState, batch: Dict, weights: jax.Array):
         grad_fn = jax.grad(self._loss, has_aux=True)
         grad, metrics = grad_fn(state.params, state.target_params, batch, weights)
-
-        updates, optim = state.optimizer.update(grad, state.optim, state.params)
+        optimizer = optax.adam(
+            self.optimizer_params["alpha"],
+            self.optimizer_params["beta1"],
+            self.optimizer_params["beta2"],
+            self.optimizer_params["eps"],
+        )
+        updates, optim = optimizer.update(grad, state.optim, state.params)
         params = optax.apply_updates(state.params, updates)
 
         return replace(state, params=params, optim=optim), metrics

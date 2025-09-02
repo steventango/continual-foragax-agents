@@ -6,7 +6,6 @@ from typing import Any, Dict, Tuple
 import flashbax as fbx
 import jax
 import jax.numpy as jnp
-
 import optax
 from ml_instrumentation.Collector import Collector
 
@@ -21,9 +20,7 @@ from utils.policies import egreedy_probabilities
 class AgentState:
     params: Any
     optim: optax.OptState
-    optimizer: optax.GradientTransformation
     buffer_state: Any
-    buffer: fbx.prioritised_trajectory_buffer.PrioritisedTrajectoryBuffer
     key: jax.Array
     last_timestep: Dict[str, jax.Array]
     steps: int
@@ -105,7 +102,7 @@ class NNAgent(BaseAgent):
             period=1,
             priority_exponent=self.priority_exponent,
         )
-        buffer = replace(
+        self.buffer = replace(
             buffer,
             init=jax.jit(buffer.init),
             add=jax.jit(buffer.add, donate_argnums=(0,)),
@@ -120,7 +117,7 @@ class NNAgent(BaseAgent):
             "r": jnp.float32(0),
             "gamma": jnp.float32(0),
         }
-        buffer_state = buffer.init(dummy_timestep)
+        buffer_state = self.buffer.init(dummy_timestep)
 
         # --------------------------
         # -- Stateful information --
@@ -128,9 +125,7 @@ class NNAgent(BaseAgent):
         self.state = AgentState(
             params=net_params,
             optim=opt_state,
-            optimizer=optimizer,
             buffer_state=buffer_state,
-            buffer=buffer,
             key=self.key,
             last_timestep=dummy_timestep,
             steps=0,
@@ -258,7 +253,7 @@ class NNAgent(BaseAgent):
         batch_sequence = jax.tree.map(
             lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), state.last_timestep
         )
-        buffer_state = state.buffer.add(state.buffer_state, batch_sequence)
+        buffer_state = self.buffer.add(state.buffer_state, batch_sequence)
         state = replace(state, buffer_state=buffer_state)
         state.last_timestep.update(
             {
@@ -289,7 +284,7 @@ class NNAgent(BaseAgent):
         batch_sequence = jax.tree.map(
             lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), state.last_timestep
         )
-        buffer_state = state.buffer.add(state.buffer_state, batch_sequence)
+        buffer_state = self.buffer.add(state.buffer_state, batch_sequence)
         state = replace(state, buffer_state=buffer_state)
         state = self._maybe_update(state)
         state = replace(state, steps=state.steps + 1)

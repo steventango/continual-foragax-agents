@@ -1,17 +1,17 @@
+from dataclasses import replace
 from functools import partial
 from typing import Dict, Tuple
-from dataclasses import replace
-from ml_instrumentation.Collector import Collector
 
-from algorithms.nn.NNAgent import NNAgent, AgentState
-from representations.networks import NetworkBuilder
-from utils.jax import vmap_except, argmax_with_random_tie_breaking
-
+import haiku as hk
 import jax
 import jax.numpy as jnp
 import optax
-import haiku as hk
+from ml_instrumentation.Collector import Collector
+
 import utils.hk as hku
+from algorithms.nn.NNAgent import AgentState, NNAgent
+from representations.networks import NetworkBuilder
+from utils.jax import argmax_with_random_tie_breaking, vmap_except
 
 tree_leaves = jax.tree_util.tree_leaves
 tree_map = jax.tree_util.tree_map
@@ -65,7 +65,7 @@ class EQRC(NNAgent):
         # skip updates if the buffer isn't full yet
         return jax.lax.cond(
             (state.steps % self.update_freq == 0)
-            & state.buffer.can_sample(state.buffer_state),
+            & self.buffer.can_sample(state.buffer_state),
             lambda: self._update(state),
             lambda: state,
         )
@@ -73,11 +73,11 @@ class EQRC(NNAgent):
     @partial(jax.jit, static_argnums=0)
     def _update(self, state: AgentState):
         state.key, buffer_sample_key = jax.random.split(state.key)
-        batch = state.buffer.sample(state.buffer_state, buffer_sample_key)
+        batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
         state, metrics = self._computeUpdate(state, batch.experience)
 
         priorities = metrics["delta"]
-        buffer_state = state.buffer.set_priorities(
+        buffer_state = self.buffer.set_priorities(
             state.buffer_state, batch.indices, priorities
         )
 
@@ -93,8 +93,13 @@ class EQRC(NNAgent):
     def _computeUpdate(self, state: AgentState, batch: Dict):
         params = state.params
         grad, metrics = jax.grad(self._loss, has_aux=True)(params, state.epsilon, batch)
-
-        updates, new_optim = state.optimizer.update(grad, state.optim, params)
+        optimizer = optax.adam(
+            self.optimizer_params["alpha"],
+            self.optimizer_params["beta1"],
+            self.optimizer_params["beta2"],
+            self.optimizer_params["eps"],
+        )
+        updates, new_optim = optimizer.update(grad, state.optim, params)
         assert isinstance(updates, dict)
 
         decay = tree_map(
