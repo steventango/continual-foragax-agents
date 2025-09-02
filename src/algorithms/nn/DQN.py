@@ -45,7 +45,9 @@ class DQN(NNAgent):
         # set up the target network parameters
         self.target_refresh = params["target_refresh"]
 
-        self.state = replace(self.state, target_params=self.state.params)
+        self.state = AgentState(
+            **self.state.__dict__, target_params=self.state.params
+        )
 
     # ------------------------
     # -- NN agent interface --
