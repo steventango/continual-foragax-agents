@@ -34,6 +34,8 @@ if __name__ == "__main__":
 
     pool = Pool()
 
+    env = os.environ.copy()
+
     cmds = []
     e_to_missing = gather_missing_indices(
         cmdline.e, cmdline.runs, loader=Experiment.load
@@ -44,7 +46,8 @@ if __name__ == "__main__":
         indices = list(count(path, e_to_missing[path]))
         if len(indices) and cmdline.gpu:
             idxs = " ".join([str(idx) for idx in indices])
-            exe = f"python {cmdline.entry} --gpu -e {path} --silent -i {idxs}"
+            exe = f"python {cmdline.entry} --gpu -e {path} -i {idxs}"
+            env["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.99"
             cmds.append(exe)
         else:
             for idx in indices:
@@ -54,7 +57,11 @@ if __name__ == "__main__":
     print(len(cmds))
     random.shuffle(cmds)
     res = pool.imap_unordered(
-        partial(subprocess.run, shell=True, stdout=subprocess.PIPE), cmds, chunksize=1
+        partial(
+            subprocess.run, shell=True, stdout=subprocess.PIPE, env=env
+        ),
+        cmds,
+        chunksize=1,
     )
     for i, _ in enumerate(res):
         sys.stderr.write(f"\r{i + 1}/{len(cmds)}")
