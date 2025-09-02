@@ -111,11 +111,14 @@ for path in missing:
     for g in group(missing[path], groupSize):
         l = list(g)
         print("scheduling:", path, l)
-        # make sure to only request the number of CPU cores necessary
-        tasks = min([groupSize, len(l)])
-        par_tasks = max(math.ceil(tasks / slurm.sequential * tasks_per_core), 1)
-        cores = par_tasks * threads
-        sub = dataclasses.replace(slurm, cores=cores)
+        if not slurm.gpus:
+            # make sure to only request the number of CPU cores necessary
+            tasks = min([groupSize, len(l)])
+            par_tasks = max(math.ceil(tasks / slurm.sequential * tasks_per_core), 1)
+            cores = par_tasks * threads
+            sub = dataclasses.replace(slurm, cores=cores)
+        else:
+            sub = slurm
 
         # build the executable string
         # instead of activating the venv every time, just use its python directly
