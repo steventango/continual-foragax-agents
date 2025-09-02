@@ -17,6 +17,7 @@ parser.add_argument("--runs", type=int, required=True)
 parser.add_argument("-e", type=str, nargs="+", required=True)
 parser.add_argument("--entry", type=str, default="src/main.py")
 parser.add_argument("--results", type=str, default="./")
+parser.add_argument("--gpu", action="store_true", default=False)
 
 
 def count(pre, it):
@@ -40,10 +41,15 @@ if __name__ == "__main__":
     for path in cmdline.e:
         exp = Experiment.load(path)
 
-        indices = count(path, e_to_missing[path])
-        for idx in indices:
-            exe = f"python {cmdline.entry} --silent -e {path} -i {idx}"
+        indices = list(count(path, e_to_missing[path]))
+        if len(indices) and cmdline.gpu:
+            idxs = " ".join([str(idx) for idx in indices])
+            exe = f"python {cmdline.entry} --gpu -e {path} --silent -i {idxs}"
             cmds.append(exe)
+        else:
+            for idx in indices:
+                exe = f"python {cmdline.entry} --silent -e {path} -i {idx}"
+                cmds.append(exe)
 
     print(len(cmds))
     random.shuffle(cmds)
