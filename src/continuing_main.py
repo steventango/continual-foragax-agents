@@ -89,7 +89,7 @@ for idx in indices:
             config={
                 "ewm_reward": Pipe(
                     MovingAverage(0.999),
-                    Subsample(exp.total_steps // 1000),
+                    Subsample(max(exp.total_steps // 1000, 1)),
                 ),
                 "mean_ewm_reward": Last(
                     MovingAverage(0.999),
