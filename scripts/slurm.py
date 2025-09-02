@@ -49,7 +49,7 @@ venv = "$SLURM_TMPDIR"
 
 # the contents of the string below will be the bash script that is scheduled on compute canada
 # change the script accordingly (e.g. add the necessary `module load X` commands)
-def getJobScript(parallel: str, jobs: int):
+def getJobScript(parallel: str):
     return f"""#!/bin/bash
 
 #SBATCH --signal=B:SIGTERM@180
@@ -59,7 +59,7 @@ srun --ntasks=$SLURM_NNODES --ntasks-per-node=1 tar -xf {venv_origin} -C {venv}
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
-export XLA_PYTHON_CLIENT_MEM_FRACTION={.8 / jobs}
+export XLA_PYTHON_CLIENT_MEM_FRACTION=0.99
 {parallel}
     """
 
@@ -122,11 +122,15 @@ for path in missing:
         gpu_str = "--gpu" if sub.gpus else ""
         runner = f"{venv}/.venv/bin/python {cmdline.entry} {gpu_str} -e {path} --save_path {cmdline.results} --checkpoint_path=$SCRATCH/checkpoints/{project_name} -i "
 
-        # generate the gnu-parallel command for dispatching to many CPUs across server nodes
-        parallel = buildParallel(runner, l, sub)
+        if sub.gpus:
+            # generate the gnu-parallel command for dispatching to many CPUs across server nodes
+            parallel = buildParallel(runner, l, sub)
+        else:
+            # run all seeds on one gpu
+            parallel = runner + " ".join([str(idx) for idx in l])
 
         # generate the bash script which will be scheduled
-        script = getJobScript(parallel, par_tasks)
+        script = getJobScript(parallel)
         script_name = get_script_name(Path(path), l)
 
         if cmdline.debug:
