@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
-from rlevaluation.interpolation import compute_step_return
 from rlevaluation.statistics import Statistic
 from rlevaluation.temporal import (
     curve_percentile_bootstrap_ci,

@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PyExpPlotting.matplot import save, setDefaultConference
 from rlevaluation.config import data_definition
-from rlevaluation.interpolation import compute_step_return
 from rlevaluation.statistics import Statistic
 from rlevaluation.temporal import (
     curve_percentile_bootstrap_ci,
@@ -72,7 +71,6 @@ if __name__ == "__main__":
                 df,
                 hyper_vals=hyper_vals,
                 metric="ewm_reward",
-                interpolation=lambda x, y: compute_step_return(x, y, exp.total_steps),
             )
 
             xs = np.asarray(xs)
