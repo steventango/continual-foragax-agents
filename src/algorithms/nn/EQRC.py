@@ -1,5 +1,6 @@
 from functools import partial
 from typing import Dict, Tuple
+from dataclasses import replace
 from ml_instrumentation.Collector import Collector
 
 from algorithms.nn.NNAgent import NNAgent, AgentState
@@ -54,19 +55,17 @@ class EQRC(NNAgent):
         return self.q(state.params, phi)
 
     def update(self):
-        self.state, self.steps, self.key = self._maybe_update(
+        self.state = self._maybe_update(
             self.state,
         )
 
     @partial(jax.jit, static_argnums=0)
     def _maybe_update(self, state: AgentState):
-        state.steps += 1
-
         # only update every `update_freq` steps
         # skip updates if the buffer isn't full yet
         return jax.lax.cond(
             (state.steps % self.update_freq == 0)
-            & self.buffer.can_sample(state.buffer_state),
+            & state.buffer.can_sample(state.buffer_state),
             lambda: self._update(state),
             lambda: state,
         )
@@ -74,15 +73,15 @@ class EQRC(NNAgent):
     @partial(jax.jit, static_argnums=0)
     def _update(self, state: AgentState):
         state.key, buffer_sample_key = jax.random.split(state.key)
-        batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
+        batch = state.buffer.sample(state.buffer_state, buffer_sample_key)
         state, metrics = self._computeUpdate(state, batch.experience)
 
         priorities = metrics["delta"]
-        state.buffer_state = self.buffer.set_priorities(
+        buffer_state = state.buffer.set_priorities(
             state.buffer_state, batch.indices, priorities
         )
 
-        return state
+        return replace(state, buffer_state=buffer_state, updates=state.updates + 1)
 
     # -------------
     # -- Updates --
@@ -95,7 +94,7 @@ class EQRC(NNAgent):
         params = state.params
         grad, metrics = jax.grad(self._loss, has_aux=True)(params, state.epsilon, batch)
 
-        updates, new_optim = self.optimizer.update(grad, state.optim, params)
+        updates, new_optim = state.optimizer.update(grad, state.optim, params)
         assert isinstance(updates, dict)
 
         decay = tree_map(
@@ -107,13 +106,7 @@ class EQRC(NNAgent):
         updates |= {"h": decay}
         new_params = optax.apply_updates(params, updates)
 
-        new_state = state.replace(
-            params=new_params,
-            optim=new_optim,
-            buffer_state=state.buffer_state,
-        )
-
-        return new_state, metrics
+        return replace(state, params=new_params, optim=new_optim), metrics
 
     # compute the total QRC loss for both sets of parameters (value parameters and h parameters)
     def _loss(self, params, epsilon, batch: Dict):

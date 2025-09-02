@@ -21,7 +21,9 @@ from utils.policies import egreedy_probabilities
 class AgentState:
     params: Any
     optim: optax.OptState
+    optimizer: optax.GradientTransformation
     buffer_state: Any
+    buffer: fbx.prioritised_trajectory_buffer.PrioritisedTrajectoryBuffer
     key: jax.Array
     last_timestep: Dict[str, jax.Array]
     steps: int
@@ -52,10 +54,10 @@ class NNAgent(BaseAgent):
         if self.epsilon_linear_decay is not None:
             self.initial_epsilon = params["initial_epsilon"]
             self.final_epsilon = params["final_epsilon"]
-            self.epsilon = self.initial_epsilon
+            epsilon = self.initial_epsilon
         else:
-            self.epsilon = params["epsilon"]
-        assert self.epsilon is not None or (
+            epsilon = params["epsilon"]
+        assert epsilon is not None or (
             self.epsilon_linear_decay is not None
             and self.initial_epsilon is not None
             and self.final_epsilon is not None
@@ -73,13 +75,13 @@ class NNAgent(BaseAgent):
         # ---------------
         # -- Optimizer --
         # ---------------
-        self.optimizer = optax.adam(
+        optimizer = optax.adam(
             self.optimizer_params["alpha"],
             self.optimizer_params["beta1"],
             self.optimizer_params["beta2"],
             self.optimizer_params["eps"],
         )
-        opt_state = self.optimizer.init(net_params)
+        opt_state = optimizer.init(net_params)
 
         # ------------------
         # -- Data ingress --
@@ -94,7 +96,7 @@ class NNAgent(BaseAgent):
         self.update_freq = params.get("update_freq", 1)
         self.priority_exponent = params.get("priority_exponent", 0.0)
 
-        self.buffer = fbx.make_prioritised_trajectory_buffer(
+        buffer = fbx.make_prioritised_trajectory_buffer(
             max_length_time_axis=self.buffer_size,
             min_length_time_axis=self.buffer_min_size,
             sample_batch_size=self.batch_size,
@@ -103,12 +105,13 @@ class NNAgent(BaseAgent):
             period=1,
             priority_exponent=self.priority_exponent,
         )
-        self.buffer = self.buffer.replace(
-            init=jax.jit(self.buffer.init),
-            add=jax.jit(self.buffer.add, donate_argnums=(0,)),
-            sample=jax.jit(self.buffer.sample),
-            can_sample=jax.jit(self.buffer.can_sample),
-            set_priorities=jax.jit(self.buffer.set_priorities, donate_argnums=(0,)),
+        buffer = replace(
+            buffer,
+            init=jax.jit(buffer.init),
+            add=jax.jit(buffer.add, donate_argnums=(0,)),
+            sample=jax.jit(buffer.sample),
+            can_sample=jax.jit(buffer.can_sample),
+            set_priorities=jax.jit(buffer.set_priorities, donate_argnums=(0,)),
         )
 
         dummy_timestep = {
@@ -117,7 +120,7 @@ class NNAgent(BaseAgent):
             "r": jnp.float32(0),
             "gamma": jnp.float32(0),
         }
-        buffer_state = self.buffer.init(dummy_timestep)
+        buffer_state = buffer.init(dummy_timestep)
 
         # --------------------------
         # -- Stateful information --
@@ -125,12 +128,14 @@ class NNAgent(BaseAgent):
         self.state = AgentState(
             params=net_params,
             optim=opt_state,
+            optimizer=optimizer,
             buffer_state=buffer_state,
+            buffer=buffer,
             key=self.key,
             last_timestep=dummy_timestep,
             steps=0,
             updates=0,
-            epsilon=self.epsilon,
+            epsilon=epsilon,
         )
 
     # ------------------------
@@ -148,10 +153,11 @@ class NNAgent(BaseAgent):
 
     @abstractmethod
     @partial(jax.jit, static_argnums=0)
-    def _maybe_update(self, state: AgentState, key: jax.Array) -> AgentState: ...
+    def _maybe_update(self, state: AgentState) -> AgentState: ...
 
     @partial(jax.jit, static_argnums=0)
     def _decay_epsilon(self, state: AgentState):
+        epsilon = state.epsilon
         if self.epsilon_linear_decay is not None:
             decay_steps = self.epsilon_linear_decay * self.total_steps
             progress = state.steps / decay_steps
@@ -159,8 +165,9 @@ class NNAgent(BaseAgent):
                 self.initial_epsilon
                 + (self.final_epsilon - self.initial_epsilon) * progress
             )
-            state.epsilon = jnp.maximum(calculated_epsilon, self.final_epsilon)
-        return state
+            epsilon = jnp.maximum(calculated_epsilon, self.final_epsilon)
+
+        return replace(state, epsilon=epsilon)
 
     def policy(self, obs: jax.Array) -> jax.Array:
         q = self.values(obs)
@@ -176,7 +183,9 @@ class NNAgent(BaseAgent):
 
     @partial(jax.jit, static_argnums=0)
     def act(
-        self, state: AgentState, obs: jax.Array,
+        self,
+        state: AgentState,
+        obs: jax.Array,
     ) -> tuple[AgentState, jax.Array]:
         pi = self._policy(state, obs)
         state.key, sample_key = jax.random.split(state.key)
@@ -224,7 +233,13 @@ class NNAgent(BaseAgent):
         return a
 
     @partial(jax.jit, static_argnums=0)
-    def _step(self, state: AgentState, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
+    def _step(
+        self,
+        state: AgentState,
+        reward: jax.Array,
+        obs: jax.Array,
+        extra: Dict[str, jax.Array],
+    ):
         state, a = self.act(state, obs)
 
         # see if the problem specified a discount term
@@ -243,9 +258,8 @@ class NNAgent(BaseAgent):
         batch_sequence = jax.tree.map(
             lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), state.last_timestep
         )
-        state.buffer_state = self.buffer.add(
-            state.buffer_state, batch_sequence
-        )
+        buffer_state = state.buffer.add(state.buffer_state, batch_sequence)
+        state = replace(state, buffer_state=buffer_state)
         state.last_timestep.update(
             {
                 "x": obs,
@@ -262,7 +276,7 @@ class NNAgent(BaseAgent):
 
     @partial(jax.jit, static_argnums=0)
     def _end(self, state, reward: jax.Array, extra: Dict[str, jax.Array]):
-         # possibly process the reward
+        # possibly process the reward
         if self.reward_clip > 0:
             reward = jnp.clip(reward, -self.reward_clip, self.reward_clip)
 
@@ -275,9 +289,8 @@ class NNAgent(BaseAgent):
         batch_sequence = jax.tree.map(
             lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), state.last_timestep
         )
-        state.buffer_state = self.buffer.add(
-            state.buffer_state, batch_sequence
-        )
+        buffer_state = state.buffer.add(state.buffer_state, batch_sequence)
+        state = replace(state, buffer_state=buffer_state)
         state = self._maybe_update(state)
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)

@@ -1,5 +1,6 @@
 from functools import partial
 from typing import Any, Dict, Tuple
+from dataclasses import replace
 
 import chex
 import haiku as hk
@@ -18,6 +19,7 @@ from utils.jax import huber_loss
 @cxu.dataclass
 class AgentState(BaseAgentState):
     target_params: Any
+
 
 def q_loss(q, a, r, gamma, qp):
     vp = qp.max()
@@ -43,17 +45,7 @@ class DQN(NNAgent):
         # set up the target network parameters
         self.target_refresh = params["target_refresh"]
 
-        self.state = AgentState(
-            params=self.state.params,
-            target_params=self.state.params,
-            buffer_state=self.state.buffer_state,
-            optim=self.state.optim,
-            key=self.state.key,
-            last_timestep=self.state.last_timestep,
-            steps=self.state.steps,
-            updates=self.state.updates,
-            epsilon=self.state.epsilon,
-        )
+        self.state = replace(self.state, target_params=self.state.params)
 
     # ------------------------
     # -- NN agent interface --
@@ -71,42 +63,44 @@ class DQN(NNAgent):
         self.state = self._maybe_update(self.state)
 
     @partial(jax.jit, static_argnums=0)
-    def _maybe_update(
-        self,
-        state: AgentState,
-    ):
+    def _maybe_update(self, state: AgentState):
         # only update every `update_freq` steps
         # skip updates if the buffer isn't full yet
         return jax.lax.cond(
             (state.steps % self.update_freq == 0)
-            & self.buffer.can_sample(state.buffer_state),
+            & state.buffer.can_sample(state.buffer_state),
             lambda: self._update(state),
             lambda: state,
         )
 
     @partial(jax.jit, static_argnums=0)
     def _update(self, state: AgentState):
-        state.updates += 1
+        updates = state.updates + 1
 
         state.key, buffer_sample_key = jax.random.split(state.key)
-        batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
+        batch = state.buffer.sample(state.buffer_state, buffer_sample_key)
 
         state, metrics = self._computeUpdate(
             state, batch.experience, batch.probabilities
         )
 
         priorities = metrics["delta"]
-        state.buffer_state = self.buffer.set_priorities(
+        buffer_state = state.buffer.set_priorities(
             state.buffer_state, batch.indices, priorities
         )
 
-        state.target_params = jax.lax.cond(
-            state.updates % self.target_refresh == 0,
+        target_params = jax.lax.cond(
+            updates % self.target_refresh == 0,
             lambda: state.params,
             lambda: state.target_params,
         )
 
-        return state
+        return replace(
+            state,
+            updates=updates,
+            buffer_state=buffer_state,
+            target_params=target_params,
+        )
 
     # -------------
     # -- Updates --
@@ -116,22 +110,10 @@ class DQN(NNAgent):
         grad_fn = jax.grad(self._loss, has_aux=True)
         grad, metrics = grad_fn(state.params, state.target_params, batch, weights)
 
-        updates, optim = self.optimizer.update(grad, state.optim, state.params)
+        updates, optim = state.optimizer.update(grad, state.optim, state.params)
         params = optax.apply_updates(state.params, updates)
 
-        new_state = AgentState(
-            params=params,
-            target_params=state.target_params,
-            buffer_state=state.buffer_state,
-            optim=optim,
-            key=state.key,
-            last_timestep=state.last_timestep,
-            steps=state.steps,
-            updates=state.updates,
-            epsilon=state.epsilon,
-        )
-
-        return new_state, metrics
+        return replace(state, params=params, optim=optim), metrics
 
     def _loss(
         self, params: hk.Params, target: hk.Params, batch: Dict, weights: jax.Array
