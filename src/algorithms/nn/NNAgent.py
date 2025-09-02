@@ -17,6 +17,11 @@ from utils.policies import egreedy_probabilities
 
 
 @cxu.dataclass
+class Hypers:
+    epsilon: jax.Array
+
+
+@cxu.dataclass
 class AgentState:
     params: Any
     optim: optax.OptState
@@ -25,7 +30,7 @@ class AgentState:
     last_timestep: Dict[str, jax.Array]
     steps: int
     updates: int
-    epsilon: jax.Array
+    hypers: Hypers
 
 
 @checkpointable(("buffer", "steps", "state", "updates"))
@@ -122,6 +127,7 @@ class NNAgent(BaseAgent):
         # --------------------------
         # -- Stateful information --
         # --------------------------
+        hypers = Hypers(epsilon=epsilon)
         self.state = AgentState(
             params=net_params,
             optim=opt_state,
@@ -130,7 +136,7 @@ class NNAgent(BaseAgent):
             last_timestep=dummy_timestep,
             steps=0,
             updates=0,
-            epsilon=epsilon,
+            hypers=hypers,
         )
 
     # ------------------------
@@ -152,7 +158,7 @@ class NNAgent(BaseAgent):
 
     @partial(jax.jit, static_argnums=0)
     def _decay_epsilon(self, state: AgentState):
-        epsilon = state.epsilon
+        epsilon = state.hypers.epsilon
         if self.epsilon_linear_decay is not None:
             decay_steps = self.epsilon_linear_decay * self.total_steps
             progress = state.steps / decay_steps
@@ -162,18 +168,19 @@ class NNAgent(BaseAgent):
             )
             epsilon = jnp.maximum(calculated_epsilon, self.final_epsilon)
 
-        return replace(state, epsilon=epsilon)
+        hypers = replace(state.hypers, epsilon=epsilon)
+        return replace(state, hypers=hypers)
 
     def policy(self, obs: jax.Array) -> jax.Array:
         q = self.values(obs)
-        pi = egreedy_probabilities(q, self.actions, self.state.epsilon)
+        pi = egreedy_probabilities(q, self.actions, self.state.hypers.epsilon)
         return pi
 
     @partial(jax.jit, static_argnums=0)
     def _policy(self, state: AgentState, obs: jax.Array) -> jax.Array:
         obs = jnp.expand_dims(obs, 0)
         q = self._values(state, obs)[0]
-        pi = egreedy_probabilities(q, self.actions, state.epsilon)
+        pi = egreedy_probabilities(q, self.actions, state.hypers.epsilon)
         return pi
 
     @partial(jax.jit, static_argnums=0)
