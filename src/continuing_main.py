@@ -69,6 +69,8 @@ Problem = getProblem(exp.problem)
 # --------------------
 # -- Batch Set-up --
 # --------------------
+start_time = time.time()
+
 collectors = []
 glues = []
 chks = []
@@ -117,6 +119,11 @@ for idx in indices:
     glue = chk.build("glue", lambda: RlGlue(agent, env))
     glues.append(glue)
 
+total_setup_time = time.time() - start_time
+num_indices = len(indices)
+logger.debug("--- Batch Set-up Timings ---")
+logger.debug(f"Total setup time: {total_setup_time:.4f}s | Average: {total_setup_time / num_indices:.4f}s")
+
 # --------------------
 # -- Batch Execution --
 # --------------------
@@ -147,17 +154,26 @@ rewards = rewards.T
 # --------------------
 # -- Saving --
 # --------------------
+total_collect_time = 0
+total_numpy_time = 0
+total_db_time = 0
+num_indices = len(indices)
+
 for i, idx in enumerate(indices):
     collector = collectors[i]
     chk = chks[i]
 
     # process rewards for this run
     run_rewards = rewards[i]
+
+    start_time = time.time()
     for reward in run_rewards:
         collector.next_frame()
         collector.collect("ewm_reward", reward.item())
         collector.collect("mean_ewm_reward", reward.item())
     collector.reset()
+    total_collect_time += time.time() - start_time
+
     # ------------
     # -- Saving --
     # ------------
@@ -165,11 +181,25 @@ for i, idx in enumerate(indices):
     save_path = context.resolve("results.db")
     data_path = context.resolve(f"data/{idx}.npz")
     context.ensureExists(data_path, is_file=True)
+
+    start_time = time.time()
     np.savez_compressed(data_path, rewards=run_rewards)
+    total_numpy_time += time.time() - start_time
 
     meta = getParamsAsDict(exp, idx)
     meta |= {"seed": exp.getRun(idx)}
     attach_metadata(save_path, idx, meta)
+
+    start_time = time.time()
     collector.merge(context.resolve("results.db"))
+    total_db_time += time.time() - start_time
+
     collector.close()
     chk.delete()
+
+logger.debug("--- Saving Timings ---")
+logger.debug(f"Total collect time: {total_collect_time:.4f}s | Average: {total_collect_time / num_indices:.4f}s")
+logger.debug(f"Total numpy save time: {total_numpy_time:.4f}s | Average: {total_numpy_time / num_indices:.4f}s")
+logger.debug(f"Total db save time: {total_db_time:.4f}s | Average: {total_db_time / num_indices:.4f}s")
+total_save_time = total_collect_time + total_numpy_time + total_db_time
+logger.debug(f"Total save time: {total_save_time:.4f}s | Average: {total_save_time / num_indices:.4f}s")
