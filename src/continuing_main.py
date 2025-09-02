@@ -74,6 +74,7 @@ start_time = time.time()
 collectors = []
 glues = []
 chks = []
+first_hypers = None
 for idx in indices:
     chk = Checkpoint(exp, idx, base_path=args.checkpoint_path)
     chk.load_if_exists()
@@ -109,7 +110,17 @@ for idx in indices:
 
     # set random seeds accordingly
     hypers = exp.get_hypers(idx)
-    seed = run + hypers.get("experiment", {}).get("seed_offset", 0)
+    if not first_hypers:
+        first_hypers = hypers
+
+    # validate that shape changing hypers are static.
+    assert hypers.get("buffer_size") == first_hypers.get("buffer_size")
+    assert hypers.get("buffer_min_size") == first_hypers.get("buffer_min_size")
+    assert hypers.get("batch") == first_hypers.get("batch")
+    assert hypers.get("environment", {}).get("aperture_size") == first_hypers.get("environment", {}).get("aperture_size")
+    assert hypers.get("optimizer", {}).get("name") == first_hypers.get("optimizer", {}).get("name")
+    assert hypers.get("representation", {}).get("type") == first_hypers.get("representation", {}).get("type")
+    assert hypers.get("representation", {}).get("hidden") == first_hypers.get("representation", {}).get("hidden")
 
     # build stateful things and attach to checkpoint
     problem = chk.build("p", lambda: Problem(exp, idx, collector))
