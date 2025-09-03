@@ -151,8 +151,7 @@ class EQRC(NNAgent):
         # apply qc loss function to each sample in the minibatch
         # gives back value of the loss individually for parameters of v and h
         # note QC instead of QRC (i.e. no regularization)
-        batch_loss = vmap_except(qc_loss, exclude=["epsilon"])
-        v_loss, h_loss, metrics = batch_loss(q, a, r, g, qp, h, epsilon)
+        v_loss, h_loss, metrics = qc_loss(q, a, r, g, qp, h, epsilon)
 
         h_loss = h_loss.mean()
         v_loss = v_loss.mean()
