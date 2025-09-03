@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from dataclasses import replace
 from functools import partial
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import flashbax as fbx
 import jax
@@ -10,11 +10,12 @@ import optax
 from ml_instrumentation.Collector import Collector
 
 import utils.chex as cxu
+from algorithms.BaseAgent import AgentState as BaseAgentState
 from algorithms.BaseAgent import BaseAgent
+from algorithms.BaseAgent import Hypers as BaseHypers
 from representations.networks import NetworkBuilder
 from utils.checkpoint import checkpointable
 from utils.policies import egreedy_probabilities
-from algorithms.BaseAgent import AgentState as BaseAgentState, Hypers as BaseHypers
 
 
 @cxu.dataclass
@@ -29,6 +30,10 @@ class OptimizerHypers:
 class Hypers(BaseHypers):
     epsilon: jax.Array
     optimizer: OptimizerHypers
+    total_steps: int
+    epsilon_linear_decay: Optional[float]
+    initial_epsilon: Optional[float]
+    final_epsilon: Optional[float]
 
 
 @cxu.dataclass
@@ -61,18 +66,19 @@ class NNAgent(BaseAgent):
         self.rep_params: Dict = params["representation"]
         self.optimizer_params: Dict = params["optimizer"]
 
-        self.epsilon_linear_decay = params.get("epsilon_linear_decay")
-        self.total_steps = params["total_steps"]
-        if self.epsilon_linear_decay is not None:
-            self.initial_epsilon = params["initial_epsilon"]
-            self.final_epsilon = params["final_epsilon"]
-            epsilon = self.initial_epsilon
+        total_steps = params["total_steps"]
+        epsilon_linear_decay = params.get("epsilon_linear_decay")
+        initial_epsilon = params.get("initial_epsilon")
+        final_epsilon = params.get("final_epsilon")
+        if epsilon_linear_decay is not None:
+            epsilon = initial_epsilon
         else:
             epsilon = params["epsilon"]
+
         assert epsilon is not None or (
-            self.epsilon_linear_decay is not None
-            and self.initial_epsilon is not None
-            and self.final_epsilon is not None
+            epsilon_linear_decay is not None
+            and initial_epsilon is not None
+            and final_epsilon is not None
         )
         self.reward_clip = params.get("reward_clip", 0)
 
@@ -142,6 +148,10 @@ class NNAgent(BaseAgent):
             **self.state.hypers.__dict__,
             epsilon=epsilon,
             optimizer=optimizer_hypers,
+            total_steps=total_steps,
+            epsilon_linear_decay=epsilon_linear_decay,
+            initial_epsilon=initial_epsilon,
+            final_epsilon=final_epsilon,
         )
         self.state = AgentState(
             **{k: v for k, v in self.state.__dict__.items() if k != "hypers"},
@@ -175,14 +185,16 @@ class NNAgent(BaseAgent):
     @partial(jax.jit, static_argnums=0)
     def _decay_epsilon(self, state: AgentState):
         epsilon = state.hypers.epsilon
-        if self.epsilon_linear_decay is not None:
-            decay_steps = self.epsilon_linear_decay * self.total_steps
+        if state.hypers.epsilon_linear_decay is not None:
+            assert state.hypers.initial_epsilon is not None
+            assert state.hypers.final_epsilon is not None
+            decay_steps = state.hypers.epsilon_linear_decay * state.hypers.total_steps
             progress = state.steps / decay_steps
             calculated_epsilon = (
-                self.initial_epsilon
-                + (self.final_epsilon - self.initial_epsilon) * progress
+                state.hypers.initial_epsilon
+                + (state.hypers.final_epsilon - state.hypers.initial_epsilon) * progress
             )
-            epsilon = jnp.maximum(calculated_epsilon, self.final_epsilon)
+            epsilon = jnp.maximum(calculated_epsilon, state.hypers.final_epsilon)
 
         hypers = replace(state.hypers, epsilon=epsilon)
         return replace(state, hypers=hypers)
