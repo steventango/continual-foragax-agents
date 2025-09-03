@@ -51,11 +51,11 @@ hyper_to_pretty_map = {
     "buffer_size": "Replay memory size",
     "buffer_min_size": "Minimum replay history",
     "buffer_strategy": "Buffer sampling strategy",
-    "epsilon": "\\epsilon-greedy \\epsilon",
-    "final_epsilon": "\\epsilon-greedy final \\epsilon",
-    "initial_epsilon": "\\epsilon-greedy initial \\epsilon",
-    "epsilon_linear_decay": "\\epsilon-greedy decay fraction",
-    "gamma": "Discount factor \\gamma",
+    "epsilon": "$\\epsilon$-greedy $\\epsilon$",
+    "final_epsilon": "$\\epsilon$-greedy final $\\epsilon$",
+    "initial_epsilon": "$\\epsilon$-greedy initial $\\epsilon$",
+    "epsilon_linear_decay": "$\\epsilon$-greedy decay fraction",
+    "gamma": "Discount factor $\\gamma$",
     "optimizer.alpha": "Step size",
     "optimizer.beta1": "Adam $\\beta_1$",
     "optimizer.beta2": "Adam $\\beta_2$",
@@ -134,6 +134,7 @@ def generate_hyper_sweep_table(env_reports: dict[str, dict[str, Any]], path: Pat
     default_algs = list(next(iter(env_reports.values())).keys())
     df_default.columns = ["Hyperparameter"] + default_algs
     df_default = df_default.set_index("Hyperparameter")
+    df_default = df_default.reindex(list(hyper_to_pretty_map))
     df_default = df_default.drop(index=drop_non_hypers, errors="ignore")
     df_default = df_default.rename(index=hyper_to_pretty_map)
     table_default = (
@@ -143,6 +144,24 @@ def generate_hyper_sweep_table(env_reports: dict[str, dict[str, Any]], path: Pat
     )
 
     df_selected = df[df.columns[:-1]]
+
+    # Create a mapping from old column names to new column names
+    # e.g., 'foragax-3-DQN' -> 'DQN-3'
+    new_columns = {}
+    for col in df_selected.columns:
+        parts = col.split("-")
+        env_name, aperture, alg = parts[0], parts[1], "-".join(parts[2:])
+        new_columns[col] = f"{alg}-{aperture}"
+
+    # Rename columns
+    df_selected = df_selected.rename(columns=new_columns)
+
+    # Sort columns based on aperture size (as integer) and then algorithm name
+    sorted_columns = sorted(
+        df_selected.columns, key=lambda x: (int(x.split("-")[-1]), x.split("-")[0])
+    )
+    df_selected = df_selected[sorted_columns]
+
     table_selected = (
         df_selected.style.map_index(lambda _: "font-weight: bold;", axis="columns")
         .format(format_default, escape="latex", na_rep="")
@@ -160,11 +179,11 @@ def format_default(s):
     string = f"{s:g}"
     string = string.replace("1e-08", "$10^{-8}$")
     string = string.replace("1e-05", "$10^{-5}$")
-    string = string.replace("3e-05", r"$3 \times 10^{-5}$")
+    string = string.replace("3e-05", "$3 \\times 10^{-5}$")
     string = string.replace("0.0001", "$10^{-4}$")
-    string = string.replace("0.0003", r"$3 \times 10^{-4}$")
+    string = string.replace("0.0003", "$3 \\times 10^{-4}$")
     string = string.replace("0.001", "$10^{-3}$")
-    string = string.replace("0.003", r"$3 \times 10^{-3}$")
+    string = string.replace("0.003", "$3 \\times 10^{-3}$")
     string = string.replace("0.01", "$10^{-2}$")
     return string
 
