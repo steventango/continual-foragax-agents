@@ -127,7 +127,9 @@ for path in missing:
 
         if sub.gpus:
             # run all seeds on one gpu
-            parallel = runner + " ".join([str(idx) for idx in l])
+            parallel = ""
+            for g in group(l, groupSize // sub.sequential):
+                parallel += runner + " ".join([str(idx) for idx in g]) + "\n"
         else:
             # generate the gnu-parallel command for dispatching to many CPUs across server nodes
             parallel = buildParallel(runner, l, sub)
