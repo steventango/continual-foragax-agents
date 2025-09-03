@@ -1,3 +1,4 @@
+from dataclasses import replace
 from functools import partial
 from typing import Any, Dict, Tuple
 
@@ -10,14 +11,22 @@ from ml_instrumentation.Collector import Collector
 
 import utils.chex as cxu
 from algorithms.nn.NNAgent import AgentState as BaseAgentState
+from algorithms.nn.NNAgent import Hypers as BaseHypers
 from algorithms.nn.NNAgent import NNAgent
 from representations.networks import NetworkBuilder
 from utils.jax import huber_loss
 
 
 @cxu.dataclass
+class Hypers(BaseHypers):
+    target_refresh: int
+
+
+@cxu.dataclass
 class AgentState(BaseAgentState):
     target_params: Any
+    hypers: Hypers
+
 
 def q_loss(q, a, r, gamma, qp):
     vp = qp.max()
@@ -41,18 +50,15 @@ class DQN(NNAgent):
     ):
         super().__init__(observations, actions, params, collector, seed)
         # set up the target network parameters
-        self.target_refresh = params["target_refresh"]
+        hypers = Hypers(
+            **self.state.hypers.__dict__,
+            target_refresh=params["target_refresh"],
+        )
 
         self.state = AgentState(
-            params=self.state.params,
+            **{k: v for k, v in self.state.__dict__.items() if k != "hypers"},
             target_params=self.state.params,
-            buffer_state=self.state.buffer_state,
-            optim=self.state.optim,
-            key=self.state.key,
-            last_timestep=self.state.last_timestep,
-            steps=self.state.steps,
-            updates=self.state.updates,
-            epsilon=self.state.epsilon,
+            hypers=hypers,
         )
 
     # ------------------------
@@ -71,10 +77,7 @@ class DQN(NNAgent):
         self.state = self._maybe_update(self.state)
 
     @partial(jax.jit, static_argnums=0)
-    def _maybe_update(
-        self,
-        state: AgentState,
-    ):
+    def _maybe_update(self, state: AgentState):
         # only update every `update_freq` steps
         # skip updates if the buffer isn't full yet
         return jax.lax.cond(
@@ -86,7 +89,7 @@ class DQN(NNAgent):
 
     @partial(jax.jit, static_argnums=0)
     def _update(self, state: AgentState):
-        state.updates += 1
+        updates = state.updates + 1
 
         state.key, buffer_sample_key = jax.random.split(state.key)
         batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
@@ -96,17 +99,22 @@ class DQN(NNAgent):
         )
 
         priorities = metrics["delta"]
-        state.buffer_state = self.buffer.set_priorities(
+        buffer_state = self.buffer.set_priorities(
             state.buffer_state, batch.indices, priorities
         )
 
-        state.target_params = jax.lax.cond(
-            state.updates % self.target_refresh == 0,
+        target_params = jax.lax.cond(
+            updates % state.hypers.target_refresh == 0,
             lambda: state.params,
             lambda: state.target_params,
         )
 
-        return state
+        return replace(
+            state,
+            updates=updates,
+            buffer_state=buffer_state,
+            target_params=target_params,
+        )
 
     # -------------
     # -- Updates --
@@ -115,23 +123,11 @@ class DQN(NNAgent):
     def _computeUpdate(self, state: AgentState, batch: Dict, weights: jax.Array):
         grad_fn = jax.grad(self._loss, has_aux=True)
         grad, metrics = grad_fn(state.params, state.target_params, batch, weights)
-
-        updates, optim = self.optimizer.update(grad, state.optim, state.params)
+        optimizer = optax.adam(**state.hypers.optimizer.__dict__)
+        updates, optim = optimizer.update(grad, state.optim, state.params)
         params = optax.apply_updates(state.params, updates)
 
-        new_state = AgentState(
-            params=params,
-            target_params=state.target_params,
-            buffer_state=state.buffer_state,
-            optim=optim,
-            key=state.key,
-            last_timestep=state.last_timestep,
-            steps=state.steps,
-            updates=state.updates,
-            epsilon=state.epsilon,
-        )
-
-        return new_state, metrics
+        return replace(state, params=params, optim=optim), metrics
 
     def _loss(
         self, params: hk.Params, target: hk.Params, batch: Dict, weights: jax.Array

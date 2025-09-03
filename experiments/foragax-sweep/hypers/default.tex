@@ -1,13 +1,13 @@
-\begin{tabular}{lll}
- & \bfseries DQN & \bfseries EQRC \\
-Hyperparameter &  &  \\
-\epsilon-greedy \epsilon & 0.05 & 0.05 \\
-environment.aperture_size & 5 & 5 \\
-representation.hidden & 64 & 64 \\
-Adam $\beta_1$ & 0.9 & 0.9 \\
-Optimizer & ADAM & ADAM \\
-Minimum replay history & 10000 & 10000 \\
-Replay memory size & 10000 & 10000 \\
-Minibatch size & 32 & 32 \\
-Target network update frequency & 128 &  \\
+\begin{tabular}{ll}
+ & \bfseries DQN \\
+Hyperparameter &  \\
+Adam $\beta_1$ & 0.9 \\
+\epsilon-greedy final \epsilon & 0.05 \\
+\epsilon-greedy initial \epsilon & 1 \\
+Optimizer & Adam \\
+Replay memory size & 10000 \\
+Minibatch size & 32 \\
+Discount factor \gamma & 0.99 \\
+Update frequency & 4 \\
+\epsilon-greedy decay fraction & 0.8 \\
 \end{tabular}

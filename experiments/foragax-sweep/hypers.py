@@ -40,6 +40,7 @@ def main():
                 continue
 
             print(f"{env} {alg}")
+            print(df)
             report = Hypers.select_best_hypers(
                 df,
                 metric="mean_ewm_reward",

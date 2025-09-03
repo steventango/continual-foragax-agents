@@ -1,7 +1,7 @@
 import json
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 
 sys.path.append(os.getcwd() + "/src")
 
@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
-from rlevaluation.interpolation import compute_step_return
 from rlevaluation.statistics import Statistic
 from rlevaluation.temporal import (
     curve_percentile_bootstrap_ci,
@@ -85,11 +84,11 @@ if __name__ == "__main__":
                 df,
                 hyper_vals=hyper_vals,
                 metric="ewm_reward",
-                interpolation=lambda x, y: compute_step_return(x, y, exp.total_steps),
             )
 
-            xs = np.asarray(xs)[:, :: exp.total_steps // 1000]
-            ys = np.asarray(ys)[:, :: exp.total_steps // 1000]
+            xs = np.asarray(xs)
+            ys = np.asarray(ys)
+            print(ys.shape)
             assert np.all(np.isclose(xs[0], xs))
 
             res = curve_percentile_bootstrap_ci(

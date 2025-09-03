@@ -1,24 +1,43 @@
 from abc import abstractmethod
 from dataclasses import replace
 from functools import partial
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import flashbax as fbx
 import jax
 import jax.numpy as jnp
-
 import optax
 from ml_instrumentation.Collector import Collector
 
 import utils.chex as cxu
+from algorithms.BaseAgent import AgentState as BaseAgentState
 from algorithms.BaseAgent import BaseAgent
+from algorithms.BaseAgent import Hypers as BaseHypers
 from representations.networks import NetworkBuilder
 from utils.checkpoint import checkpointable
 from utils.policies import egreedy_probabilities
 
 
 @cxu.dataclass
-class AgentState:
+class OptimizerHypers:
+    learning_rate: float
+    b1: float
+    b2: float
+    eps: float
+
+
+@cxu.dataclass
+class Hypers(BaseHypers):
+    epsilon: jax.Array
+    optimizer: OptimizerHypers
+    total_steps: int
+    epsilon_linear_decay: Optional[float]
+    initial_epsilon: Optional[float]
+    final_epsilon: Optional[float]
+
+
+@cxu.dataclass
+class AgentState(BaseAgentState):
     params: Any
     optim: optax.OptState
     buffer_state: Any
@@ -26,7 +45,7 @@ class AgentState:
     last_timestep: Dict[str, jax.Array]
     steps: int
     updates: int
-    epsilon: jax.Array
+    hypers: Hypers
 
 
 @checkpointable(("buffer", "steps", "state", "updates"))
@@ -47,18 +66,19 @@ class NNAgent(BaseAgent):
         self.rep_params: Dict = params["representation"]
         self.optimizer_params: Dict = params["optimizer"]
 
-        self.epsilon_linear_decay = params.get("epsilon_linear_decay")
-        self.total_steps = params["total_steps"]
-        if self.epsilon_linear_decay is not None:
-            self.initial_epsilon = params["initial_epsilon"]
-            self.final_epsilon = params["final_epsilon"]
-            self.epsilon = self.initial_epsilon
+        total_steps = params["total_steps"]
+        epsilon_linear_decay = params.get("epsilon_linear_decay")
+        initial_epsilon = params.get("initial_epsilon")
+        final_epsilon = params.get("final_epsilon")
+        if epsilon_linear_decay is not None:
+            epsilon = initial_epsilon
         else:
-            self.epsilon = params["epsilon"]
-        assert self.epsilon is not None or (
-            self.epsilon_linear_decay is not None
-            and self.initial_epsilon is not None
-            and self.final_epsilon is not None
+            epsilon = params["epsilon"]
+
+        assert epsilon is not None or (
+            epsilon_linear_decay is not None
+            and initial_epsilon is not None
+            and final_epsilon is not None
         )
         self.reward_clip = params.get("reward_clip", 0)
 
@@ -73,13 +93,14 @@ class NNAgent(BaseAgent):
         # ---------------
         # -- Optimizer --
         # ---------------
-        self.optimizer = optax.adam(
-            self.optimizer_params["alpha"],
-            self.optimizer_params["beta1"],
-            self.optimizer_params["beta2"],
-            self.optimizer_params["eps"],
+        optimizer_hypers = OptimizerHypers(
+            learning_rate=self.optimizer_params["alpha"],
+            b1=self.optimizer_params["beta1"],
+            b2=self.optimizer_params["beta2"],
+            eps=self.optimizer_params["eps"],
         )
-        opt_state = self.optimizer.init(net_params)
+        optimizer = optax.adam(**optimizer_hypers.__dict__)
+        opt_state = optimizer.init(net_params)
 
         # ------------------
         # -- Data ingress --
@@ -94,7 +115,7 @@ class NNAgent(BaseAgent):
         self.update_freq = params.get("update_freq", 1)
         self.priority_exponent = params.get("priority_exponent", 0.0)
 
-        self.buffer = fbx.make_prioritised_trajectory_buffer(
+        buffer = fbx.make_prioritised_trajectory_buffer(
             max_length_time_axis=self.buffer_size,
             min_length_time_axis=self.buffer_min_size,
             sample_batch_size=self.batch_size,
@@ -103,12 +124,13 @@ class NNAgent(BaseAgent):
             period=1,
             priority_exponent=self.priority_exponent,
         )
-        self.buffer = self.buffer.replace(
-            init=jax.jit(self.buffer.init),
-            add=jax.jit(self.buffer.add, donate_argnums=(0,)),
-            sample=jax.jit(self.buffer.sample),
-            can_sample=jax.jit(self.buffer.can_sample),
-            set_priorities=jax.jit(self.buffer.set_priorities, donate_argnums=(0,)),
+        self.buffer = replace(
+            buffer,
+            init=jax.jit(buffer.init),
+            add=jax.jit(buffer.add, donate_argnums=(0,)),
+            sample=jax.jit(buffer.sample),
+            can_sample=jax.jit(buffer.can_sample),
+            set_priorities=jax.jit(buffer.set_priorities, donate_argnums=(0,)),
         )
 
         dummy_timestep = {
@@ -122,7 +144,17 @@ class NNAgent(BaseAgent):
         # --------------------------
         # -- Stateful information --
         # --------------------------
+        hypers = Hypers(
+            **self.state.hypers.__dict__,
+            epsilon=epsilon,
+            optimizer=optimizer_hypers,
+            total_steps=total_steps,
+            epsilon_linear_decay=epsilon_linear_decay,
+            initial_epsilon=initial_epsilon,
+            final_epsilon=final_epsilon,
+        )
         self.state = AgentState(
+            **{k: v for k, v in self.state.__dict__.items() if k != "hypers"},
             params=net_params,
             optim=opt_state,
             buffer_state=buffer_state,
@@ -130,7 +162,7 @@ class NNAgent(BaseAgent):
             last_timestep=dummy_timestep,
             steps=0,
             updates=0,
-            epsilon=self.epsilon,
+            hypers=hypers,
         )
 
     # ------------------------
@@ -148,35 +180,42 @@ class NNAgent(BaseAgent):
 
     @abstractmethod
     @partial(jax.jit, static_argnums=0)
-    def _maybe_update(self, state: AgentState, key: jax.Array) -> AgentState: ...
+    def _maybe_update(self, state: AgentState) -> AgentState: ...
 
     @partial(jax.jit, static_argnums=0)
     def _decay_epsilon(self, state: AgentState):
-        if self.epsilon_linear_decay is not None:
-            decay_steps = self.epsilon_linear_decay * self.total_steps
+        epsilon = state.hypers.epsilon
+        if state.hypers.epsilon_linear_decay is not None:
+            assert state.hypers.initial_epsilon is not None
+            assert state.hypers.final_epsilon is not None
+            decay_steps = state.hypers.epsilon_linear_decay * state.hypers.total_steps
             progress = state.steps / decay_steps
             calculated_epsilon = (
-                self.initial_epsilon
-                + (self.final_epsilon - self.initial_epsilon) * progress
+                state.hypers.initial_epsilon
+                + (state.hypers.final_epsilon - state.hypers.initial_epsilon) * progress
             )
-            state.epsilon = jnp.maximum(calculated_epsilon, self.final_epsilon)
-        return state
+            epsilon = jnp.maximum(calculated_epsilon, state.hypers.final_epsilon)
+
+        hypers = replace(state.hypers, epsilon=epsilon)
+        return replace(state, hypers=hypers)
 
     def policy(self, obs: jax.Array) -> jax.Array:
         q = self.values(obs)
-        pi = egreedy_probabilities(q, self.actions, self.state.epsilon)
+        pi = egreedy_probabilities(q, self.actions, self.state.hypers.epsilon)
         return pi
 
     @partial(jax.jit, static_argnums=0)
     def _policy(self, state: AgentState, obs: jax.Array) -> jax.Array:
         obs = jnp.expand_dims(obs, 0)
         q = self._values(state, obs)[0]
-        pi = egreedy_probabilities(q, self.actions, state.epsilon)
+        pi = egreedy_probabilities(q, self.actions, state.hypers.epsilon)
         return pi
 
     @partial(jax.jit, static_argnums=0)
     def act(
-        self, state: AgentState, obs: jax.Array,
+        self,
+        state: AgentState,
+        obs: jax.Array,
     ) -> tuple[AgentState, jax.Array]:
         pi = self._policy(state, obs)
         state.key, sample_key = jax.random.split(state.key)
@@ -224,7 +263,13 @@ class NNAgent(BaseAgent):
         return a
 
     @partial(jax.jit, static_argnums=0)
-    def _step(self, state: AgentState, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
+    def _step(
+        self,
+        state: AgentState,
+        reward: jax.Array,
+        obs: jax.Array,
+        extra: Dict[str, jax.Array],
+    ):
         state, a = self.act(state, obs)
 
         # see if the problem specified a discount term
@@ -237,15 +282,14 @@ class NNAgent(BaseAgent):
         state.last_timestep.update(
             {
                 "r": reward,
-                "gamma": jnp.float32(self.gamma * gamma),
+                "gamma": jnp.float32(state.hypers.gamma * gamma),
             }
         )
         batch_sequence = jax.tree.map(
             lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), state.last_timestep
         )
-        state.buffer_state = self.buffer.add(
-            state.buffer_state, batch_sequence
-        )
+        buffer_state = self.buffer.add(state.buffer_state, batch_sequence)
+        state = replace(state, buffer_state=buffer_state)
         state.last_timestep.update(
             {
                 "x": obs,
@@ -262,7 +306,7 @@ class NNAgent(BaseAgent):
 
     @partial(jax.jit, static_argnums=0)
     def _end(self, state, reward: jax.Array, extra: Dict[str, jax.Array]):
-         # possibly process the reward
+        # possibly process the reward
         if self.reward_clip > 0:
             reward = jnp.clip(reward, -self.reward_clip, self.reward_clip)
 
@@ -275,9 +319,8 @@ class NNAgent(BaseAgent):
         batch_sequence = jax.tree.map(
             lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), state.last_timestep
         )
-        state.buffer_state = self.buffer.add(
-            state.buffer_state, batch_sequence
-        )
+        buffer_state = self.buffer.add(state.buffer_state, batch_sequence)
+        state = replace(state, buffer_state=buffer_state)
         state = self._maybe_update(state)
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)

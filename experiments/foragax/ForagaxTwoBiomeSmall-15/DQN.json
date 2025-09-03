@@ -16,9 +16,9 @@
             "aperture_size": 15
         },
         "experiment": {
-            "seed_offset": 1000000
+            "seed_offset": 0
         },
-        "gamma": 0.9,
+        "gamma": 0.99,
         "optimizer": {
             "name": "Adam",
             "alpha": 0.001,

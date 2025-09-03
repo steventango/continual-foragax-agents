@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PyExpPlotting.matplot import save, setDefaultConference
 from rlevaluation.config import data_definition
-from rlevaluation.interpolation import compute_step_return
 from rlevaluation.statistics import Statistic
 from rlevaluation.temporal import (
     curve_percentile_bootstrap_ci,
@@ -27,11 +26,15 @@ COLORS = {
     "EQRC": "purple",
     "ESARSA": "tab:orange",
     "SoftmaxAC": "tab:green",
+    "Random": "black",
 }
 ORDER = {
     "Random": 0,
     "Greedy": 2,
     "Greedy-122": 1,
+}
+SPECIAL = {
+    "Random",
 }
 
 if __name__ == "__main__":
@@ -72,7 +75,6 @@ if __name__ == "__main__":
                 df,
                 hyper_vals=hyper_vals,
                 metric="ewm_reward",
-                interpolation=lambda x, y: compute_step_return(x, y, exp.total_steps),
             )
 
             xs = np.asarray(xs)
@@ -93,7 +95,7 @@ if __name__ == "__main__":
                 statistic=Statistic.mean,
             )
 
-            if alg not in special:
+            if alg not in SPECIAL:
                 name = alg.split("-")[0]
                 apertures[name].append(aperture)
                 auc[name].append(res.sample_stat)
@@ -134,8 +136,7 @@ if __name__ == "__main__":
     for (alg, report), color in zip(
         sorted(special.items(), key=lambda x: ORDER[x[0]]),
         [
-            COLORS["ESARSA"],
-            COLORS["SoftmaxAC"],
+            COLORS["Random"],
         ],
         strict=True,
     ):
@@ -152,8 +153,8 @@ if __name__ == "__main__":
         )
         ax.fill_between(
             a,
-            [report.ci[0]] * len(a),
-            [report.ci[1]] * len(a),
+            np.repeat(report.ci[0], len(a)),
+            np.repeat(report.ci[1], len(a)),
             color=color,
             alpha=0.4,
         )

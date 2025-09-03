@@ -1,19 +1,35 @@
+from dataclasses import replace
 from functools import partial
 from typing import Dict, Tuple
-from ml_instrumentation.Collector import Collector
 
-from algorithms.nn.NNAgent import NNAgent, AgentState
-from representations.networks import NetworkBuilder
-from utils.jax import vmap_except, argmax_with_random_tie_breaking
-
+import haiku as hk
 import jax
 import jax.numpy as jnp
 import optax
-import haiku as hk
+from ml_instrumentation.Collector import Collector
+
+import utils.chex as cxu
 import utils.hk as hku
+from algorithms.nn.NNAgent import (
+    AgentState as NNAgentState,
+    Hypers as NNAgentHypers,
+    NNAgent,
+)
+from representations.networks import NetworkBuilder
+from utils.jax import argmax_with_random_tie_breaking, vmap_except
 
 tree_leaves = jax.tree_util.tree_leaves
 tree_map = jax.tree_util.tree_map
+
+
+@cxu.dataclass
+class Hypers(NNAgentHypers):
+    beta: float
+
+
+@cxu.dataclass
+class AgentState(NNAgentState):
+    hypers: Hypers
 
 
 class EQRC(NNAgent):
@@ -26,8 +42,10 @@ class EQRC(NNAgent):
         seed: int,
     ):
         super().__init__(observations, actions, params, collector, seed)
-        self.beta = params.get("beta", 1.0)
-        self.stepsize = self.optimizer_params["alpha"]
+        beta = params.get("beta", 1.0)
+
+        hypers = Hypers(**self.state.hypers.__dict__, beta=beta)
+        self.state = replace(self.state, hypers=hypers)
 
     # ------------------------
     # -- NN agent interface --
@@ -54,14 +72,12 @@ class EQRC(NNAgent):
         return self.q(state.params, phi)
 
     def update(self):
-        self.state, self.steps, self.key = self._maybe_update(
+        self.state = self._maybe_update(
             self.state,
         )
 
     @partial(jax.jit, static_argnums=0)
     def _maybe_update(self, state: AgentState):
-        state.steps += 1
-
         # only update every `update_freq` steps
         # skip updates if the buffer isn't full yet
         return jax.lax.cond(
@@ -78,11 +94,11 @@ class EQRC(NNAgent):
         state, metrics = self._computeUpdate(state, batch.experience)
 
         priorities = metrics["delta"]
-        state.buffer_state = self.buffer.set_priorities(
+        buffer_state = self.buffer.set_priorities(
             state.buffer_state, batch.indices, priorities
         )
 
-        return state
+        return replace(state, buffer_state=buffer_state, updates=state.updates + 1)
 
     # -------------
     # -- Updates --
@@ -93,13 +109,16 @@ class EQRC(NNAgent):
     @partial(jax.jit, static_argnums=0)
     def _computeUpdate(self, state: AgentState, batch: Dict):
         params = state.params
-        grad, metrics = jax.grad(self._loss, has_aux=True)(params, state.epsilon, batch)
-
-        updates, new_optim = self.optimizer.update(grad, state.optim, params)
+        hypers = state.hypers
+        grad, metrics = jax.grad(self._loss, has_aux=True)(
+            params, hypers.epsilon, batch
+        )
+        optimizer = optax.adam(**hypers.optimizer.__dict__)
+        updates, new_optim = optimizer.update(grad, state.optim, params)
         assert isinstance(updates, dict)
 
         decay = tree_map(
-            lambda h, dh: dh - self.stepsize * self.beta * h,
+            lambda h, dh: dh - hypers.optimizer.learning_rate * hypers.beta * h,
             params["h"],
             updates["h"],  # type: ignore
         )
@@ -107,13 +126,7 @@ class EQRC(NNAgent):
         updates |= {"h": decay}
         new_params = optax.apply_updates(params, updates)
 
-        new_state = state.replace(
-            params=new_params,
-            optim=new_optim,
-            buffer_state=state.buffer_state,
-        )
-
-        return new_state, metrics
+        return replace(state, params=new_params, optim=new_optim), metrics
 
     # compute the total QRC loss for both sets of parameters (value parameters and h parameters)
     def _loss(self, params, epsilon, batch: Dict):

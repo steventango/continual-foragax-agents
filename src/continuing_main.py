@@ -11,6 +11,7 @@ import argparse
 import numpy as np
 import jax
 import jax.numpy as jnp
+from jax.tree_util import tree_map
 from experiment import ExperimentModel
 from utils.checkpoint import Checkpoint
 from utils.preempt import TimeoutHandler
@@ -64,10 +65,21 @@ exp = ExperimentModel.load(args.exp)
 indices = args.idxs
 
 Problem = getProblem(exp.problem)
+
+# --------------------
+# -- Batch Set-up --
+# --------------------
+start_time = time.time()
+
+collectors = []
+glues = []
+chks = []
+first_hypers = None
 for idx in indices:
     chk = Checkpoint(exp, idx, base_path=args.checkpoint_path)
     chk.load_if_exists()
     timeout_handler.before_cancel(chk.save)
+    chks.append(chk)
 
     collector = chk.build(
         "collector",
@@ -80,7 +92,7 @@ for idx in indices:
             config={
                 "ewm_reward": Pipe(
                     MovingAverage(0.999),
-                    Subsample(exp.total_steps // 1000),
+                    Subsample(max(exp.total_steps // 1000, 1)),
                 ),
                 "mean_ewm_reward": Last(
                     MovingAverage(0.999),
@@ -92,11 +104,24 @@ for idx in indices:
         ),
     )
     collector.set_experiment_id(idx)
+    collectors.append(collector)
+
     run = exp.getRun(idx)
 
     # set random seeds accordingly
     hypers = exp.get_hypers(idx)
-    seed = run + hypers.get("experiment", {}).get("seed_offset", 0)
+    if not first_hypers:
+        first_hypers = hypers
+
+    # validate that shape changing hypers are static.
+    assert hypers.get("batch") == first_hypers.get("batch")
+    assert hypers.get("buffer_size") == first_hypers.get("buffer_size")
+    assert hypers.get("buffer_min_size") == first_hypers.get("buffer_min_size")
+    assert hypers.get("environment", {}).get("aperture_size") == first_hypers.get("environment", {}).get("aperture_size")
+    assert hypers.get("n_step") == first_hypers.get("n_step")
+    assert hypers.get("optimizer", {}).get("name") == first_hypers.get("optimizer", {}).get("name")
+    assert hypers.get("representation", {}).get("type") == first_hypers.get("representation", {}).get("type")
+    assert hypers.get("representation", {}).get("hidden") == first_hypers.get("representation", {}).get("hidden")
 
     # build stateful things and attach to checkpoint
     problem = chk.build("p", lambda: Problem(exp, idx, collector))
@@ -104,31 +129,63 @@ for idx in indices:
     env = chk.build("e", problem.getEnvironment)
 
     glue = chk.build("glue", lambda: RlGlue(agent, env))
+    glues.append(glue)
 
-    # Run the experiment
+# combine states
+glue_states = tree_map(lambda *leaves: jnp.stack(leaves), *[g.state for g in glues])
+
+# vmap glue methods
+v_start = jax.vmap(glues[0]._start)
+v_step = jax.vmap(glues[0]._step)
+
+total_setup_time = time.time() - start_time
+num_indices = len(indices)
+logger.debug("--- Batch Set-up Timings ---")
+logger.debug(f"Total setup time: {total_setup_time:.4f}s | Average: {total_setup_time / num_indices:.4f}s")
+
+# --------------------
+# -- Batch Execution --
+# --------------------
+
+# make the first interaction
+glue_states, _ = v_start(glue_states)
+
+n = exp.total_steps
+
+@scan_tqdm(n)
+def step(carry, _):
+    carry, interaction = v_step(carry)
+    return carry, interaction.reward
+
+glue_states, rewards = jax.lax.scan(step, glue_states, jnp.arange(n), unroll=1)
+
+# rewards is (steps, batch_size)
+# we want (batch_size, steps)
+rewards = rewards.T
+
+# --------------------
+# -- Saving --
+# --------------------
+total_collect_time = 0
+total_numpy_time = 0
+total_db_time = 0
+num_indices = len(indices)
+rewards = np.asarray(rewards)
+for i, idx in enumerate(indices):
+    collector = collectors[i]
+    chk = chks[i]
+
+    # process rewards for this run
+    run_rewards = rewards[i]
+
     start_time = time.time()
-
-    # if we haven't started yet, then make the first interaction
-    glue_state = glue.state
-    if glue.state.total_steps == 0:
-        glue_state, _ = glue._start(glue.state)
-
-    n = int(exp.total_steps - glue_state.total_steps)
-    unroll = (2 ** jnp.abs(jnp.log10(n) - 3)).astype(int).item()
-
-    @scan_tqdm(n)
-    def step(carry, _):
-        carry, interaction = glue._step(carry)
-        return carry, interaction.reward
-
-    glue_state, rewards = jax.lax.scan(step, glue_state, jnp.arange(n), unroll=unroll)
-
-    for reward in rewards:
+    for reward in run_rewards:
         collector.next_frame()
         collector.collect("ewm_reward", reward.item())
         collector.collect("mean_ewm_reward", reward.item())
-
     collector.reset()
+    total_collect_time += time.time() - start_time
+
     # ------------
     # -- Saving --
     # ------------
@@ -136,12 +193,25 @@ for idx in indices:
     save_path = context.resolve("results.db")
     data_path = context.resolve(f"data/{idx}.npz")
     context.ensureExists(data_path, is_file=True)
-    start = time.time()
-    np.savez_compressed(data_path, rewards=rewards)
-    end = time.time()
+
+    start_time = time.time()
+    np.savez_compressed(data_path, rewards=run_rewards)
+    total_numpy_time += time.time() - start_time
+
     meta = getParamsAsDict(exp, idx)
     meta |= {"seed": exp.getRun(idx)}
     attach_metadata(save_path, idx, meta)
+
+    start_time = time.time()
     collector.merge(context.resolve("results.db"))
+    total_db_time += time.time() - start_time
+
     collector.close()
     chk.delete()
+
+logger.debug("--- Saving Timings ---")
+logger.debug(f"Total collect time: {total_collect_time:.4f}s | Average: {total_collect_time / num_indices:.4f}s")
+logger.debug(f"Total numpy save time: {total_numpy_time:.4f}s | Average: {total_numpy_time / num_indices:.4f}s")
+logger.debug(f"Total db save time: {total_db_time:.4f}s | Average: {total_db_time / num_indices:.4f}s")
+total_save_time = total_collect_time + total_numpy_time + total_db_time
+logger.debug(f"Total save time: {total_save_time:.4f}s | Average: {total_save_time / num_indices:.4f}s")

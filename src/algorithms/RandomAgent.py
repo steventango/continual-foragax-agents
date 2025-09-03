@@ -2,7 +2,6 @@ from functools import partial
 from typing import Dict, Tuple
 
 import jax
-import numpy as np
 from ml_instrumentation.Collector import Collector
 
 import utils.chex as cxu
