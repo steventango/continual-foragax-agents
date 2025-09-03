@@ -144,7 +144,7 @@ class NNAgent(BaseAgent):
             optimizer=optimizer_hypers,
         )
         self.state = AgentState(
-            **self.state.__dict__,
+            **{k: v for k, v in self.state.__dict__.items() if k != "hypers"},
             params=net_params,
             optim=opt_state,
             buffer_state=buffer_state,
