@@ -31,6 +31,7 @@ class Hypers(BaseHypers):
     epsilon: jax.Array
     optimizer: OptimizerHypers
     total_steps: int
+    update_freq: int
     epsilon_linear_decay: Optional[float]
     initial_epsilon: Optional[float]
     final_epsilon: Optional[float]
@@ -112,7 +113,6 @@ class NNAgent(BaseAgent):
             self.buffer_min_size = self.buffer_size
         elif self.buffer_min_size == "batch_size":
             self.buffer_min_size = self.batch_size
-        self.update_freq = params.get("update_freq", 1)
         self.priority_exponent = params.get("priority_exponent", 0.0)
 
         buffer = fbx.make_prioritised_trajectory_buffer(
@@ -144,11 +144,13 @@ class NNAgent(BaseAgent):
         # --------------------------
         # -- Stateful information --
         # --------------------------
+        update_freq = params.get("update_freq", 1)
         hypers = Hypers(
             **self.state.hypers.__dict__,
             epsilon=epsilon,
             optimizer=optimizer_hypers,
             total_steps=total_steps,
+            update_freq=update_freq,
             epsilon_linear_decay=epsilon_linear_decay,
             initial_epsilon=initial_epsilon,
             final_epsilon=final_epsilon,
@@ -183,7 +185,7 @@ class NNAgent(BaseAgent):
         # only update every `update_freq` steps
         # skip updates if the buffer isn't full yet
         return jax.lax.cond(
-            (state.steps % self.update_freq == 0)
+            (state.steps % state.hypers.update_freq == 0)
             & self.buffer.can_sample(state.buffer_state),
             lambda: self._update(state),
             lambda: state,
