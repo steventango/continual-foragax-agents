@@ -169,7 +169,7 @@ total_collect_time = 0
 total_numpy_time = 0
 total_db_time = 0
 num_indices = len(indices)
-
+rewards = np.asarray(rewards)
 for i, idx in enumerate(indices):
     collector = collectors[i]
     chk = chks[i]
