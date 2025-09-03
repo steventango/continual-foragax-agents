@@ -176,11 +176,18 @@ class NNAgent(BaseAgent):
     def _values(self, state: AgentState, x: jax.Array) -> jax.Array: ...
 
     @abstractmethod
-    def update(self) -> None: ...
+    def _update(self, state: AgentState) -> AgentState: ...
 
-    @abstractmethod
     @partial(jax.jit, static_argnums=0)
-    def _maybe_update(self, state: AgentState) -> AgentState: ...
+    def _maybe_update(self, state: AgentState) -> AgentState:
+        # only update every `update_freq` steps
+        # skip updates if the buffer isn't full yet
+        return jax.lax.cond(
+            (state.steps % self.update_freq == 0)
+            & self.buffer.can_sample(state.buffer_state),
+            lambda: self._update(state),
+            lambda: state,
+        )
 
     @partial(jax.jit, static_argnums=0)
     def _decay_epsilon(self, state: AgentState):
