@@ -1,7 +1,8 @@
-\begin{tabular}{lll}
- & \bfseries DQN & \bfseries EQRC \\
-Hyperparameter &  &  \\
-Step size & $10^{-2}$ & $10^{-4}$ \\
-Adam $\beta_2$ & 0.9 & 0.9 \\
-Adam $\epsilon$ & $10^{-8}$ & $10^{-5}$ \\
+\begin{tabular}{llllllll}
+ & \bfseries ForagaxTwoBiomeSmall-5-DQN & \bfseries ForagaxTwoBiomeSmall-3-DQN & \bfseries ForagaxTwoBiomeSmall-15-DQN & \bfseries ForagaxTwoBiomeSmall-13-DQN & \bfseries ForagaxTwoBiomeSmall-11-DQN & \bfseries ForagaxTwoBiomeSmall-9-DQN & \bfseries ForagaxTwoBiomeSmall-7-DQN \\
+Hyperparameter &  &  &  &  &  &  &  \\
+Step size & $3 \times 10^{-3}$ & $10^{-4}$ & $10^{-3}$ & $10^{-3}$ & $10^{-3}$ & $10^{-3}$ & $10^{-3}$ \\
+Adam $\beta_2$ & 0.9 & 0.9 & 0.999 & 0.999 & 0.999 & 0.999 & 0.999 \\
+Adam $\epsilon$ & $10^{-8}$ & $10^{-8}$ & $10^{-8}$ & $10^{-8}$ & $10^{-8}$ & $10^{-8}$ & $10^{-8}$ \\
+Target network update frequency & 128 & 128 & 128 & 128 & 128 & 128 & 128 \\
 \end{tabular}

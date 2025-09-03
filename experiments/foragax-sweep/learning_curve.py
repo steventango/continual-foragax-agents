@@ -86,8 +86,9 @@ if __name__ == "__main__":
                 metric="ewm_reward",
             )
 
-            xs = np.asarray(xs)[:, :: exp.total_steps // 1000]
-            ys = np.asarray(ys)[:, :: exp.total_steps // 1000]
+            xs = np.asarray(xs)
+            ys = np.asarray(ys)
+            print(ys.shape)
             assert np.all(np.isclose(xs[0], xs))
 
             res = curve_percentile_bootstrap_ci(

@@ -7,7 +7,7 @@
     "epsilon_linear_decay": 0.8,
     "experiment.seed_offset": 1000000,
     "final_epsilon": 0.05,
-    "gamma": 0.9,
+    "gamma": 0.99,
     "initial_epsilon": 1,
     "optimizer.alpha": 0.001,
     "optimizer.beta1": 0.9,
