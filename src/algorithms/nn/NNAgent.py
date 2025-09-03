@@ -82,13 +82,17 @@ class NNAgent(BaseAgent):
             and final_epsilon is not None
         )
         self.reward_clip = params.get("reward_clip", 0)
+        self.hidden_size = self.rep_params["hidden"]
 
         # ---------------------
         # -- NN Architecture --
         # ---------------------
         builder = NetworkBuilder(observations, self.rep_params, seed)
         self._build_heads(builder)
-        self.phi = builder.getFeatureFunction()
+        if "GRU" in self.rep_params["type"]:
+            self.phi = builder.getRecurrentFeatureFunction()
+        else:
+            self.phi = builder.getFeatureFunction()
         net_params = builder.getParams()
 
         # ---------------
@@ -114,13 +118,14 @@ class NNAgent(BaseAgent):
         elif self.buffer_min_size == "batch_size":
             self.buffer_min_size = self.batch_size
         self.priority_exponent = params.get("priority_exponent", 0.0)
+        self.sequence_length = params.get("sequence_length", 1)
 
         buffer = fbx.make_prioritised_trajectory_buffer(
             max_length_time_axis=self.buffer_size,
             min_length_time_axis=self.buffer_min_size,
             sample_batch_size=self.batch_size,
             add_batch_size=1,
-            sample_sequence_length=self.n_step + 1,
+            sample_sequence_length=self.n_step + self.sequence_length,
             period=1,
             priority_exponent=self.priority_exponent,
         )

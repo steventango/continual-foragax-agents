@@ -35,6 +35,12 @@ class NetworkBuilder:
             return self._feat_net.apply(params["phi"], x)
 
         return _inner
+    
+    def getRecurrentFeatureFunction(self):
+        def _inner(params: Any, x: jax.Array | np.ndarray, reset: jax.Array | np.ndarray = None, carry: jax.Array | np.ndarray = None, is_target = False):
+            return self._feat_net.apply(params['phi'], x, reset=reset, carry=carry, is_target=is_target)
+
+        return _inner
 
     def addHead(
         self, module: ModuleBuilder, name: Optional[str] = None, grad: bool = True
@@ -55,7 +61,10 @@ class NetworkBuilder:
             return out
 
         sample_in = jnp.zeros((1,) + self._input_shape)
-        sample_phi = self._feat_net.apply(self._feat_params, sample_in).out
+        if 'GRU' in self._h_params['type']:
+            sample_phi = self._feat_net.apply(self._feat_params, sample_in)[0]
+        else:
+            sample_phi = self._feat_net.apply(self._feat_params, sample_in).out
 
         self._rng, rng = jax.random.split(self._rng)
         h_net = hk.without_apply_rng(hk.transform(_builder))
@@ -84,7 +93,7 @@ def reluLayers(layers: List[int], name: Optional[str] = None):
 
 
 def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
-    def _inner(x: jax.Array):
+    def _inner(x: jax.Array, *args, **kwargs):
         name = params["type"]
         hidden = params["hidden"]
 
@@ -111,6 +120,11 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 hk.Flatten(name="phi"),
             ]
             layers += reluLayers([hidden], name="phi")
+            
+        elif name == 'ForagerGRUNetReLU':
+            # It uses initializer different from above
+            net = ForagerGRUNetReLU(hidden=hidden, learn_initial_h=params.get('learn_initial_h', True), name='ForagerGRUNetReLU')
+            return net(x, *args, **kwargs)
 
         elif name == "AtariNet":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
@@ -152,3 +166,121 @@ def make_conv(size: int, shape: Tuple[int, int], stride: Tuple[int, int]):
         padding="VALID",
         name="conv",
     )
+
+class GRU(hk.Module):
+    def __init__(self, hidden: int, learn_initial_h=True, name: str = ""):
+        super().__init__(name=name)
+        self.hidden = hidden
+        w_init = hk.initializers.Orthogonal(np.sqrt(2))
+        self.gru = hk.GRU(self.hidden, name='gru_inner', w_h_init=w_init, w_i_init=w_init)
+        self.learn_initial_h = learn_initial_h
+        
+    def initial_state(self, batch=1, length=1):
+        if self.learn_initial_h:
+            init_h = hk.get_parameter("initial_h", shape=(self.hidden,), init=jnp.zeros)
+            init_h = jnp.repeat(init_h[None, :], batch, axis=0)
+            init_h = jnp.repeat(init_h[:, None, :], length, axis=1)
+        else:
+            # This is all zeros
+            init_h = jnp.repeat(self.gru.initial_state(batch_size=batch)[:, None, :], length, axis=1)
+        return init_h
+        
+    def gru_step(self, prev_state, inputs):
+        frame_feat, reset_flag, carry = inputs
+        # Reset state if flag is True.
+        prev_state = jax.lax.select(reset_flag, carry[None, :], prev_state)
+        # GRU expects inputs with a batch dimension.
+        output, next_state = self.gru(frame_feat[None, :], prev_state)
+        # Remove the extra batch dimension and return both output and next_state.
+        return next_state, (output[0], next_state[0])
+
+    def process_sequence(self, features_seq, reset_seq, carry_seq):
+        final_state, (outputs_seq, state_seq) = hk.scan(self.gru_step, carry_seq[:1, :], (features_seq, reset_seq, carry_seq))
+        return outputs_seq, state_seq
+    
+    def __call__(self, x: jnp.ndarray, reset: jnp.ndarray = None, carry: jnp.ndarray = None, is_target = False) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+        """
+        Args:
+          x: Input tensor with shape [N, T, ...]
+          reset: Optional binary flag sequence with shape [N, T] indicating when to reset the GRU state.
+                 For example, at episode boundaries.
+          carry: The initial hidden state for RNN.
+        
+        Returns:
+          outputs_sequence: Representation vectors sequence.
+          states_sequence: The hidden states sequence.
+        """
+
+        N, T, *_ = x.shape
+
+        if reset is None:
+            reset = jnp.zeros((N, T), dtype=bool)
+
+        if carry is None:
+            carry = self.initial_state(N, T)
+        elif len(carry.shape) < 3:
+            carry = carry[:, None, :]
+        
+        # Replace entries in carry where reset is true with the initial state
+        if self.learn_initial_h and not is_target:
+            init_state = self.initial_state(N, T)
+            carry = jnp.where(reset[..., None], init_state, carry)
+
+        # Vectorize the per-sequence unroll over the batch dimension.
+        # x has shape [N, T, ...] and reset has shape [N, T].
+        outputs_sequence, states_sequence = jax.vmap(self.process_sequence)(x, reset, carry)
+
+        # Return both the GRU outputs and hidden states across the entire sequence.
+        return outputs_sequence, states_sequence, self.initial_state(1, 1)[:, 0, ...]
+
+class ForagerGRUNetReLU(hk.Module):
+    def __init__(self, hidden: int, learn_initial_h=True, name: str = ""):
+        super().__init__(name=name)
+        self.hidden = hidden
+        w_init = hk.initializers.Orthogonal(np.sqrt(2))
+
+        self.conv = hk.Conv2D(16, 3, 2, w_init=w_init, name='phi')
+
+        self.flatten = hk.Flatten(preserve_dims=2, name='flatten')
+
+        self.gru = GRU(self.hidden, learn_initial_h=learn_initial_h, name='gru')
+        
+        self.phi = hk.Flatten(preserve_dims=2, name='phi')
+
+    def __call__(self, x: jnp.ndarray, reset: jnp.ndarray = None, carry: jnp.ndarray = None, is_target = False) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+        """
+        Args:
+          x: Input tensor with shape [N, T, ...]
+          reset: Optional binary flag sequence with shape [N, T] indicating when to reset the GRU state.
+                 For example, at episode boundaries.
+          carry: The initial hidden state for RNN.
+        
+        Returns:
+          outputs_sequence: Representation vectors sequence.
+          states_sequence: The hidden states sequence.
+        """
+        # Add temporal dimension if given a single slice
+        if (len(x.shape) < 5):
+            x = x[:, None]
+        
+        N, T, *feat = x.shape
+        
+        x = jnp.reshape(x, (N * T, *feat))
+
+        h = self.conv(x)
+        h = jax.nn.relu(h)
+        
+        _, *feat = h.shape
+        
+        h = jnp.reshape(h, (N, T, *feat))
+        
+        h = self.flatten(h)
+        
+        outputs_sequence, states_sequence, initial_carry = self.gru(h, reset, carry, is_target=is_target)
+        
+        outputs_sequence = jax.nn.relu(outputs_sequence)
+        
+        outputs_sequence = self.phi(outputs_sequence)
+
+        # Return both the GRU outputs and hidden states across the entire sequence along with initial hidden state
+        return outputs_sequence, states_sequence, initial_carry
