@@ -114,10 +114,11 @@ for idx in indices:
         first_hypers = hypers
 
     # validate that shape changing hypers are static.
+    assert hypers.get("batch") == first_hypers.get("batch")
     assert hypers.get("buffer_size") == first_hypers.get("buffer_size")
     assert hypers.get("buffer_min_size") == first_hypers.get("buffer_min_size")
-    assert hypers.get("batch") == first_hypers.get("batch")
     assert hypers.get("environment", {}).get("aperture_size") == first_hypers.get("environment", {}).get("aperture_size")
+    assert hypers.get("n_step") == first_hypers.get("n_step")
     assert hypers.get("optimizer", {}).get("name") == first_hypers.get("optimizer", {}).get("name")
     assert hypers.get("representation", {}).get("type") == first_hypers.get("representation", {}).get("type")
     assert hypers.get("representation", {}).get("hidden") == first_hypers.get("representation", {}).get("hidden")
