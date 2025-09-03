@@ -14,6 +14,7 @@ from algorithms.BaseAgent import BaseAgent
 from representations.networks import NetworkBuilder
 from utils.checkpoint import checkpointable
 from utils.policies import egreedy_probabilities
+from algorithms.BaseAgent import AgentState as BaseAgentState, Hypers as BaseHypers
 
 
 @cxu.dataclass
@@ -25,13 +26,13 @@ class OptimizerHypers:
 
 
 @cxu.dataclass
-class Hypers:
+class Hypers(BaseHypers):
     epsilon: jax.Array
     optimizer: OptimizerHypers
 
 
 @cxu.dataclass
-class AgentState:
+class AgentState(BaseAgentState):
     params: Any
     optim: optax.OptState
     buffer_state: Any
@@ -137,8 +138,13 @@ class NNAgent(BaseAgent):
         # --------------------------
         # -- Stateful information --
         # --------------------------
-        hypers = Hypers(epsilon=epsilon, optimizer=optimizer_hypers)
+        hypers = Hypers(
+            **self.state.hypers.__dict__,
+            epsilon=epsilon,
+            optimizer=optimizer_hypers,
+        )
         self.state = AgentState(
+            **self.state.__dict__,
             params=net_params,
             optim=opt_state,
             buffer_state=buffer_state,
@@ -264,7 +270,7 @@ class NNAgent(BaseAgent):
         state.last_timestep.update(
             {
                 "r": reward,
-                "gamma": jnp.float32(self.gamma * gamma),
+                "gamma": jnp.float32(state.hypers.gamma * gamma),
             }
         )
         batch_sequence = jax.tree.map(

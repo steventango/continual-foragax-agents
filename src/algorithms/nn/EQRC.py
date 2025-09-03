@@ -8,13 +8,28 @@ import jax.numpy as jnp
 import optax
 from ml_instrumentation.Collector import Collector
 
+import utils.chex as cxu
 import utils.hk as hku
-from algorithms.nn.NNAgent import AgentState, NNAgent
+from algorithms.nn.NNAgent import (
+    AgentState as NNAgentState,
+    Hypers as NNAgentHypers,
+    NNAgent,
+)
 from representations.networks import NetworkBuilder
 from utils.jax import argmax_with_random_tie_breaking, vmap_except
 
 tree_leaves = jax.tree_util.tree_leaves
 tree_map = jax.tree_util.tree_map
+
+
+@cxu.dataclass
+class Hypers(NNAgentHypers):
+    beta: float
+
+
+@cxu.dataclass
+class AgentState(NNAgentState):
+    hypers: Hypers
 
 
 class EQRC(NNAgent):
@@ -27,8 +42,10 @@ class EQRC(NNAgent):
         seed: int,
     ):
         super().__init__(observations, actions, params, collector, seed)
-        self.beta = params.get("beta", 1.0)
-        self.stepsize = self.optimizer_params["alpha"]
+        beta = params.get("beta", 1.0)
+
+        hypers = Hypers(**self.state.hypers.__dict__, beta=beta)
+        self.state = replace(self.state, hypers=hypers)
 
     # ------------------------
     # -- NN agent interface --
@@ -101,7 +118,7 @@ class EQRC(NNAgent):
         assert isinstance(updates, dict)
 
         decay = tree_map(
-            lambda h, dh: dh - self.stepsize * self.beta * h,
+            lambda h, dh: dh - hypers.optimizer.learning_rate * hypers.beta * h,
             params["h"],
             updates["h"],  # type: ignore
         )

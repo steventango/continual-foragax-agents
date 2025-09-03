@@ -4,7 +4,18 @@ import jax
 import numpy as np
 from ml_instrumentation.Collector import Collector
 
+import utils.chex as cxu
 from utils.rlglue import BaseAgent as Base
+
+
+@cxu.dataclass
+class Hypers:
+    gamma: float
+
+
+@cxu.dataclass
+class AgentState:
+    hypers: Hypers
 
 
 class BaseAgent(Base):
@@ -27,6 +38,10 @@ class BaseAgent(Base):
 
         self.gamma = params.get("gamma", 1)
         self.n_step = params.get("n_step", 1)
+
+        self.state = AgentState(
+            hypers=Hypers(gamma=self.gamma),
+        )
 
     def cleanup(self): ...
 
