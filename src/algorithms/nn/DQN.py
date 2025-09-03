@@ -56,7 +56,7 @@ class DQN(NNAgent):
         )
 
         self.state = AgentState(
-            **self.state.__dict__,
+            **{k: v for k, v in self.state.__dict__.items() if k != "hypers"},
             target_params=self.state.params,
             hypers=hypers,
         )
