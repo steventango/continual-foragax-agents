@@ -130,6 +130,13 @@ for idx in indices:
     glue = chk.build("glue", lambda: RlGlue(agent, env))
     glues.append(glue)
 
+# combine states
+glue_states = tree_map(lambda *leaves: jnp.stack(leaves), *[g.state for g in glues])
+
+# vmap glue methods
+v_start = jax.vmap(glues[0]._start)
+v_step = jax.vmap(glues[0]._step)
+
 total_setup_time = time.time() - start_time
 num_indices = len(indices)
 logger.debug("--- Batch Set-up Timings ---")
@@ -138,13 +145,6 @@ logger.debug(f"Total setup time: {total_setup_time:.4f}s | Average: {total_setup
 # --------------------
 # -- Batch Execution --
 # --------------------
-
-# combine states
-glue_states = tree_map(lambda *leaves: jnp.stack(leaves), *[g.state for g in glues])
-
-# vmap glue methods
-v_start = jax.vmap(glues[0]._start)
-v_step = jax.vmap(glues[0]._step)
 
 # make the first interaction
 glue_states, _ = v_start(glue_states)
