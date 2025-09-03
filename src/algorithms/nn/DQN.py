@@ -11,14 +11,21 @@ from ml_instrumentation.Collector import Collector
 
 import utils.chex as cxu
 from algorithms.nn.NNAgent import AgentState as BaseAgentState
+from algorithms.nn.NNAgent import Hypers as BaseHypers
 from algorithms.nn.NNAgent import NNAgent
 from representations.networks import NetworkBuilder
 from utils.jax import huber_loss
 
 
 @cxu.dataclass
+class Hypers(BaseHypers):
+    target_refresh: int
+
+
+@cxu.dataclass
 class AgentState(BaseAgentState):
     target_params: Any
+    hypers: Hypers
 
 
 def q_loss(q, a, r, gamma, qp):
@@ -43,10 +50,15 @@ class DQN(NNAgent):
     ):
         super().__init__(observations, actions, params, collector, seed)
         # set up the target network parameters
-        self.target_refresh = params["target_refresh"]
+        hypers = Hypers(
+            **self.state.hypers.__dict__,
+            target_refresh=params["target_refresh"],
+        )
 
         self.state = AgentState(
-            **self.state.__dict__, target_params=self.state.params
+            **self.state.__dict__,
+            target_params=self.state.params,
+            hypers=hypers,
         )
 
     # ------------------------
@@ -92,7 +104,7 @@ class DQN(NNAgent):
         )
 
         target_params = jax.lax.cond(
-            updates % self.target_refresh == 0,
+            updates % state.hypers.target_refresh == 0,
             lambda: state.params,
             lambda: state.target_params,
         )
