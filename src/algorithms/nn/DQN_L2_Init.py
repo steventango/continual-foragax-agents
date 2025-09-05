@@ -27,7 +27,7 @@ class AgentState(BaseAgentState):
     hypers: Hypers
 
 
-class W0_DQN(DQN):
+class DQN_L2_Init(DQN):
     def __init__(
         self,
         observations: tuple,

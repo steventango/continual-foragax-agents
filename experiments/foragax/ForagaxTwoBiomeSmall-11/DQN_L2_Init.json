@@ -1,5 +1,5 @@
 {
-    "agent": "W0-DQN",
+    "agent": "DQN_L2_Init",
     "problem": "Foragax",
     "total_steps": 500000,
     "episode_cutoff": -1,
@@ -13,18 +13,18 @@
         "batch": 32,
         "environment": {
             "env_id": "ForagaxTwoBiomeSmall",
-            "aperture_size": 15
+            "aperture_size": 11
         },
         "experiment": {
             "seed_offset": 0
         },
         "gamma": 0.99,
-        "lambda_w0": 0.01,
+        "lambda_w0": 0.001,
         "optimizer": {
             "name": "Adam",
-            "alpha": 0.0001,
+            "alpha": 0.001,
             "beta1": 0.9,
-            "beta2": 0.999,
+            "beta2": 0.9,
             "eps": 1e-08
         },
         "representation": {
