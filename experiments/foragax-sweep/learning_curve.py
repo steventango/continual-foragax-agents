@@ -29,6 +29,15 @@ COLORS = {
     "DQN-11": "#b260ff",
     "DQN-13": "#d72dff",
     "DQN-15": "#ff00ff",
+
+    "W0-DQN-3": "#ff0000",
+    "W0-DQN-5": "#ff2a00",
+    "W0-DQN-7": "#ff5400",
+    "W0-DQN-9": "#ff7e00",
+    "W0-DQN-11": "#ffa800",
+    "W0-DQN-13": "#ffd200",
+    "W0-DQN-15": "#fffc00",
+
     "Random": "black",
 }
 
