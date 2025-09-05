@@ -10,9 +10,6 @@ from algorithms.tc.SoftmaxAC import SoftmaxAC
 
 
 def getAgent(name) -> Type[BaseAgent]:
-    if name == "DQN":
-        return DQN
-
     if name == "W0-DQN":
         return W0_DQN
 
@@ -27,5 +24,8 @@ def getAgent(name) -> Type[BaseAgent]:
 
     if name == "Random":
         return RandomAgent
+
+    if name.startswith("DQN"):
+        return DQN
 
     raise Exception("Unknown algorithm")
