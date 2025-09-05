@@ -47,6 +47,7 @@ def main():
                 prefer=Hypers.Preference.high,
                 time_summary=TimeSummary.mean,
                 statistic=Statistic.mean,
+                threshold=0.01,
             )
             Hypers.pretty_print(report)
             best_configuration = {

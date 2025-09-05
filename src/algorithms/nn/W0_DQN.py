@@ -43,7 +43,7 @@ class W0_DQN(DQN):
         )
 
         self.state = AgentState(
-            **self.state.__dict__,
+            **{k: v for k, v in self.state.__dict__.items() if k != "hypers"},
             initial_params=self.state.params,
             hypers=hypers,
         )
