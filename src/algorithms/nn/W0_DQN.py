@@ -39,7 +39,7 @@ class W0_DQN(DQN):
         super().__init__(observations, actions, params, collector, seed)
         hypers = Hypers(
             **self.state.hypers.__dict__,
-            lambda_w0=params["w0_regularization"],
+            lambda_w0=params["lambda_w0"],
         )
 
         self.state = AgentState(
