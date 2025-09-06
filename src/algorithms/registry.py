@@ -4,6 +4,7 @@ from algorithms.BaseAgent import BaseAgent
 from algorithms.RandomAgent import RandomAgent
 from algorithms.nn.DQN import DQN
 from algorithms.nn.DRQN import DRQN
+from algorithms.nn.MADRQN import MADRQN
 from algorithms.nn.EQRC import EQRC
 from algorithms.nn.W0_DQN import W0_DQN
 from algorithms.tc.ESARSA import ESARSA
@@ -16,6 +17,9 @@ def getAgent(name) -> Type[BaseAgent]:
     
     if name == "DRQN":
         return DRQN
+    
+    if name == "MADRQN":
+        return MADRQN
 
     if name == "W0-DQN":
         return W0_DQN

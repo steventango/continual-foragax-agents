@@ -34,7 +34,7 @@ def q_loss(q, a, r, gamma, qp):
     }
 
 
-class DRQN(NNAgent):
+class MADRQN(NNAgent):
     def __init__(
         self,
         observations: Tuple,
@@ -51,6 +51,7 @@ class DRQN(NNAgent):
             "x": jnp.zeros(self.observations),
             "carry": jnp.zeros(self.hidden_size),
             "reset": jnp.bool(True),
+            "last_a": jnp.int32(-1),
             "a": jnp.int32(0),
             "r": jnp.float32(0),
             "gamma": jnp.float32(0),
@@ -69,9 +70,9 @@ class DRQN(NNAgent):
             updates=self.state.updates,
             epsilon=self.state.epsilon,
         )
-        
+
     def get_feature_function(self, builder: NetworkBuilder):
-        return builder.getRecurrentFeatureFunction()
+        return builder.getMultiplicativeActionRecurrentFeatureFunction()
 
     # ------------------------
     # -- NN agent interface --
@@ -81,22 +82,22 @@ class DRQN(NNAgent):
 
     # internal compiled version of the value function
     @partial(jax.jit, static_argnums=0)
-    def _values(self, state: AgentState, x: jax.Array, carry: jax.Array = None):  # type: ignore
-        phi = self.phi(state.params, x, carry=carry)
+    def _values(self, state: AgentState, x: jax.Array, last_a: jax.Array, carry: jax.Array = None):  # type: ignore
+        phi = self.phi(state.params, x, a=last_a, carry=carry)
         return self.q(state.params, phi[0][:, -1]), phi[1][:, -1], phi[2]
     
     @partial(jax.jit, static_argnums=0)
-    def _policy(self, state: AgentState, obs: jax.Array) -> Tuple[jax.Array, jax.Array]:
+    def _policy(self, state: AgentState, obs: jax.Array, last_a: jax.Array,) -> Tuple[jax.Array, jax.Array]:
         obs = jnp.expand_dims(obs, 0)
-        q, carry, _ = self._values(state, obs, carry=state.carry)
+        q, carry, _ = self._values(state, obs, last_a, carry=state.carry)
         pi = egreedy_probabilities(q, self.actions, state.epsilon)[0]
         return pi, carry
     
     @partial(jax.jit, static_argnums=0)
     def act(
-        self, state: AgentState, obs: jax.Array,
+        self, state: AgentState, obs: jax.Array, last_a: jax.Array
     ) -> tuple[AgentState, jax.Array]:
-        pi, state.carry = self._policy(state, obs)
+        pi, state.carry = self._policy(state, obs, last_a)
         state.key, sample_key = jax.random.split(state.key)
         a = jax.random.choice(sample_key, self.actions, p=pi)
         return state, a
@@ -177,14 +178,15 @@ class DRQN(NNAgent):
         x = batch["x"][:, :-1]
         xp = batch["x"][:, 1:]
         a = batch["a"][:, :-1]
+        last_a = batch["last_a"][:, :-1]
         r = batch["r"][:, :-1]
         g = batch["gamma"][:, :-1]
         carry = batch["carry"][:, :-1]
         carryp = batch["carry"][:, 1:]
         reset = batch["reset"][:, :-1]
 
-        phi = self.phi(params, x, carry=carry, reset=reset, is_target=False)[0]
-        phi_p = self.phi(target, xp, carry=carryp, reset=reset, is_target=True)[0]
+        phi = self.phi(params, x, a=last_a, carry=carry, reset=reset, is_target=False)[0]
+        phi_p = self.phi(target, xp, a=last_a, carry=carryp, reset=reset, is_target=True)[0]
 
         qs = self.q(params, phi)
         qsp = self.q(target, phi_p)
@@ -208,7 +210,12 @@ class DRQN(NNAgent):
     @partial(jax.jit, static_argnums=0)
     def _start(self, state: AgentState, obs: jax.Array):
         state.carry = None
-        state, a = self.act(state, obs)
+        state.last_timestep.update(
+            {
+                "last_a": jnp.int32(-1)
+            }
+        )
+        state, a = self.act(state, obs, state.last_timestep["last_a"])
         state.last_timestep.update(
             {
                 "x": obs,
@@ -223,8 +230,6 @@ class DRQN(NNAgent):
 
     @partial(jax.jit, static_argnums=0)
     def _step(self, state: AgentState, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
-        state, a = self.act(state, obs)
-
         # see if the problem specified a discount term
         gamma = extra.get("gamma", 1.0)
 
@@ -244,6 +249,12 @@ class DRQN(NNAgent):
         state.buffer_state = self.buffer.add(
             state.buffer_state, batch_sequence
         )
+        state.last_timestep.update(
+            {
+                "last_a": state.last_timestep["a"]
+            }
+        )
+        state, a = self.act(state, obs, jnp.array(state.last_timestep["last_a"]))
         state.last_timestep.update(
             {
                 "x": obs,
