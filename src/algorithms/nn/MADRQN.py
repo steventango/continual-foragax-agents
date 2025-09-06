@@ -21,6 +21,8 @@ from utils.policies import egreedy_probabilities
 @cxu.dataclass
 class Hypers(BaseHypers):
     target_refresh: int
+    sequence_length: int
+    burn_in_steps: int
 
 @cxu.dataclass
 class AgentState(BaseAgentState):
@@ -66,6 +68,8 @@ class MADRQN(NNAgent):
         hypers = Hypers(
             **self.state.hypers.__dict__,
             target_refresh=params["target_refresh"],
+            sequence_length=self.sequence_length,
+            burn_in_steps=params.get("burn_in_steps", 0)
         )
 
         self.state = AgentState(
@@ -75,6 +79,8 @@ class MADRQN(NNAgent):
             carry=None,
             hypers=hypers,
         )
+        
+        self.burn_in_steps = self.state.hypers.burn_in_steps
 
     def get_feature_function(self, builder: NetworkBuilder):
         return builder.getMultiplicativeActionRecurrentFeatureFunction()
@@ -150,6 +156,7 @@ class MADRQN(NNAgent):
         self, params: hk.Params, target: hk.Params, batch: Dict, weights: jax.Array
     ):
         B, T = batch["a"][:, :-1].shape
+        weights = jnp.broadcast_to(weights[:, None], (B, T))
         x = batch["x"][:, :-1]
         xp = batch["x"][:, 1:]
         a = batch["a"][:, :-1]
@@ -159,6 +166,22 @@ class MADRQN(NNAgent):
         carry = batch["carry"][:, :-1]
         carryp = batch["carry"][:, 1:]
         reset = batch["reset"][:, :-1]
+                 
+        # Perform burn-in
+        if self.burn_in_steps > 0:
+            b_x, x = jnp.hsplit(x, [self.burn_in_steps])
+            b_xp, xp = jnp.hsplit(xp, [self.burn_in_steps])
+            b_reset, reset = jnp.hsplit(reset, [self.burn_in_steps])
+            b_carry, carry = jnp.hsplit(carry, [self.burn_in_steps])
+            b_carryp, carryp = jnp.hsplit(carryp, [self.burn_in_steps])
+            b_last_a, last_a = jnp.hsplit(last_a, [self.burn_in_steps])
+            _, a = jnp.hsplit(a, [self.burn_in_steps])
+            _, r = jnp.hsplit(r, [self.burn_in_steps])
+            _, g = jnp.hsplit(g, [self.burn_in_steps])
+            _, weights = jnp.hsplit(weights, [self.burn_in_steps])
+            
+            carry = carry.at[:, 0].set(jax.lax.stop_gradient(self.phi(params, b_x, a=b_last_a, carry=b_carry, reset=b_reset, is_target=False)[1][:, -1, ...]))
+            carryp = carryp.at[:, 0].set(jax.lax.stop_gradient(self.phi(target, b_xp, a=b_last_a, carry=b_carryp, reset=b_reset, is_target=True)[1][:, -1, ...]))
 
         phi = self.phi(params, x, a=last_a, carry=carry, reset=reset, is_target=False)[0]
         phi_p = self.phi(target, xp, a=last_a, carry=carryp, reset=reset, is_target=True)[0]
@@ -171,7 +194,6 @@ class MADRQN(NNAgent):
         a = a.ravel()
         r = r.ravel()
         g = g.ravel()
-        weights = jnp.repeat(weights, T)
         weights = weights.ravel()
 
         batch_loss = jax.vmap(q_loss, in_axes=0)
