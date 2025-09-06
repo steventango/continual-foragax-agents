@@ -112,6 +112,15 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
             ]
             layers += reluLayers([hidden], name="phi")
 
+        elif name == "ForagerNet2":
+            w_init = hk.initializers.Orthogonal(np.sqrt(2))
+            layers = [
+                hk.Conv2D(16, 3, 1, w_init=w_init, name="phi"),
+                jax.nn.relu,
+                hk.Flatten(name="phi"),
+            ]
+            layers += reluLayers([hidden, hidden], name="phi")
+
         elif name == "AtariNet":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
             layers = [
