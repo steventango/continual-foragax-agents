@@ -12,15 +12,20 @@ from ml_instrumentation.Collector import Collector
 import flashbax as fbx
 import utils.chex as cxu
 from algorithms.nn.NNAgent import AgentState as BaseAgentState
+from algorithms.nn.NNAgent import Hypers as BaseHypers
 from algorithms.nn.NNAgent import NNAgent
 from representations.networks import NetworkBuilder
 from utils.jax import huber_loss
 from utils.policies import egreedy_probabilities
 
+@cxu.dataclass
+class Hypers(BaseHypers):
+    target_refresh: int
 
 @cxu.dataclass
 class AgentState(BaseAgentState):
     target_params: Any
+    hypers: Hypers
     carry: Any
 
 def q_loss(q, a, r, gamma, qp):
@@ -58,17 +63,17 @@ class MADRQN(NNAgent):
         }
         buffer_state = self.buffer.init(dummy_timestep)
 
+        hypers = Hypers(
+            **self.state.hypers.__dict__,
+            target_refresh=params["target_refresh"],
+        )
+
         self.state = AgentState(
-            params=self.state.params,
+            **{k: v for k, v in self.state.__dict__.items() if k != "hypers" and k != "buffer_state"},
             target_params=self.state.params,
             buffer_state=buffer_state,
-            optim=self.state.optim,
-            key=self.state.key,
             carry=None,
-            last_timestep=dummy_timestep,
-            steps=self.state.steps,
-            updates=self.state.updates,
-            epsilon=self.state.epsilon,
+            hypers=hypers,
         )
 
     def get_feature_function(self, builder: NetworkBuilder):
@@ -90,7 +95,7 @@ class MADRQN(NNAgent):
     def _policy(self, state: AgentState, obs: jax.Array, last_a: jax.Array,) -> Tuple[jax.Array, jax.Array]:
         obs = jnp.expand_dims(obs, 0)
         q, carry, _ = self._values(state, obs, last_a, carry=state.carry)
-        pi = egreedy_probabilities(q, self.actions, state.epsilon)[0]
+        pi = egreedy_probabilities(q, self.actions, self.state.hypers.epsilon)[0]
         return pi, carry
     
     @partial(jax.jit, static_argnums=0)
@@ -101,23 +106,6 @@ class MADRQN(NNAgent):
         state.key, sample_key = jax.random.split(state.key)
         a = jax.random.choice(sample_key, self.actions, p=pi)
         return state, a
-
-    def update(self):
-        self.state = self._maybe_update(self.state)
-
-    @partial(jax.jit, static_argnums=0)
-    def _maybe_update(
-        self,
-        state: AgentState,
-    ):
-        # only update every `update_freq` steps
-        # skip updates if the buffer isn't full yet
-        return jax.lax.cond(
-            (state.steps % self.update_freq == 0)
-            & self.buffer.can_sample(state.buffer_state),
-            lambda: self._update(state),
-            lambda: state,
-        )
 
     @partial(jax.jit, static_argnums=0)
     def _update(self, state: AgentState):
@@ -137,7 +125,7 @@ class MADRQN(NNAgent):
         # )
 
         state.target_params = jax.lax.cond(
-            state.updates % self.target_refresh == 0,
+            state.updates % state.hypers.target_refresh == 0,
             lambda: state.params,
             lambda: state.target_params,
         )
@@ -151,24 +139,11 @@ class MADRQN(NNAgent):
     def _computeUpdate(self, state: AgentState, batch: Dict, weights: jax.Array):
         grad_fn = jax.grad(self._loss, has_aux=True)
         grad, metrics = grad_fn(state.params, state.target_params, batch, weights)
-
-        updates, optim = self.optimizer.update(grad, state.optim, state.params)
+        optimizer = optax.adam(**state.hypers.optimizer.__dict__)
+        updates, optim = optimizer.update(grad, state.optim, state.params)
         params = optax.apply_updates(state.params, updates)
 
-        new_state = AgentState(
-            params=params,
-            target_params=state.target_params,
-            buffer_state=state.buffer_state,
-            optim=optim,
-            key=state.key,
-            carry=state.carry,
-            last_timestep=state.last_timestep,
-            steps=state.steps,
-            updates=state.updates,
-            epsilon=state.epsilon,
-        )
-
-        return new_state, metrics
+        return replace(state, params=params, optim=optim), metrics
 
     # Of shape: <batch, sequence, *feat>
     def _loss(
