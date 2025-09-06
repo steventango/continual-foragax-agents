@@ -134,21 +134,20 @@ if __name__ == "__main__":
 
     a = np.unique(np.concatenate(list(apertures.values())))
 
-    for (alg, report), color in zip(
-        sorted(special.items(), key=lambda x: ORDER[x[0]]),
-        [
-            COLORS["Random"],
-        ],
-        strict=True,
-    ):
+    # plot any special (aperture-invariant) algorithms if present
+    for alg, report in sorted(special.items(), key=lambda x: ORDER.get(x[0], 0)):
+        # map internal names to nicer legend labels
+        legend_name = alg
         if alg == "Greedy":
-            alg = "Search Oracle"
-        if alg == "Greedy-122":
-            alg = "Search Nearest"
+            legend_name = "Search Oracle"
+        elif alg == "Greedy-122":
+            legend_name = "Search Nearest"
+
+        color = COLORS.get(alg, "gray")
         ax.plot(
             a,
             [report.sample_stat] * len(a),
-            label=alg,
+            label=legend_name,
             color=color,
             linewidth=1,
         )
