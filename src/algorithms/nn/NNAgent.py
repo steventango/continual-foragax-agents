@@ -90,10 +90,7 @@ class NNAgent(BaseAgent):
         # ---------------------
         self.builder = NetworkBuilder(observations, self.rep_params, self.key)
         self._build_heads(self.builder)
-        if "GRU" in self.rep_params["type"]:
-            self.phi = builder.getRecurrentFeatureFunction()
-        else:
-            self.phi = builder.getFeatureFunction()
+        self.phi = self.get_feature_function(builder)
         net_params = self.builder.getParams()
 
         # ---------------
@@ -172,6 +169,9 @@ class NNAgent(BaseAgent):
             updates=0,
             hypers=hypers,
         )
+
+    def get_feature_function(self, builder: NetworkBuilder):
+        return builder.getFeatureFunction()
 
     # ------------------------
     # -- NN agent interface --
