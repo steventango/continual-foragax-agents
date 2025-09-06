@@ -109,13 +109,15 @@ class NNAgent(BaseAgent):
         # ------------------
         self.buffer_size = params["buffer_size"]
         self.batch_size = params["batch"]
+        self.sequence_length = params.get("sequence_length", 1)
         self.buffer_min_size = params.get("buffer_min_size", self.batch_size)
         if self.buffer_min_size == "buffer_size":
             self.buffer_min_size = self.buffer_size
         elif self.buffer_min_size == "batch_size":
             self.buffer_min_size = self.batch_size
+        elif self.buffer_min_size == "batch_size*sequence_length":
+            self.buffer_min_size = self.batch_size * self.sequence_length
         self.priority_exponent = params.get("priority_exponent", 0.0)
-        self.sequence_length = params.get("sequence_length", 1)
 
         buffer = fbx.make_prioritised_trajectory_buffer(
             max_length_time_axis=self.buffer_size,
