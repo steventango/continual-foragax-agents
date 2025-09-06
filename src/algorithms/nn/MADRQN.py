@@ -101,7 +101,7 @@ class MADRQN(NNAgent):
     def _policy(self, state: AgentState, obs: jax.Array, last_a: jax.Array,) -> Tuple[jax.Array, jax.Array]:
         obs = jnp.expand_dims(obs, 0)
         q, carry, _ = self._values(state, obs, last_a, carry=state.carry)
-        pi = egreedy_probabilities(q, self.actions, self.state.hypers.epsilon)[0]
+        pi = egreedy_probabilities(q, self.actions, state.hypers.epsilon)[0]
         return pi, carry
     
     @partial(jax.jit, static_argnums=0)
@@ -115,7 +115,7 @@ class MADRQN(NNAgent):
 
     @partial(jax.jit, static_argnums=0)
     def _update(self, state: AgentState):
-        state.updates += 1
+        updates = state.updates + 1
 
         state.key, buffer_sample_key = jax.random.split(state.key)
         batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
@@ -126,17 +126,22 @@ class MADRQN(NNAgent):
 
         # Not doing Prioritized Buffer for now
         # priorities = metrics["delta"]
-        # state.buffer_state = self.buffer.set_priorities(
+        # buffer_state = self.buffer.set_priorities(
         #     state.buffer_state, batch.indices, priorities
         # )
 
-        state.target_params = jax.lax.cond(
-            state.updates % state.hypers.target_refresh == 0,
+        target_params = jax.lax.cond(
+            updates % state.hypers.target_refresh == 0,
             lambda: state.params,
             lambda: state.target_params,
         )
 
-        return state
+        return replace(
+            state,
+            updates=updates,
+            # buffer_state=buffer_state,
+            target_params=target_params,
+        )
 
     # -------------
     # -- Updates --
@@ -237,15 +242,14 @@ class MADRQN(NNAgent):
         state.last_timestep.update(
             {
                 "r": reward,
-                "gamma": jnp.float32(self.gamma * gamma),
+                "gamma": jnp.float32(state.hypers.gamma * gamma),
             }
         )
         batch_sequence = jax.tree.map(
             lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), state.last_timestep
         )
-        state.buffer_state = self.buffer.add(
-            state.buffer_state, batch_sequence
-        )
+        buffer_state = self.buffer.add(state.buffer_state, batch_sequence)
+        state = replace(state, buffer_state=buffer_state)
         state.last_timestep.update(
             {
                 "last_a": state.last_timestep["a"]
@@ -280,9 +284,8 @@ class MADRQN(NNAgent):
         batch_sequence = jax.tree.map(
             lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), state.last_timestep
         )
-        state.buffer_state = self.buffer.add(
-            state.buffer_state, batch_sequence
-        )
+        buffer_state = self.buffer.add(state.buffer_state, batch_sequence)
+        state = replace(state, buffer_state=buffer_state)
         state = self._maybe_update(state)
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)
