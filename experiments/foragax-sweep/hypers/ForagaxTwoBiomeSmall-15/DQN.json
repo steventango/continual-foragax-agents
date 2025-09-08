@@ -9,13 +9,14 @@
     "final_epsilon": 0.05,
     "gamma": 0.99,
     "initial_epsilon": 1,
-    "optimizer.alpha": 0.001,
+    "optimizer.alpha": 0.0001,
     "optimizer.beta1": 0.9,
     "optimizer.beta2": 0.999,
     "optimizer.eps": 1e-08,
     "optimizer.name": "Adam",
     "representation.hidden": 64,
     "representation.type": "ForagerNet",
+    "reward_scale": 30,
     "target_refresh": 128,
     "update_freq": 4
 }

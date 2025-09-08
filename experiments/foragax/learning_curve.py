@@ -20,13 +20,13 @@ setDefaultConference("jmlr")
 setFonts(20)
 
 COLORS = {
-    "DQN-3": "#00ffff",
-    "DQN-5": "#3ddcff",
-    "DQN-7": "#57abff",
-    "DQN-9": "#8b8cff",
-    "DQN-11": "#b260ff",
-    "DQN-13": "#d72dff",
-    "DQN-15": "#ff00ff",
+    3: "#00ffff",
+    5: "#3ddcff",
+    7: "#57abff",
+    9: "#8b8cff",
+    11: "#b260ff",
+    13: "#d72dff",
+    15: "#ff00ff",
     "Random": "black",
 }
 
@@ -46,7 +46,7 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    fig, ax = plt.subplots(1, 1)
+    fig, axs = plt.subplots(2, 1, sharex=True, sharey='all')
 
     env = "unknown"
     for env_aperture, sub_results in sorted(
@@ -54,7 +54,9 @@ if __name__ == "__main__":
     ):
         env, aperture = env_aperture.split("-", 1)
         aperture = int(aperture)
-        for alg_result in sub_results:
+        for alg_result in sorted(
+            sub_results, key=lambda x: x.filename
+        ):
             alg = alg_result.filename
             print(f"{env_aperture} {alg}")
 
@@ -84,39 +86,49 @@ if __name__ == "__main__":
                 statistic=Statistic.mean,
                 iterations=10000,
             )
-
             if alg not in SINGLE:
                 label = f"{alg}-{aperture}"
+                color = COLORS[aperture]
             else:
                 label = alg
-            ax.plot(
-                xs[0],
-                res.sample_stat,
-                label=label,
-                color=COLORS[label],
-                linewidth=1.0,
-            )
-            if len(ys) >= 5:
-                ax.fill_between(
-                    xs[0], res.ci[0], res.ci[1], color=COLORS[label], alpha=0.2
-                )
+                color = COLORS[label]
+
+            if alg == "DQN":
+                axes = [axs[0]]
+            elif alg == "DQN_L2_Init":
+                axes = [axs[1]]
             else:
-                for y in ys:
-                    ax.plot(xs[0], y, color=COLORS[label], linewidth=0.2)
+                axes = axs
 
-        ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
-        ax.set_xlabel("Time steps")
-        ax.set_ylabel("Average Reward")
-        ax.legend(ncol=1, loc="center left", bbox_to_anchor=(1, 0.5), frameon=False)
+            for ax in axes:
+                ax.plot(
+                    xs[0],
+                    res.sample_stat,
+                    label=label,
+                    color=color,
+                    linewidth=1.0,
+                )
+                if len(ys) >= 5:
+                    ax.fill_between(
+                        xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2
+                    )
+                else:
+                    for y in ys:
+                        ax.plot(xs[0], y, color=color, linewidth=0.2)
 
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
+                ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+                ax.set_xlabel("Time steps")
+                ax.set_ylabel("Average Reward")
+                ax.legend(ncol=1, loc="center left", bbox_to_anchor=(1, 0.5), frameon=False)
 
-    path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
-    save(
-        save_path=f"{path}/plots",
-        plot_name=env,
-        save_type="pdf",
-        f=fig,
-        height_ratio=2 / 3,
-    )
+                ax.spines["top"].set_visible(False)
+                ax.spines["right"].set_visible(False)
+
+        path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
+        save(
+            save_path=f"{path}/plots",
+            plot_name=env,
+            save_type="pdf",
+            f=fig,
+            height_ratio=4 / 3,
+        )
