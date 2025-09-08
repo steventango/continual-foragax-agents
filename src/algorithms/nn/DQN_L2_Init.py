@@ -52,7 +52,12 @@ class DQN_L2_Init(DQN):
     def _computeUpdate(self, state: AgentState, batch: Dict, weights: jax.Array):
         grad_fn = jax.grad(self._loss_w0, has_aux=True)
         grad, metrics = grad_fn(
-            state.params, state.target_params, state.initial_params, batch, weights
+            state.params,
+            state.target_params,
+            state.initial_params,
+            batch,
+            weights,
+            state.hypers.lambda_w0,
         )
         optimizer = optax.adam(**state.hypers.optimizer.__dict__)
         updates, optim = optimizer.update(grad, state.optim, state.params)
@@ -67,10 +72,12 @@ class DQN_L2_Init(DQN):
         initial_params: hk.Params,
         batch: Dict,
         weights: jax.Array,
+        lambda_w0: float,
     ):
         q_l, metrics = super()._loss(params, target, batch, weights)
-        w0_loss = optax.l2_loss(ravel_pytree(params)[0], ravel_pytree(initial_params)[0]).sum()
-        hypers = self.state.hypers
-        reg_loss = hypers.lambda_w0 * w0_loss
+        w0_loss = optax.l2_loss(
+            ravel_pytree(params)[0], ravel_pytree(initial_params)[0]
+        ).sum()
+        reg_loss = lambda_w0 * w0_loss
         total_loss = q_l + reg_loss
         return total_loss, metrics
