@@ -22,9 +22,9 @@
         "lambda_w0": 0.1,
         "optimizer": {
             "name": "Adam",
-            "alpha": 3e-05,
+            "alpha": 0.003,
             "beta1": 0.9,
-            "beta2": 0.9,
+            "beta2": 0.999,
             "eps": 1e-08
         },
         "representation": {

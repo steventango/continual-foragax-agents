@@ -18,6 +18,6 @@
     "representation.hidden": 64,
     "representation.type": "ForagerNet",
     "reward_scale": 30,
-    "target_refresh": 1,
+    "target_refresh": 128,
     "update_freq": 4
 }
