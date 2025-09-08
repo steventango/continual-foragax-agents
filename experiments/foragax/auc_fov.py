@@ -23,7 +23,7 @@ METRIC = "reward"
 LAST_PERCENT = 0.1
 COLORS = {
     "DQN": "tab:blue",
-    "EQRC": "purple",
+    "DQN_L2_Init": "purple",
     "ESARSA": "tab:orange",
     "SoftmaxAC": "tab:green",
     "Random": "black",
