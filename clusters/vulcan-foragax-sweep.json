@@ -7,5 +7,5 @@
     "cores": 1,
     "mem_per_core": "4G",
     "sequential": 1,
-    "tasks_per_core": 800
+    "tasks_per_core": 600
 }
