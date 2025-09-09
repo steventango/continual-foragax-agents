@@ -16,6 +16,7 @@
     "optimizer.name": "Adam",
     "representation.hidden": 64,
     "representation.type": "ForagerNet",
-    "target_refresh": 128,
+    "reward_scale": 30,
+    "target_refresh": 1,
     "update_freq": 4
 }
