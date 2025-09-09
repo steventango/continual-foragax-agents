@@ -47,7 +47,7 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    fig, axs = plt.subplots(2, 1, sharex=True, sharey='all')
+    fig, axs = plt.subplots(3, 1, sharex=True, sharey='all')
 
     env = "unknown"
     for env_aperture, sub_results in sorted(
@@ -98,6 +98,8 @@ if __name__ == "__main__":
                 axes = [axs[0]]
             elif alg == "DQN_L2_Init":
                 axes = [axs[1]]
+            elif alg == "DQN_LN":
+                axes = [axs[2]]
             else:
                 axes = axs
 
@@ -131,5 +133,5 @@ if __name__ == "__main__":
             plot_name=env,
             save_type="pdf",
             f=fig,
-            height_ratio=4 / 3,
+            height_ratio=2,
         )
