@@ -25,7 +25,7 @@ LAST_PERCENT = 0.1
 COLORS = {
     "DQN": "tab:blue",
     "DQN_L2_Init": "purple",
-    "ESARSA": "tab:orange",
+    "DQN_LN": "tab:orange",
     "SoftmaxAC": "tab:green",
     "Random": "black",
 }
@@ -139,7 +139,7 @@ if __name__ == "__main__":
         [
             COLORS["Random"],
         ],
-        strict=True,
+        strict=False,
     ):
         if alg == "Greedy":
             alg = "Search Oracle"
