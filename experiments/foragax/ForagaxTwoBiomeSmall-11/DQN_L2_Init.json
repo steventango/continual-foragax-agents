@@ -31,6 +31,7 @@
             "type": "ForagerNet",
             "hidden": 64
         },
+        "reward_scale": 30,
         "update_freq": 4
     }
 }
