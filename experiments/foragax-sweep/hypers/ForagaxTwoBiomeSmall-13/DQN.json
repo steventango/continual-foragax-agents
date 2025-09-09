@@ -15,7 +15,7 @@
     "optimizer.eps": 1e-08,
     "optimizer.name": "Adam",
     "representation.hidden": 64,
-    "representation.type": "ForagerNet",
+    "representation.type": "Forager2Net",
     "target_refresh": 128,
     "update_freq": 4
 }
