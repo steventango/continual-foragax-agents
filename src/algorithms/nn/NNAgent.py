@@ -82,6 +82,7 @@ class NNAgent(BaseAgent):
             and final_epsilon is not None
         )
         self.reward_clip = params.get("reward_clip", 0)
+        self.reward_scale = params.get("reward_scale")
 
         # ---------------------
         # -- NN Architecture --
@@ -287,6 +288,8 @@ class NNAgent(BaseAgent):
         # possibly process the reward
         if self.reward_clip > 0:
             reward = jnp.clip(reward, -self.reward_clip, self.reward_clip)
+        if self.reward_scale is not None:
+            reward = reward / self.reward_scale
 
         state.last_timestep.update(
             {
@@ -318,6 +321,8 @@ class NNAgent(BaseAgent):
         # possibly process the reward
         if self.reward_clip > 0:
             reward = jnp.clip(reward, -self.reward_clip, self.reward_clip)
+        if self.reward_scale is not None:
+            reward = reward / self.reward_scale
 
         state.last_timestep.update(
             {

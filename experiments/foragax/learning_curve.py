@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
             if alg == "DQN":
                 axes = [axs[0]]
-            elif alg == "W0-DQN":
+            elif alg == "DQN_L2_Init":
                 axes = [axs[1]]
             else:
                 axes = axs
