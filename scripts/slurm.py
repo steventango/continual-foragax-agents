@@ -55,7 +55,7 @@ def getJobScript(parallel: str):
 #SBATCH --signal=B:SIGTERM@180
 
 cd {cwd}
-srun --ntasks=$SLURM_NNODES --ntasks-per-node=1 tar -xf {venv_origin} -C {venv}
+tar -xf {venv_origin} -C {venv}
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
