@@ -18,7 +18,7 @@ from algorithms.nn.DQN import Hypers as BaseHypers
 
 @cxu.dataclass
 class Hypers(BaseHypers):
-    lambda_w0: float
+    lambda_l2_init: float
 
 
 @cxu.dataclass
@@ -27,7 +27,7 @@ class AgentState(BaseAgentState):
     hypers: Hypers
 
 
-class W0_DQN(DQN):
+class DQN_L2_Init(DQN):
     def __init__(
         self,
         observations: tuple,
@@ -39,7 +39,7 @@ class W0_DQN(DQN):
         super().__init__(observations, actions, params, collector, seed)
         hypers = Hypers(
             **self.state.hypers.__dict__,
-            lambda_w0=params["lambda_w0"],
+            lambda_l2_init=params["lambda_l2_init"],
         )
 
         self.state = AgentState(
@@ -52,7 +52,12 @@ class W0_DQN(DQN):
     def _computeUpdate(self, state: AgentState, batch: Dict, weights: jax.Array):
         grad_fn = jax.grad(self._loss_w0, has_aux=True)
         grad, metrics = grad_fn(
-            state.params, state.target_params, state.initial_params, batch, weights
+            state.params,
+            state.target_params,
+            state.initial_params,
+            batch,
+            weights,
+            state.hypers.lambda_l2_init,
         )
         optimizer = optax.adam(**state.hypers.optimizer.__dict__)
         updates, optim = optimizer.update(grad, state.optim, state.params)
@@ -67,10 +72,12 @@ class W0_DQN(DQN):
         initial_params: hk.Params,
         batch: Dict,
         weights: jax.Array,
+        lambda_l2_init: float,
     ):
         q_l, metrics = super()._loss(params, target, batch, weights)
-        w0_loss = optax.l2_loss(ravel_pytree(params)[0], ravel_pytree(initial_params)[0]).sum()
-        hypers = self.state.hypers
-        reg_loss = hypers.lambda_w0 * w0_loss
+        w0_loss = optax.l2_loss(
+            ravel_pytree(params)[0], ravel_pytree(initial_params)[0]
+        ).sum()
+        reg_loss = lambda_l2_init * w0_loss
         total_loss = q_l + reg_loss
         return total_loss, metrics

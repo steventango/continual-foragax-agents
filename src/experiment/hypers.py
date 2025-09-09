@@ -45,6 +45,7 @@ hypers_searched = [
     "optimizer.beta2",
     "optimizer.eps",
     "target_refresh",
+    "lambda_l2_init",
 ]
 hyper_to_pretty_map = {
     "batch": "Minibatch size",
