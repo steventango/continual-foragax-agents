@@ -17,7 +17,7 @@
         },
 
         "representation": {
-            "type": "ForagerNet",
+            "type": "Forager2Net",
             "hidden": 64
         }
     }
