@@ -178,7 +178,11 @@ def format_default(s):
             return "Adam"
         return s
     string = f"{s:g}"
+    string = string.replace("1e-10", "$10^{-10}$")
+    string = string.replace("1e-09", "$10^{-9}$")
     string = string.replace("1e-08", "$10^{-8}$")
+    string = string.replace("1e-07", "$10^{-7}$")
+    string = string.replace("1e-06", "$10^{-6}$")
     string = string.replace("1e-05", "$10^{-5}$")
     string = string.replace("3e-05", "$3 \\times 10^{-5}$")
     string = string.replace("0.0001", "$10^{-4}$")
