@@ -6,7 +6,7 @@ sys.path.append(os.getcwd() + "/src")
 
 import matplotlib.pyplot as plt
 import numpy as np
-from PyExpPlotting.matplot import save, setDefaultConference
+from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 from rlevaluation.statistics import Statistic
 from rlevaluation.temporal import (
@@ -18,6 +18,7 @@ from experiment.ExperimentModel import ExperimentModel
 from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
+setFonts(20)
 
 METRIC = "reward"
 LAST_PERCENT = 0.1
@@ -57,9 +58,10 @@ if __name__ == "__main__":
 
     # group by aperture
     for env, sub_results in results.groupby_directory(level=2):
-        aperture = int(env.split("-")[-1])
+        aperture = int(env.rsplit("-", 1)[-1])
         for alg_result in sub_results:
             alg = alg_result.filename
+            print(f"{env} {alg}")
             df = alg_result.load()
             if df is None:
                 continue
@@ -96,11 +98,10 @@ if __name__ == "__main__":
             )
 
             if alg not in SPECIAL:
-                name = alg.split("-")[0]
-                apertures[name].append(aperture)
-                auc[name].append(res.sample_stat)
-                auc_ci_low[name].extend(res.ci[0])
-                auc_ci_high[name].extend(res.ci[1])
+                apertures[alg].append(aperture)
+                auc[alg].append(res.sample_stat)
+                auc_ci_low[alg].extend(res.ci[0])
+                auc_ci_high[alg].extend(res.ci[1])
             else:
                 special[alg] = res
 
@@ -164,7 +165,8 @@ if __name__ == "__main__":
     ax.set_xticks(a)
     ax.set_xticklabels([str(int(x)) for x in a])
 
-    ax.legend(ncol=2, frameon=False)
+    ax.legend(ncol=1, loc="center left", bbox_to_anchor=(1, 0.5), frameon=False)
+
     # ax.text(3, 1.3, "Search Oracle", color=COLORS["EQRC"])
     # right side
     # ax.text(15, 1.2, "DQN", color=COLORS["DQN"], ha="right")
@@ -180,4 +182,5 @@ if __name__ == "__main__":
         plot_name="auc_fov",
         save_type="pdf",
         f=f,
+        height_ratio=5 / 6,
     )
