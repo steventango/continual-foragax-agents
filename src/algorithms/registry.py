@@ -10,11 +10,11 @@ from algorithms.tc.SoftmaxAC import SoftmaxAC
 
 
 def getAgent(name) -> Type[BaseAgent]:
-    if name == "DQN":
-        return DQN
-
     if name == "DQN_L2_Init":
         return DQN_L2_Init
+
+    if name.startswith("DQN"):
+        return DQN
 
     if name == "EQRC":
         return EQRC

@@ -71,13 +71,15 @@ class NetworkBuilder:
         return _inner
 
 
-def reluLayers(layers: List[int], name: Optional[str] = None):
+def reluLayers(layers: List[int], name: Optional[str] = None, layer_norm: bool = False):
     w_init = hk.initializers.Orthogonal(np.sqrt(2))
     b_init = hk.initializers.Constant(0)
 
     out = []
     for width in layers:
         out.append(hk.Linear(width, w_init=w_init, b_init=b_init, name=name))
+        if layer_norm:
+            out.append(hk.LayerNorm(axis=-1, create_scale=True, create_offset=True))
         out.append(jax.nn.relu)
 
     return out
@@ -111,6 +113,16 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 hk.Flatten(name="phi"),
             ]
             layers += reluLayers([hidden], name="phi")
+
+        elif name == "ForagerLayerNormNet":
+            w_init = hk.initializers.Orthogonal(np.sqrt(2))
+            layers = [
+                hk.Conv2D(16, 3, 1, w_init=w_init, name="phi"),
+                hk.LayerNorm(axis=-1, create_scale=True, create_offset=True),
+                jax.nn.relu,
+                hk.Flatten(name="phi"),
+            ]
+            layers += reluLayers([hidden], name="phi", layer_norm=True)
 
         elif name == "AtariNet":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
