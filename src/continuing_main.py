@@ -142,6 +142,25 @@ for idx in indices:
     glue = chk.build("glue", lambda: RlGlue(agent, env))
     glues.append(glue)
 
+if len(glues) > 1:
+    # combine states
+    glue_states = tree_map(lambda *leaves: jnp.stack(leaves), *[g.state for g in glues])
+    # vmap glue methods
+    v_start = jax.vmap(glues[0]._start)
+    v_step = jax.vmap(glues[0]._step)
+else:
+    glue_states = glues[0].state
+    v_start = glues[0]._start
+    v_step = glues[0]._step
+
+total_setup_time = time.time() - start_time
+num_indices = len(indices)
+logger.debug("--- Batch Set-up Timings ---")
+logger.debug(
+    f"Total setup time: {total_setup_time:.4f}s | Average: {total_setup_time / num_indices:.4f}s"
+)
+
+
 # render video of first env
 if args.video:
     first_glue = glues[0]
@@ -172,20 +191,6 @@ if args.video:
         fps=8,
     )
 
-# combine states
-glue_states = tree_map(lambda *leaves: jnp.stack(leaves), *[g.state for g in glues])
-
-# vmap glue methods
-v_start = jax.vmap(glues[0]._start)
-v_step = jax.vmap(glues[0]._step)
-
-total_setup_time = time.time() - start_time
-num_indices = len(indices)
-logger.debug("--- Batch Set-up Timings ---")
-logger.debug(
-    f"Total setup time: {total_setup_time:.4f}s | Average: {total_setup_time / num_indices:.4f}s"
-)
-
 # --------------------
 # -- Batch Execution --
 # --------------------
@@ -203,6 +208,8 @@ def step(carry, _):
 
 
 glue_states, rewards = jax.lax.scan(step, glue_states, jnp.arange(n), unroll=1)
+
+rewards = jnp.atleast_2d(rewards)
 
 # rewards is (steps, batch_size)
 # we want (batch_size, steps)
