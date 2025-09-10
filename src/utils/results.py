@@ -52,7 +52,7 @@ def read_metrics_from_data(
             )
         datas[run_id] = datas[run_id].gather_every(max(1, len(datas[run_id]) // 500))
     if len(datas) == 0:
-        return pl.DataFrame()
+        return pl.DataFrame().lazy()
     df = pl.concat(datas.values())
     return df.lazy()
 
