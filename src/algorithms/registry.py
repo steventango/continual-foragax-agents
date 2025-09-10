@@ -2,8 +2,10 @@ from typing import Type
 
 from algorithms.BaseAgent import BaseAgent
 from algorithms.nn.DQN import DQN
+from algorithms.nn.DQN_Hare_and_Tortoise import DQN_Hare_and_Tortoise
 from algorithms.nn.DQN_L2_Init import DQN_L2_Init
 from algorithms.nn.DQN_Reset import DQN_Reset
+from algorithms.nn.DQN_Shrink_and_Perturb import DQN_Shrink_and_Perturb
 from algorithms.nn.EQRC import EQRC
 from algorithms.RandomAgent import RandomAgent
 from algorithms.SearchAgent import SearchAgent
@@ -17,6 +19,12 @@ def getAgent(name) -> Type[BaseAgent]:
 
     if name.startswith("DQN_Reset"):
         return DQN_Reset
+
+    if name.startswith("DQN_Shrink_and_Perturb"):
+        return DQN_Shrink_and_Perturb
+
+    if name.startswith("DQN_Hare_and_Tortoise"):
+        return DQN_Hare_and_Tortoise
 
     if name.startswith("DQN"):
         return DQN

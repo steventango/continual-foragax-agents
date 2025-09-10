@@ -89,11 +89,7 @@ class DQN(NNAgent):
             state.buffer_state, batch.indices, priorities
         )
 
-        target_params = jax.lax.cond(
-            updates % state.hypers.target_refresh == 0,
-            lambda: state.params,
-            lambda: state.target_params,
-        )
+        target_params = self._update_target_network(state, updates)
 
         return replace(
             state,
@@ -101,6 +97,15 @@ class DQN(NNAgent):
             buffer_state=buffer_state,
             target_params=target_params,
         )
+
+    @partial(jax.jit, static_argnums=0)
+    def _update_target_network(self, state: AgentState, updates: int):
+        target_params = jax.lax.cond(
+            updates % state.hypers.target_refresh == 0,
+            lambda: state.params,
+            lambda: state.target_params,
+        )
+        return target_params
 
     # -------------
     # -- Updates --
