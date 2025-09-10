@@ -1,5 +1,5 @@
 {
-    "agent": "DQN_Reset",
+    "agent": "DQN_Reset_head_3000",
     "problem": "Foragax",
     "total_steps": 500000,
     "episode_cutoff": -1,

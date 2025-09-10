@@ -15,7 +15,7 @@ def getAgent(name) -> Type[BaseAgent]:
     if name == "DQN_L2_Init":
         return DQN_L2_Init
 
-    if name == "DQN_Reset":
+    if name.startswith("DQN_Reset"):
         return DQN_Reset
 
     if name.startswith("DQN"):
