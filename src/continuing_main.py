@@ -140,6 +140,8 @@ if args.video:
     first_idx = indices[0]
     first_state = first_glue._start(first_glue.state)[0]
 
+    video_length = 1000
+    @scan_tqdm(video_length)
     def video_step(state, _):
         frame = first_glue.environment.env.render(
             state.env_state.state, None, render_mode="world"
@@ -147,7 +149,9 @@ if args.video:
         next_state, _ = first_glue._step(state)
         return next_state, frame
 
-    _, frames = jax.lax.scan(video_step, first_state, None, length=1000)
+    _, frames = jax.lax.scan(video_step, first_state, jnp.arange(video_length))
+    frames = np.asarray(frames)
+    frames = [frames[i] for i in range(frames.shape[0])]
 
     context = exp.buildSaveContext(first_idx, base=args.save_path)
     video_path = context.resolve(f"videos/{first_idx}")
