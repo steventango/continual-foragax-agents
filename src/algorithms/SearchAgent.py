@@ -127,7 +127,6 @@ class SearchAgent(BaseAgent):
 
             def inner_fun(carry):
                 queue, visited, best_actions, _ = carry
-                #  9          for all edges from v to w in G.adjacentEdges(v) do
                 for i in range(DIRECTIONS.shape[0]):
                     neighbor = node + DIRECTIONS[i]
                     ny, nx = neighbor
@@ -139,10 +138,6 @@ class SearchAgent(BaseAgent):
                         & (priority_map[ny, nx] >= 0)  # not an obstacle
                         & (~visited[ny, nx])  # not visited
                     )
-                    # 10              if w is not labeled as explored then
-                    # 11                  label w as explored
-                    # 12                  w.parent := v
-                    # 13                  Q.enqueue(w)
                     def enqueue_fn(carry):
                         queue, visited, best_actions = carry
                         return (
@@ -200,11 +195,8 @@ class SearchAgent(BaseAgent):
             # The action we want is the one that led from the parent to the current node
             return prev, action
 
-        # The initial state for the loop is the target location.
-        # The third element of the carry tuple is a placeholder for the action.
         initial_carry = (target, -1)
 
-        # After the loop, final_carry will be (start_y, start_x, first_action)
         _, first_action = jax.lax.while_loop(cond_fun, body_fun, initial_carry)
 
         return first_action
