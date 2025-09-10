@@ -44,9 +44,6 @@ class DQN_Reset(DQN):
             hypers=hypers,
         )
 
-        self.builder = NetworkBuilder(observations, self.rep_params, seed)
-        self._build_heads(self.builder)
-
     @partial(jax.jit, static_argnums=0)
     def _update(self, state: AgentState):
         state = super()._update(state)
@@ -66,14 +63,24 @@ class DQN_Reset(DQN):
         self._build_heads(builder)
         reset_params = builder.getParams()
 
-        if state.hypers.reset_head_only:
-            params = state.params.copy()
+        def _reset_all_params(_):
+            return reset_params
+
+        def _reset_head_only(state_params):
+            params = state_params.copy()
             params["q"] = reset_params["q"]
-            for key in params["phi"].keys():
-                if key == "phi_1" or key == "phi":
-                    continue
-                params["phi"][key] = reset_params["phi"][key]
-        else:
-            params = reset_params
+            phi_params = params["phi"].copy()
+            for k in phi_params:
+                if k not in ("phi_1", "phi"):
+                    phi_params[k] = reset_params["phi"][k]
+            params["phi"] = phi_params
+            return params
+
+        params = jax.lax.cond(
+            state.hypers.reset_head_only,
+            _reset_all_params,
+            _reset_head_only,
+            state.params,
+        )
 
         return replace(state, key=key, params=params)
