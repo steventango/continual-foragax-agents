@@ -32,6 +32,7 @@ parser.add_argument("--entry", type=str, default="src/main.py")
 parser.add_argument("--results", type=str, default="./")
 parser.add_argument("--debug", action="store_true", default=False)
 parser.add_argument("--force", action="store_true", default=False)
+parser.add_argument("--exclude", type=str, nargs="+", default=[])
 
 cmdline = parser.parse_args()
 
@@ -50,10 +51,14 @@ venv = "$SLURM_TMPDIR"
 # the contents of the string below will be the bash script that is scheduled on compute canada
 # change the script accordingly (e.g. add the necessary `module load X` commands)
 def getJobScript(parallel: str):
+    if len(cmdline.exclude) > 0:
+        exclude_str = "#SBATCH --exclude=" + ",".join(cmdline.exclude)
+    else:
+        exclude_str = ""
     return f"""#!/bin/bash
 
 #SBATCH --signal=B:SIGTERM@180
-
+{exclude_str}
 cd {cwd}
 tar -xf {venv_origin} -C {venv}
 
