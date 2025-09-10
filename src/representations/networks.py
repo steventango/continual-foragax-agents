@@ -11,10 +11,10 @@ ModuleBuilder = Callable[[], Callable[[jax.Array | np.ndarray], jax.Array]]
 
 
 class NetworkBuilder:
-    def __init__(self, input_shape: Tuple, params: Dict[str, Any], seed: int):
+    def __init__(self, input_shape: Tuple, params: Dict[str, Any], key: jax.Array):
         self._input_shape = tuple(input_shape)
         self._h_params = params
-        self._rng, feat_rng = jax.random.split(jax.random.key(seed))
+        self._rng, feat_rng = jax.random.split(key)
 
         self._feat_net, self._feat_params = buildFeatureNetwork(
             input_shape, params, feat_rng
