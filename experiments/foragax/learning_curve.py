@@ -32,6 +32,11 @@ COLORS = {
     "Search-Oracle": "green",
 }
 
+LABEL_MAP = {
+    "DQN_L2_Init": "DQN (L2 Init)",
+    "DQN_LN": "DQN (LayerNorm)",
+}
+
 SINGLE = {
     "Random",
     "Search-Nearest",
@@ -62,6 +67,8 @@ if __name__ == "__main__":
     ):
         env, aperture = env_aperture.split("-", 1)
         aperture = int(aperture)
+        if aperture != 15:
+            continue
         for alg_result in sorted(
             sub_results, key=lambda x: x.filename
         ):
@@ -98,7 +105,8 @@ if __name__ == "__main__":
                 iterations=10000,
             )
             if alg not in SINGLE:
-                label = f"{alg}-{aperture}"
+                alg_label = LABEL_MAP.get(alg, alg)
+                label = f"{alg_label} [{aperture}]"
                 color = COLORS[aperture]
             else:
                 label = alg
