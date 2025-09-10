@@ -3,19 +3,19 @@ from functools import partial
 from typing import Dict
 
 import jax
+import jax.lax
 from ml_instrumentation.Collector import Collector
 
 import utils.chex as cxu
 from algorithms.nn.DQN import DQN
 from algorithms.nn.DQN import AgentState as BaseAgentState
 from algorithms.nn.DQN import Hypers as BaseHypers
-from representations.networks import NetworkBuilder
 
 
 @cxu.dataclass
 class Hypers(BaseHypers):
     reset_steps: int
-    reset_head_only: bool
+    reset_mask: Dict
 
 
 @cxu.dataclass
@@ -33,10 +33,20 @@ class DQN_Reset(DQN):
         seed: int,
     ):
         super().__init__(observations, actions, params, collector, seed)
+        reset_mask = {
+            "phi": {
+                k: jax.tree_util.tree_map(
+                    lambda _: not params["reset_head_only"] or k != "phi", v
+                )
+                for k, v in self.state.params["phi"].items()
+            },
+            "q": jax.tree_util.tree_map(lambda _: True, self.state.params["q"]),
+        }
+
         hypers = Hypers(
             **self.state.hypers.__dict__,
             reset_steps=params["reset_steps"],
-            reset_head_only=params["reset_head_only"],
+            reset_mask=reset_mask,
         )
 
         self.state = AgentState(
@@ -45,42 +55,34 @@ class DQN_Reset(DQN):
         )
 
     @partial(jax.jit, static_argnums=0)
-    def _update(self, state: AgentState):
-        state = super()._update(state)
-
+    def _step(
+        self,
+        state: AgentState,
+        reward: jax.Array,
+        obs: jax.Array,
+        extra: Dict[str, jax.Array],
+    ):
+        state, a = super()._step(state, reward, obs, extra)
         state = jax.lax.cond(
             state.steps % state.hypers.reset_steps == 0,
             self._reset,
             lambda s: s,
             state,
         )
+        return state, a
 
-        return state
-
+    @partial(jax.jit, static_argnums=0)
     def _reset(self, state: AgentState):
         key, subkey = jax.random.split(state.key)
-        builder = NetworkBuilder(self.observations, self.rep_params, subkey)
-        self._build_heads(builder)
-        reset_params = builder.getParams()
+        reset_params = self.builder.reset(subkey)
+        key, subkey = jax.random.split(key)
+        reset_params["q"] = self.q_net.init(subkey, self.builder._sample_phi)
 
-        def _reset_all_params(_):
-            return reset_params
-
-        def _reset_head_only(state_params):
-            params = state_params.copy()
-            params["q"] = reset_params["q"]
-            phi_params = params["phi"].copy()
-            for k in phi_params:
-                if k not in ("phi_1", "phi"):
-                    phi_params[k] = reset_params["phi"][k]
-            params["phi"] = phi_params
-            return params
-
-        params = jax.lax.cond(
-            state.hypers.reset_head_only,
-            _reset_all_params,
-            _reset_head_only,
+        params = jax.tree_util.tree_map(
+            lambda old, new, mask: jax.lax.select(mask, new, old),
             state.params,
+            reset_params,
+            state.hypers.reset_mask,
         )
 
         return replace(state, key=key, params=params)
