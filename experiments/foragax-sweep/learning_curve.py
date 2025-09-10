@@ -28,10 +28,14 @@ COLORS = {
     13: "#d72dff",
     15: "#ff00ff",
     "Random": "black",
+    "Search-Nearest": "red",
+    "Search-Oracle": "green",
 }
 
 SINGLE = {
-    "Random"
+    "Random",
+    "Search-Nearest",
+    "Search-Oracle",
 }
 
 
@@ -78,6 +82,9 @@ if __name__ == "__main__":
 
             xs = np.asarray(xs)
             ys = np.asarray(ys)
+            mask = xs[0] > 1000
+            xs = xs[:, mask]
+            ys = ys[:, mask]
             print(ys.shape)
             assert np.all(np.isclose(xs[0], xs))
 
@@ -133,5 +140,5 @@ if __name__ == "__main__":
             plot_name=env,
             save_type="pdf",
             f=fig,
-            height_ratio=2,
+            height_ratio=8/3,
         )

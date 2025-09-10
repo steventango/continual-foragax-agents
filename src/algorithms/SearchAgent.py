@@ -1,13 +1,23 @@
+from dataclasses import replace
 from functools import partial
 from typing import Dict, Tuple
 
 import jax
-import jax.debug
 import jax.numpy as jnp
 from ml_instrumentation.Collector import Collector
 
 import utils.chex as cxu
 from algorithms.BaseAgent import BaseAgent
+from utils.queue import Queue, dequeue, enqueue
+
+DIRECTIONS = jnp.array(
+    [
+        [-1, 0],
+        [0, 1],
+        [1, 0],
+        [0, -1],
+    ]
+)
 
 
 @cxu.dataclass
@@ -32,6 +42,11 @@ class SearchAgent(BaseAgent):
         self.channel_priorities = {
             int(k): v for k, v in self.channel_priorities.items()
         }
+        self.max_priority = max(self.channel_priorities.values())
+        # priorities:
+        # higher values = higher priority
+        # zero = ignore
+        # negative values = obstacles; avoid
 
     @partial(jax.jit, static_argnums=0)
     def act(
@@ -39,167 +54,169 @@ class SearchAgent(BaseAgent):
         state: AgentState,
         obs: jax.Array,
     ) -> tuple[AgentState, jax.Array]:
-        jax.debug.print("obs: {obs}", obs=obs)
         height, width, num_channels = obs.shape
         center_y, center_x = height // 2, width // 2
 
         # Create priority map: higher values = higher priority
         priority_map = jnp.zeros((height, width))
-        jax.debug.print(
-            "initial priority_map: {priority_map}", priority_map=priority_map
-        )
 
         # For each channel (object type), add its priority to locations where that object exists
         for channel in range(num_channels):
             channel_priority = self.channel_priorities.get(channel, 0)
             priority_map += obs[:, :, channel] * channel_priority
 
-        jax.debug.print("final priority_map: {priority_map}", priority_map=priority_map)
+        # Find the best target using BFS
+        highest_priority = self.max_priority
 
-        # Find the best target using BFS-like shortest path search
-        best_action = self._find_best_action_bfs(
-            priority_map, center_y, center_x, height, width
+        def cond_fun(carry):
+            _, current_priority, best_action, _ = carry
+            return (current_priority > 0) & (best_action < 0)
+
+        def body_fun(carry):
+            priority_map, current_priority, best_action, key = carry
+            priority_map_masked = jax.lax.select(
+                (priority_map < 0) | (priority_map == current_priority),
+                priority_map,
+                jnp.zeros_like(priority_map),
+            )
+            key, best_action = self.bfs(
+                key, priority_map_masked, center_y, center_x, height, width
+            )
+            current_priority -= 1
+            return priority_map, current_priority, best_action, key
+
+        # do BFS until we find a good action or run out of priorities
+        *_, best_action, key = jax.lax.while_loop(
+            cond_fun,
+            body_fun,
+            (priority_map, highest_priority, -1, state.key),
         )
-        jax.debug.print("best_action: {best_action}", best_action=best_action)
+        state = replace(state, key=key)
 
         # If no good action found, fall back to random
-        state.key, sample_key = jax.random.split(state.key)
+        key, sample_key = jax.random.split(state.key)
+        state = replace(state, key=key)
         random_action = jax.random.choice(sample_key, self.actions)
         action = jax.lax.select(best_action >= 0, best_action, random_action)
-        jax.debug.print("action: {action}", action=action)
 
         return state, action
 
-    def _find_best_action_bfs(
+    def bfs(
         self,
+        key: jax.Array,
         priority_map: jax.Array,
-        center_y: int,
-        center_x: int,
+        start_y: int,
+        start_x: int,
         height: int,
         width: int,
-    ) -> jax.Array:
-        """Find the best action using BFS-like shortest path search to reach highest priority object."""
-        jax.debug.print("priority_map: {priority_map}", priority_map=priority_map)
+    ) -> tuple[jax.Array, int]:
+        queue = Queue.create(max_size=height * width, dtype=jnp.int32, item_shape=(2,))
+        start = jnp.array([start_y, start_x])
+        queue = enqueue(queue, start)
+        visited = jnp.zeros((height, width), dtype=jnp.bool_)
+        visited = visited.at[start_y, start_x].set(True)
+        actions = jnp.full((height, width), -1, dtype=jnp.int32)
 
-        # Directions: UP, RIGHT, DOWN, LEFT (matching Actions enum)
-        directions = jnp.array([[-1, 0], [0, 1], [1, 0], [0, -1]])
+        def cond_fun(carry):
+            queue, *_, target, _ = carry
+            return (queue.size > 0) & (target.sum() < 0)
 
-        # Initialize distance map (inf = unvisited, finite = distance from start)
-        distance_map = jnp.full((height, width), jnp.inf)
-        distance_map = distance_map.at[center_y, center_x].set(0)
-        jax.debug.print(
-            "initial distance_map: {distance_map}", distance_map=distance_map
-        )
+        def body_fun(carry):
+            queue, visited, best_actions, _, key = carry
+            queue, node = dequeue(queue)
+            y, x = node
 
-        # Initialize action map (tracks which action leads to shortest path)
-        action_map = jnp.full((height, width), -1, dtype=jnp.int32)
-        jax.debug.print("initial action_map: {action_map}", action_map=action_map)
+            def found_target_branch(carry):
+                queue, visited, best_actions, _, key = carry
+                return queue, visited, best_actions, node, key
 
-        # BFS iterations - run enough iterations to cover the entire aperture
-        max_iterations = height + width  # Upper bound on shortest path length
+            def inner_fun(carry):
+                queue, visited, best_actions, _, key = carry
 
-        def bfs_iteration(iter_num, state):
-            dist_map, act_map = state
-
-            # For this iteration, find all cells at distance iter_num
-            current_distance_mask = dist_map == iter_num
-
-            # For each direction, check neighbors
-            def check_direction(direction_idx, maps_state):
-                dist_map_inner, act_map_inner = maps_state
-                dy, dx = directions[direction_idx]
-
-                # Calculate neighbor positions
-                ys, xs = jnp.indices((height, width))
-                neighbor_ys = ys + dy
-                neighbor_xs = xs + dx
-
-                # Check bounds
-                valid_neighbors = (
-                    (neighbor_ys >= 0)
-                    & (neighbor_ys < height)
-                    & (neighbor_xs >= 0)
-                    & (neighbor_xs < width)
+                new_key, sample_key = jax.random.split(key)
+                shuffled_indices = jax.random.permutation(
+                    sample_key, jnp.arange(DIRECTIONS.shape[0])
                 )
 
-                # Find cells that can reach unvisited neighbors
-                can_reach_unvisited = (
-                    current_distance_mask
-                    & valid_neighbors
-                    & (dist_map_inner[neighbor_ys, neighbor_xs] == jnp.inf)
+                def loop_body(i, loop_carry):
+                    queue, visited, best_actions = loop_carry
+                    direction_idx = shuffled_indices[i]
+                    neighbor = node + DIRECTIONS[direction_idx]
+                    ny, nx = neighbor
+                    is_valid = (
+                        (0 <= ny)
+                        & (ny < height)
+                        & (0 <= nx)
+                        & (nx < width)
+                        & (priority_map[ny, nx] >= 0)  # not an obstacle
+                        & (~visited[ny, nx])  # not visited
+                    )
+
+                    def enqueue_fn(carry):
+                        queue, visited, best_actions = carry
+                        return (
+                            enqueue(queue, neighbor),
+                            visited.at[ny, nx].set(True),
+                            best_actions.at[ny, nx].set(direction_idx),
+                        )
+
+                    queue, visited, best_actions = jax.lax.cond(
+                        is_valid,
+                        enqueue_fn,
+                        lambda carry: carry,
+                        operand=(queue, visited, best_actions),
+                    )
+                    return queue, visited, best_actions
+
+                queue, visited, best_actions = jax.lax.fori_loop(
+                    0, DIRECTIONS.shape[0], loop_body, (queue, visited, best_actions), unroll=True
                 )
+                return queue, visited, best_actions, jnp.array([-1, -1]), new_key
 
-                # Update distances and actions for newly discovered cells
-                new_distance = iter_num + 1
+            return jax.lax.cond(
+                priority_map[y, x] > 0,
+                found_target_branch,
+                inner_fun,
+                (queue, visited, best_actions, jnp.array([-1, -1]), key),
+            )
 
-                # Update distance map
-                neighbor_updates = can_reach_unvisited
-                dist_map_inner = jnp.where(
-                    neighbor_updates,
-                    dist_map_inner.at[neighbor_ys, neighbor_xs].set(new_distance),
-                    dist_map_inner,
-                )
-
-                # Update action map (store the action that leads to this cell)
-                act_map_inner = jnp.where(
-                    neighbor_updates,
-                    act_map_inner.at[neighbor_ys, neighbor_xs].set(direction_idx),
-                    act_map_inner,
-                )
-
-                return (dist_map_inner, act_map_inner)
-
-            # Apply all four directions
-            final_maps = jax.lax.fori_loop(0, 4, check_direction, (dist_map, act_map))
-            return final_maps
-
-        # Run BFS iterations
-        final_distance_map, final_action_map = jax.lax.fori_loop(
-            0, max_iterations, bfs_iteration, (distance_map, action_map)
-        )
-        jax.debug.print(
-            "final_distance_map: {final_distance_map}",
-            final_distance_map=final_distance_map,
-        )
-        jax.debug.print(
-            "final_action_map: {final_action_map}", final_action_map=final_action_map
+        *_, actions, target, key = jax.lax.while_loop(
+            cond_fun,
+            body_fun,
+            (queue, visited, actions, jnp.array([-1, -1]), key),
         )
 
-        # Now find the best target based on priority and distance
-        # Create a combined score: higher priority, lower distance is better
-        # Use priority as primary criterion, distance as tiebreaker
-
-        # Exclude agent's position and zero-priority cells
-        valid_targets = (priority_map > 0) & (jnp.isfinite(final_distance_map))
-        valid_targets = valid_targets.at[center_y, center_x].set(False)
-
-        # Create a combined score for each cell
-        # Higher priority = better, lower distance = better
-        # Scale priority much higher than distance to prioritize by priority first
-        max_distance = jnp.max(
-            jnp.where(jnp.isfinite(final_distance_map), final_distance_map, 0)
+        best_action = jax.lax.cond(
+            target.sum() > 0,
+            lambda _: self.backtrack(target, start, actions),
+            lambda _: -1,
+            operand=None,
         )
-        priority_weight = (max_distance + 1) * 1000  # Ensure priority dominates
+        return key, best_action
 
-        combined_score = jnp.where(
-            valid_targets, priority_map * priority_weight - final_distance_map, -jnp.inf
-        )
-        jax.debug.print(
-            "combined_score: {combined_score}", combined_score=combined_score
-        )
+    def backtrack(
+        self,
+        target: jax.Array,
+        start: jax.Array,
+        actions: jax.Array,
+    ):
+        def cond_fun(carry):
+            current, _ = carry
+            return (current != start).any()
 
-        # Find the cell with the highest combined score
-        best_cell_idx = jnp.argmax(combined_score.flatten())
-        best_y = best_cell_idx // width
-        best_x = best_cell_idx % width
+        def body_fun(carry):
+            current, _ = carry
+            action = actions[current[0], current[1]]
+            # Move to the parent node
+            prev = current - DIRECTIONS[action]
+            # The action we want is the one that led from the parent to the current node
+            return prev, action
 
-        # Get the action that leads to the best target
-        best_action = final_action_map[best_y, best_x]
-        jax.debug.print("best_action: {best_action}", best_action=best_action)
+        initial_carry = (target, -1)
 
-        # Return -1 if no valid target found
-        has_valid_target = jnp.any(valid_targets)
-        return jax.lax.select(has_valid_target, best_action, -1)
+        _, first_action = jax.lax.while_loop(cond_fun, body_fun, initial_carry)
+
+        return first_action
 
     # ----------------------
     # -- RLGlue interface --

@@ -27,16 +27,19 @@ COLORS = {
     "DQN_L2_Init": "purple",
     "DQN_LN": "tab:orange",
     "Search-Oracle": "tab:green",
+    "Search-Nearest": "tab:red",
     "Random": "black",
 }
 DEFAULT_COLOR = "gray"
 ORDER = {
     "Random": 0,
-    "Greedy": 2,
-    "Greedy-122": 1,
+    "Search-Nearest": 2,
+    "Search-Oracle": 1,
 }
 SPECIAL = {
     "Random",
+    "Search-Nearest",
+    "Search-Oracle",
 }
 
 if __name__ == "__main__":
@@ -135,17 +138,8 @@ if __name__ == "__main__":
 
     a = np.unique(np.concatenate(list(apertures.values())))
 
-    for (alg, report), color in zip(
-        sorted(special.items(), key=lambda x: ORDER[x[0]]),
-        [
-            COLORS["Random"],
-        ],
-        strict=False,
-    ):
-        if alg == "Greedy":
-            alg = "Search Oracle"
-        if alg == "Greedy-122":
-            alg = "Search Nearest"
+    for alg, report in sorted(special.items(), key=lambda x: ORDER[x[0]]):
+        color = COLORS.get(alg, DEFAULT_COLOR)
         ax.plot(
             a,
             [report.sample_stat] * len(a),

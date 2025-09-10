@@ -1,9 +1,13 @@
 import importlib
+import sqlite3
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Generic, TypeVar
 
-from ml_instrumentation.reader import load_all_results
+import connectorx as cx
+import ml_instrumentation._utils.sqlite as sqlu
+import numpy as np
+import polars as pl
 from PyExpUtils.models.ExperimentDescription import (
     ExperimentDescription,
     loadExperiment,
@@ -16,6 +20,72 @@ from utils.ml_instrumentation.reader import get_run_ids
 Exp = TypeVar("Exp", bound=ExperimentDescription)
 
 
+def read_metrics_from_data(
+    data_path: str | Path,
+    metrics: Iterable[str] | None = None,
+    run_ids: Iterable[int] | None = None,
+):
+    if run_ids is None:
+        run_id_paths = {}
+        for path in Path(data_path).glob("*.npz"):
+            run_id = int(path.stem)
+            run_id_paths[run_id] = path
+    else:
+        run_id_paths = {run_id: Path(data_path) / f"{run_id}.npz" for run_id in run_ids}
+    datas = {}
+    for run_id, path in run_id_paths.items():
+        if not path.exists():
+            continue
+        data = np.load(path)
+        data_dict = {k: np.asarray(data[k]) for k in data.keys()}
+        datas[run_id] = pl.DataFrame(data_dict)
+        datas[run_id] = datas[run_id].with_columns(
+            pl.lit(run_id).alias("id"),
+            pl.lit(np.arange(len(datas[run_id]))).alias("frame"),
+        )
+        if "rewards" in datas[run_id].columns:
+            datas[run_id] = datas[run_id].with_columns(
+                pl.col("rewards").ewm_mean(alpha=1e-3).alias("ewm_reward"),
+            )
+            datas[run_id] = datas[run_id].with_columns(
+                pl.col("ewm_reward").mean().alias("mean_ewm_reward")
+            )
+        datas[run_id] = datas[run_id].gather_every(max(1, len(datas[run_id]) // 500))
+    if len(datas) == 0:
+        return pl.DataFrame()
+    df = pl.concat(datas.values())
+    return df.lazy()
+
+
+def load_all_results_from_data(
+    data_path: str | Path,
+    db_path: str | Path,
+    metrics: Iterable[str] | None = None,
+    ids: Iterable[int] | None = None,
+):
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+
+    tables = sqlu.get_tables(cur)
+    if metrics is None:
+        metrics = tables - {"_metadata_"}
+
+    df = read_metrics_from_data(data_path, metrics, ids)
+
+    if "_metadata_" not in tables:
+        return df.collect()
+
+    meta = cx.read_sql(
+        f"sqlite://{db_path}",
+        "SELECT * FROM _metadata_",
+        return_type="polars",
+        partition_on="id",
+        partition_num=1000,
+    )
+    meta = meta.lazy()
+    return df.join(meta, how="left", on=["id"]).collect()
+
+
 class Result(Generic[Exp]):
     def __init__(
         self, exp_path: str | Path, exp: Exp, metrics: Sequence[str] | None = None
@@ -26,6 +96,7 @@ class Result(Generic[Exp]):
 
     def load(self):
         db_path = self.exp.buildSaveContext(0).resolve("results.db")
+        data_path = self.exp.buildSaveContext(0).resolve("data")
 
         if not Path(db_path).exists():
             return None
@@ -35,17 +106,18 @@ class Result(Generic[Exp]):
             params = getParamsAsDict(self.exp, param_id)
             run_ids.update(get_run_ids(db_path, params))
         run_ids = sorted(run_ids)
-        df = load_all_results(db_path, self.metrics, run_ids)
+        df = load_all_results_from_data(data_path, db_path, self.metrics, run_ids)
         return df
 
     def load_by_params(self, params: dict):
         db_path = self.exp.buildSaveContext(0).resolve("results.db")
+        data_path = self.exp.buildSaveContext(0).resolve("data")
 
         if not Path(db_path).exists():
             return None
 
         run_ids = get_run_ids(db_path, params)
-        df = load_all_results(db_path, self.metrics, run_ids)
+        df = load_all_results_from_data(data_path, db_path, self.metrics, run_ids)
         return df
 
     @property
