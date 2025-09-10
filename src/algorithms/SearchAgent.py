@@ -2,7 +2,6 @@ from functools import partial
 from typing import Dict, Tuple
 
 import jax
-import jax.debug
 import jax.numpy as jnp
 from ml_instrumentation.Collector import Collector
 import utils.chex as cxu
@@ -68,7 +67,7 @@ class SearchAgent(BaseAgent):
         highest_priority = self.max_priority
 
         def cond_fun(carry):
-            priority_map, current_priority, best_action = carry
+            _, current_priority, best_action = carry
             return (current_priority > 0) & (best_action < 0)
 
         def body_fun(carry):
@@ -85,19 +84,16 @@ class SearchAgent(BaseAgent):
             return priority_map, current_priority, best_action
 
         # do BFS until we find a good action or run out of priorities
-        priority_map, current_priority, best_action = jax.lax.while_loop(
+        priority_map, _, best_action = jax.lax.while_loop(
             cond_fun,
             body_fun,
             (priority_map, highest_priority, -1),
         )
 
-        jax.debug.print("best_action: {best_action}", best_action=best_action)
-
         # If no good action found, fall back to random
         state.key, sample_key = jax.random.split(state.key)
         random_action = jax.random.choice(sample_key, self.actions)
         action = jax.lax.select(best_action >= 0, best_action, random_action)
-        jax.debug.print("action: {action}", action=action)
 
         return state, action
 
@@ -109,7 +105,6 @@ class SearchAgent(BaseAgent):
         height: int,
         width: int,
     ) -> int:
-        jax.debug.print("bfs priority_map: {priority_map}", priority_map=priority_map)
         queue = Queue.create(max_size=height * width, dtype=jnp.int32, item_shape=(2,))
         start = jnp.array([start_y, start_x])
         queue = enqueue(queue, start)
@@ -125,11 +120,9 @@ class SearchAgent(BaseAgent):
             queue, visited, best_actions, _ = carry
             queue, node = dequeue(queue)
             y, x = node
-            jax.debug.print("bfs dequeued: node={node}", node=node)
 
             def found_target_branch(carry):
                 queue, visited, best_actions, _ = carry
-                jax.debug.print("bfs: found target ={node}", node=node)
                 return queue, visited, best_actions, node
 
             def inner_fun(carry):
@@ -152,18 +145,11 @@ class SearchAgent(BaseAgent):
                     # 13                  Q.enqueue(w)
                     def enqueue_fn(carry):
                         queue, visited, best_actions = carry
-                        jax.debug.print(
-                            "      bfs: enqueuing neighbor=({ny}, {nx}) with action {a}",
-                            ny=ny, nx=nx, a=i
-                        )
-                        carry = (
+                        return (
                             enqueue(queue, neighbor),
                             visited.at[ny, nx].set(True),
                             best_actions.at[ny, nx].set(i),
                         )
-                        # print action map
-                        jax.debug.print("      bfs: actions=\n{a}", a=carry[2])
-                        return carry
 
                     queue, visited, best_actions = jax.lax.cond(
                         is_valid,
@@ -185,8 +171,6 @@ class SearchAgent(BaseAgent):
             body_fun,
             (queue, visited, actions, jnp.array([-1, -1])),
         )
-
-        jax.debug.print("bfs finished, target: {target}", target=target)
 
         best_action = jax.lax.cond(
             target.sum() > 0,
@@ -211,16 +195,8 @@ class SearchAgent(BaseAgent):
         def body_fun(carry):
             current, _ = carry
             action = actions[current[0], current[1]]
-            jax.debug.print(
-                "backtrack: current=({cy}, {cx}), action={a}",
-                cy=current[0],
-                cx=current[1],
-                a=action,
-            )
-
             # Move to the parent node
             prev = current - DIRECTIONS[action]
-
             # The action we want is the one that led from the parent to the current node
             return prev, action
 
