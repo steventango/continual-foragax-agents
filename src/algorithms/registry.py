@@ -3,6 +3,7 @@ from typing import Type
 from algorithms.BaseAgent import BaseAgent
 from algorithms.nn.DQN import DQN
 from algorithms.nn.DQN_L2_Init import DQN_L2_Init
+from algorithms.nn.DQN_Reset import DQN_Reset
 from algorithms.nn.EQRC import EQRC
 from algorithms.RandomAgent import RandomAgent
 from algorithms.SearchAgent import SearchAgent
@@ -13,6 +14,9 @@ from algorithms.tc.SoftmaxAC import SoftmaxAC
 def getAgent(name) -> Type[BaseAgent]:
     if name == "DQN_L2_Init":
         return DQN_L2_Init
+
+    if name == "DQN_Reset":
+        return DQN_Reset
 
     if name.startswith("DQN"):
         return DQN
