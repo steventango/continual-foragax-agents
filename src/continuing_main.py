@@ -209,7 +209,8 @@ def step(carry, _):
 
 glue_states, rewards = jax.lax.scan(step, glue_states, jnp.arange(n), unroll=1)
 
-rewards = jnp.atleast_2d(rewards)
+if len(glues) < 2:
+    rewards = jnp.expand_dims(rewards, -1)
 
 # rewards is (steps, batch_size)
 # we want (batch_size, steps)
