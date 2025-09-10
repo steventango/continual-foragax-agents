@@ -87,10 +87,10 @@ class NNAgent(BaseAgent):
         # ---------------------
         # -- NN Architecture --
         # ---------------------
-        builder = NetworkBuilder(observations, self.rep_params, self.key)
-        self._build_heads(builder)
-        self.phi = builder.getFeatureFunction()
-        net_params = builder.getParams()
+        self.builder = NetworkBuilder(observations, self.rep_params, self.key)
+        self._build_heads(self.builder)
+        self.phi = self.builder.getFeatureFunction()
+        net_params = self.builder.getParams()
 
         # ---------------
         # -- Optimizer --

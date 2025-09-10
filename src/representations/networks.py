@@ -58,6 +58,7 @@ class NetworkBuilder:
 
         sample_in = jnp.zeros((1,) + self._input_shape)
         sample_phi = self._feat_net.apply(self._feat_params, sample_in).out
+        self._sample_phi = sample_phi
 
         self._rng, rng = jax.random.split(self._rng)
         h_net = hk.without_apply_rng(hk.transform(_builder))
@@ -71,8 +72,13 @@ class NetworkBuilder:
         def _inner(params: Any, x: jax.Array):
             return h_net.apply(params[name], x)
 
-        return _inner
+        return h_net, h_params, _inner
 
+    def reset(self, key: jax.Array):
+        sample_in = jnp.zeros((1,) + self._input_shape)
+        return {
+            "phi": self._feat_net.init(key, sample_in),
+        }
 
 def reluLayers(layers: List[int], name: Optional[str] = None, layer_norm: bool = False):
     w_init = hk.initializers.Orthogonal(np.sqrt(2))

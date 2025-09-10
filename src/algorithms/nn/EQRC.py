@@ -56,12 +56,12 @@ class EQRC(NNAgent):
     # ------------------------
     def _build_heads(self, builder: NetworkBuilder) -> None:
         zero_init = hk.initializers.Constant(0)
-        self.q = builder.addHead(
+        *_, self.q = builder.addHead(
             lambda: hku.DuelingHeads(
                 self.actions, name="q", w_init=zero_init, b_init=zero_init
             )
         )
-        self.h = builder.addHead(
+        *_, self.h = builder.addHead(
             lambda: hku.DuelingHeads(
                 self.actions, name="h", w_init=zero_init, b_init=zero_init
             ),

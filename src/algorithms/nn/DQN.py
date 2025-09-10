@@ -65,7 +65,7 @@ class DQN(NNAgent):
     # -- NN agent interface --
     # ------------------------
     def _build_heads(self, builder: NetworkBuilder) -> None:
-        self.q = builder.addHead(lambda: hk.Linear(self.actions, name="q"))
+        self.q_net, _, self.q = builder.addHead(lambda: hk.Linear(self.actions, name="q"))
 
     # internal compiled version of the value function
     @partial(jax.jit, static_argnums=0)
