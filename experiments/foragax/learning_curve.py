@@ -118,6 +118,22 @@ if __name__ == "__main__":
                 axes = [axs[1]]
             elif alg == "DQN_LN":
                 axes = [axs[2]]
+            elif alg == "DQN_Reset_head_300":
+                axes = [axs[3]]
+            elif alg == "DQN_Reset_full_300":
+                axes = [axs[4]]
+            elif alg == "DQN_Reset_head_3000":
+                axes = [axs[5]]
+            elif alg == "DQN_Reset_full_3000":
+                axes = [axs[6]]
+            elif alg == "DQN_Reset_head_30000":
+                axes = [axs[7]]
+            elif alg == "DQN_Reset_full_30000":
+                axes = [axs[8]]
+            elif alg == "DQN_Reset_head_100000":
+                axes = [axs[9]]
+            elif alg == "DQN_Reset_full_100000":
+                axes = [axs[10]]
             else:
                 axes = axs
 
