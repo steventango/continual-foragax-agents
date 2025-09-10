@@ -50,6 +50,8 @@ if __name__ == "__main__":
             env["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.99"
             cmds.append(exe)
         else:
+            env["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(0.95 / len(indices))
+            env["JAX_PLATFORM_NAME"] = "cpu"
             for idx in indices:
                 exe = f"python {cmdline.entry} --silent -e {path} -i {idx}"
                 cmds.append(exe)
