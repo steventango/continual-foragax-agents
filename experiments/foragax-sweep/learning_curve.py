@@ -28,10 +28,14 @@ COLORS = {
     13: "#d72dff",
     15: "#ff00ff",
     "Random": "black",
+    "Search-Nearest": "red",
+    "Search-Oracle": "green",
 }
 
 SINGLE = {
-    "Random"
+    "Random",
+    "Search-Nearest",
+    "Search-Oracle",
 }
 
 
