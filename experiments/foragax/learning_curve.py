@@ -50,7 +50,11 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    fig, axs = plt.subplots(3, 1, sharex=True, sharey='all')
+    nalgs = 3 + 2 * 4
+    nrows = int(np.ceil(np.sqrt(nalgs)))
+    ncols = int(np.ceil(nalgs / nrows))
+    fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey='all')
+    axs = axs.flatten()
 
     env = "unknown"
     for env_aperture, sub_results in sorted(
@@ -128,6 +132,7 @@ if __name__ == "__main__":
                 ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
                 ax.set_xlabel("Time steps")
                 ax.set_ylabel("Average Reward")
+                ax.set_box_aspect(2/3)
                 ax.legend(ncol=1, loc="center left", bbox_to_anchor=(1, 0.5), frameon=False)
 
                 ax.spines["top"].set_visible(False)
@@ -139,5 +144,6 @@ if __name__ == "__main__":
             plot_name=env,
             save_type="pdf",
             f=fig,
-            height_ratio=8/3,
+            width=ncols * 2,
+            height_ratio=2 / 3,
         )
