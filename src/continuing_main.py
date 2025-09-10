@@ -120,11 +120,19 @@ for idx in indices:
     assert hypers.get("batch") == first_hypers.get("batch")
     assert hypers.get("buffer_size") == first_hypers.get("buffer_size")
     assert hypers.get("buffer_min_size") == first_hypers.get("buffer_min_size")
-    assert hypers.get("environment", {}).get("aperture_size") == first_hypers.get("environment", {}).get("aperture_size")
+    assert hypers.get("environment", {}).get("aperture_size") == first_hypers.get(
+        "environment", {}
+    ).get("aperture_size")
     assert hypers.get("n_step") == first_hypers.get("n_step")
-    assert hypers.get("optimizer", {}).get("name") == first_hypers.get("optimizer", {}).get("name")
-    assert hypers.get("representation", {}).get("type") == first_hypers.get("representation", {}).get("type")
-    assert hypers.get("representation", {}).get("hidden") == first_hypers.get("representation", {}).get("hidden")
+    assert hypers.get("optimizer", {}).get("name") == first_hypers.get(
+        "optimizer", {}
+    ).get("name")
+    assert hypers.get("representation", {}).get("type") == first_hypers.get(
+        "representation", {}
+    ).get("type")
+    assert hypers.get("representation", {}).get("hidden") == first_hypers.get(
+        "representation", {}
+    ).get("hidden")
 
     # build stateful things and attach to checkpoint
     problem = chk.build("p", lambda: Problem(exp, idx, collector))
@@ -141,6 +149,7 @@ if args.video:
     first_state = first_glue._start(first_glue.state)[0]
 
     video_length = 1000
+
     @scan_tqdm(video_length)
     def video_step(state, _):
         frame = first_glue.environment.env.render(
@@ -173,7 +182,9 @@ v_step = jax.vmap(glues[0]._step)
 total_setup_time = time.time() - start_time
 num_indices = len(indices)
 logger.debug("--- Batch Set-up Timings ---")
-logger.debug(f"Total setup time: {total_setup_time:.4f}s | Average: {total_setup_time / num_indices:.4f}s")
+logger.debug(
+    f"Total setup time: {total_setup_time:.4f}s | Average: {total_setup_time / num_indices:.4f}s"
+)
 
 # --------------------
 # -- Batch Execution --
@@ -184,10 +195,12 @@ glue_states, _ = v_start(glue_states)
 
 n = exp.total_steps
 
+
 @scan_tqdm(n)
 def step(carry, _):
     carry, interaction = v_step(carry)
     return carry, interaction.reward
+
 
 glue_states, rewards = jax.lax.scan(step, glue_states, jnp.arange(n), unroll=1)
 
@@ -242,8 +255,16 @@ for i, idx in enumerate(indices):
     chk.delete()
 
 logger.debug("--- Saving Timings ---")
-logger.debug(f"Total collect time: {total_collect_time:.4f}s | Average: {total_collect_time / num_indices:.4f}s")
-logger.debug(f"Total numpy save time: {total_numpy_time:.4f}s | Average: {total_numpy_time / num_indices:.4f}s")
-logger.debug(f"Total db save time: {total_db_time:.4f}s | Average: {total_db_time / num_indices:.4f}s")
+logger.debug(
+    f"Total collect time: {total_collect_time:.4f}s | Average: {total_collect_time / num_indices:.4f}s"
+)
+logger.debug(
+    f"Total numpy save time: {total_numpy_time:.4f}s | Average: {total_numpy_time / num_indices:.4f}s"
+)
+logger.debug(
+    f"Total db save time: {total_db_time:.4f}s | Average: {total_db_time / num_indices:.4f}s"
+)
 total_save_time = total_collect_time + total_numpy_time + total_db_time
-logger.debug(f"Total save time: {total_save_time:.4f}s | Average: {total_save_time / num_indices:.4f}s")
+logger.debug(
+    f"Total save time: {total_save_time:.4f}s | Average: {total_save_time / num_indices:.4f}s"
+)
