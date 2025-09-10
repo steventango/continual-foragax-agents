@@ -169,7 +169,7 @@ class SearchAgent(BaseAgent):
                     return queue, visited, best_actions
 
                 queue, visited, best_actions = jax.lax.fori_loop(
-                    0, DIRECTIONS.shape[0], loop_body, (queue, visited, best_actions)
+                    0, DIRECTIONS.shape[0], loop_body, (queue, visited, best_actions), unroll=True
                 )
                 return queue, visited, best_actions, jnp.array([-1, -1]), new_key
 
