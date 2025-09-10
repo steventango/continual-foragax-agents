@@ -100,6 +100,7 @@ if __name__ == "__main__":
                 y=ys,
                 statistic=Statistic.mean,
             )
+            print(res.sample_stat[0])
 
             if alg not in SPECIAL:
                 apertures[alg].append(aperture)
