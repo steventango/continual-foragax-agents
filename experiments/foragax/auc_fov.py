@@ -26,9 +26,10 @@ COLORS = {
     "DQN": "tab:blue",
     "DQN_L2_Init": "purple",
     "DQN_LN": "tab:orange",
-    "SoftmaxAC": "tab:green",
+    "Search-Oracle": "tab:green",
     "Random": "black",
 }
+DEFAULT_COLOR = "gray"
 ORDER = {
     "Random": 0,
     "Greedy": 2,
@@ -116,19 +117,19 @@ if __name__ == "__main__":
         sorted_auc[alg] = np.array(auc[alg])[sort_idx]
         sorted_auc_ci_low[alg] = np.array(auc_ci_low[alg])[sort_idx]
         sorted_auc_ci_high[alg] = np.array(auc_ci_high[alg])[sort_idx]
-
+        color = COLORS.get(alg, DEFAULT_COLOR)
         ax.plot(
             sorted_apertures[alg],
             sorted_auc[alg],
             label=alg,
-            color=COLORS[alg],
+            color=color,
             linewidth=1,
         )
         ax.fill_between(
             sorted_apertures[alg],
             sorted_auc_ci_low[alg],
             sorted_auc_ci_high[alg],
-            color=COLORS[alg],
+            color=color,
             alpha=0.2,
         )
 

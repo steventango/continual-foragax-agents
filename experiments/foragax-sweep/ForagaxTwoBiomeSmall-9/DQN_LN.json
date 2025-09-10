@@ -44,7 +44,7 @@
             ]
         },
         "representation": {
-            "type": "ForagerLayerNormNet",
+            "type": "Forager2LayerNormNet",
             "hidden": 64
         },
         "update_freq": 4
