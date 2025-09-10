@@ -11,7 +11,6 @@ import time
 import jax
 import jax.numpy as jnp
 import numpy as np
-from gymnasium.utils.save_video import save_video
 from jax.tree_util import tree_map
 from jax_tqdm.scan_pbar import scan_tqdm
 from ml_instrumentation.Collector import Collector
@@ -163,6 +162,7 @@ logger.debug(
 
 # render video of first env
 if args.video:
+    from gymnasium.utils.save_video import save_video
     first_glue = glues[0]
     first_idx = indices[0]
     first_state = first_glue._start(first_glue.state)[0]
