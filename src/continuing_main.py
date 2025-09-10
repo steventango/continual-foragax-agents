@@ -3,28 +3,30 @@ import sys
 
 sys.path.append(os.getcwd())
 
-import json
-import time
-import socket
-import logging
 import argparse
-import numpy as np
+import logging
+import socket
+import time
+
 import jax
 import jax.numpy as jnp
+import numpy as np
+from gymnasium.utils.save_video import save_video
 from jax.tree_util import tree_map
-from experiment import ExperimentModel
-from utils.checkpoint import Checkpoint
-from utils.preempt import TimeoutHandler
-from utils.rlglue import RlGlue
-from problems.registry import getProblem
-from PyExpUtils.results.tools import getParamsAsDict
+from jax_tqdm.scan_pbar import scan_tqdm
 from ml_instrumentation.Collector import Collector
+from ml_instrumentation.metadata import attach_metadata
 from ml_instrumentation.Sampler import Ignore, MovingAverage, Subsample
+from ml_instrumentation.utils import Pipe
+from PyExpUtils.results.tools import getParamsAsDict
+
+from experiment import ExperimentModel
+from problems.registry import getProblem
+from utils.checkpoint import Checkpoint
 from utils.ml_instrumentation.Sampler import Mean
 from utils.ml_instrumentation.utils import Last
-from ml_instrumentation.utils import Pipe
-from ml_instrumentation.metadata import attach_metadata
-from jax_tqdm.scan_pbar import scan_tqdm
+from utils.preempt import TimeoutHandler
+from utils.rlglue import RlGlue
 
 # ------------------
 # -- Command Args --
@@ -36,6 +38,7 @@ parser.add_argument("--save_path", type=str, default="./")
 parser.add_argument("--checkpoint_path", type=str, default="./checkpoints/")
 parser.add_argument("--silent", action="store_true", default=False)
 parser.add_argument("--gpu", action="store_true", default=False)
+parser.add_argument("--video", action="store_true", default=False)
 
 args = parser.parse_args()
 
@@ -130,6 +133,31 @@ for idx in indices:
 
     glue = chk.build("glue", lambda: RlGlue(agent, env))
     glues.append(glue)
+
+# render video of first env
+if args.video:
+    first_glue = glues[0]
+    first_idx = indices[0]
+    first_state = first_glue._start(first_glue.state)[0]
+
+    def video_step(state, _):
+        frame = first_glue.environment.env.render(
+            state.env_state.state, None, render_mode="world"
+        )
+        next_state, _ = first_glue._step(state)
+        return next_state, frame
+
+    _, frames = jax.lax.scan(video_step, first_state, None, length=1000)
+
+    context = exp.buildSaveContext(first_idx, base=args.save_path)
+    video_path = context.resolve(f"videos/{first_idx}")
+    context.ensureExists(video_path, is_file=True)
+    save_video(
+        frames,
+        video_path,
+        name_prefix="foragax",
+        fps=8,
+    )
 
 # combine states
 glue_states = tree_map(lambda *leaves: jnp.stack(leaves), *[g.state for g in glues])
