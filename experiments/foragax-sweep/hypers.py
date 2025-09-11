@@ -7,6 +7,7 @@ sys.path.append(str(Path.cwd() / "src"))
 
 import json
 
+import numpy as np
 import rlevaluation.hypers as Hypers
 from rlevaluation.config import data_definition
 from rlevaluation.statistics import Statistic
@@ -38,15 +39,18 @@ def main():
             df = alg_result.load()
             if df is None:
                 continue
+            df = df.sort(["seed", "id"])
 
             print(f"{env} {alg}")
             print(df)
+            np.random.seed(0)
             report = Hypers.select_best_hypers(
                 df,
                 metric="mean_ewm_reward",
                 prefer=Hypers.Preference.high,
                 time_summary=TimeSummary.mean,
                 statistic=Statistic.mean,
+                threshold=0.01,
             )
             Hypers.pretty_print(report)
             best_configuration = {

@@ -13,7 +13,7 @@ import utils.chex as cxu
 from algorithms.nn.NNAgent import AgentState as BaseAgentState
 from algorithms.nn.NNAgent import Hypers as BaseHypers
 from algorithms.nn.NNAgent import NNAgent
-from representations.networks import NetworkBuilder
+from representations.networks import NetworkBuilder, reluLayers
 from utils.jax import huber_loss
 
 
@@ -65,7 +65,18 @@ class DQN(NNAgent):
     # -- NN agent interface --
     # ------------------------
     def _build_heads(self, builder: NetworkBuilder) -> None:
-        self.q = builder.addHead(lambda: hk.Linear(self.actions, name="q"))
+        name = self.rep_params["type"]
+        hidden = self.rep_params["hidden"]
+        num_layers = self.rep_params.get("num_layers", 2)
+        head_layers = [hidden] * num_layers
+        layer_norm = "LayerNorm" in name
+
+        def q_net_builder():
+            layers = reluLayers(head_layers, name="q", layer_norm=layer_norm)
+            layers += [hk.Linear(self.actions, name="q")]
+            return hk.Sequential(layers)
+
+        self.q_net, _, self.q = builder.addHead(q_net_builder, name="q")
 
     # internal compiled version of the value function
     @partial(jax.jit, static_argnums=0)
@@ -89,11 +100,7 @@ class DQN(NNAgent):
             state.buffer_state, batch.indices, priorities
         )
 
-        target_params = jax.lax.cond(
-            updates % state.hypers.target_refresh == 0,
-            lambda: state.params,
-            lambda: state.target_params,
-        )
+        target_params = self._update_target_network(state, updates)
 
         return replace(
             state,
@@ -101,6 +108,15 @@ class DQN(NNAgent):
             buffer_state=buffer_state,
             target_params=target_params,
         )
+
+    @partial(jax.jit, static_argnums=0)
+    def _update_target_network(self, state: AgentState, updates: int):
+        target_params = jax.lax.cond(
+            updates % state.hypers.target_refresh == 0,
+            lambda: state.params,
+            lambda: state.target_params,
+        )
+        return target_params
 
     # -------------
     # -- Updates --
@@ -110,10 +126,15 @@ class DQN(NNAgent):
         grad_fn = jax.grad(self._loss, has_aux=True)
         grad, metrics = grad_fn(state.params, state.target_params, batch, weights)
         optimizer = optax.adam(**state.hypers.optimizer.__dict__)
-        updates, optim = optimizer.update(grad, state.optim, state.params)
-        params = optax.apply_updates(state.params, updates)
 
-        return replace(state, params=params, optim=optim), metrics
+        new_params = {}
+        new_optim = {}
+        for name, p in state.params.items():
+            updates, optim = optimizer.update(grad[name], state.optim[name], p)
+            new_params[name] = optax.apply_updates(p, updates)
+            new_optim[name] = optim
+
+        return replace(state, params=new_params, optim=new_optim), metrics
 
     def _loss(
         self, params: hk.Params, target: hk.Params, batch: Dict, weights: jax.Array

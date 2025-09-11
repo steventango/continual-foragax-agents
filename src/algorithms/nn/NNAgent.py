@@ -40,7 +40,7 @@ class Hypers(BaseHypers):
 @cxu.dataclass
 class AgentState(BaseAgentState):
     params: Any
-    optim: optax.OptState
+    optim: Dict[str, optax.OptState]
     buffer_state: Any
     key: jax.Array
     last_timestep: Dict[str, jax.Array]
@@ -82,15 +82,16 @@ class NNAgent(BaseAgent):
             and final_epsilon is not None
         )
         self.reward_clip = params.get("reward_clip", 0)
+        self.reward_scale = params.get("reward_scale")
         self.hidden_size = self.rep_params["hidden"]
 
         # ---------------------
         # -- NN Architecture --
         # ---------------------
-        builder = NetworkBuilder(observations, self.rep_params, seed)
-        self._build_heads(builder)
-        self.phi = self.get_feature_function(builder)
-        net_params = builder.getParams()
+        self.builder = NetworkBuilder(observations, self.rep_params, self.key)
+        self._build_heads(self.builder)
+        self.phi = self.get_feature_function(self.builder)
+        net_params = self.builder.getParams()
 
         # ---------------
         # -- Optimizer --
@@ -102,7 +103,7 @@ class NNAgent(BaseAgent):
             eps=self.optimizer_params["eps"],
         )
         optimizer = optax.adam(**optimizer_hypers.__dict__)
-        opt_state = optimizer.init(net_params)
+        opt_state = {name: optimizer.init(p) for name, p in net_params.items()}
 
         # ------------------
         # -- Data ingress --
@@ -294,6 +295,8 @@ class NNAgent(BaseAgent):
         # possibly process the reward
         if self.reward_clip > 0:
             reward = jnp.clip(reward, -self.reward_clip, self.reward_clip)
+        if self.reward_scale is not None:
+            reward = reward / self.reward_scale
 
         state.last_timestep.update(
             {
@@ -325,6 +328,8 @@ class NNAgent(BaseAgent):
         # possibly process the reward
         if self.reward_clip > 0:
             reward = jnp.clip(reward, -self.reward_clip, self.reward_clip)
+        if self.reward_scale is not None:
+            reward = reward / self.reward_scale
 
         state.last_timestep.update(
             {

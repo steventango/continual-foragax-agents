@@ -21,7 +21,7 @@ dependencies = [
     # custom minatar with jit compiled environments
     'MinAtar @ git+https://github.com/andnp/MinAtar',
     'foragerenv @ git+https://github.com/andnp/forager',
-    "gymnasium[box2d]>=1.0.0",
+    "gymnasium[box2d,other]>=1.0.0",
     'optuna',
     'pillow',
     'numba>=0.55.0',

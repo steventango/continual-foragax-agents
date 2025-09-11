@@ -78,7 +78,7 @@ class DRQN(NNAgent):
         )
 
         self.burn_in_steps = self.state.hypers.burn_in_steps
-        
+
     def get_feature_function(self, builder: NetworkBuilder):
         return builder.getRecurrentFeatureFunction()
 
@@ -86,21 +86,21 @@ class DRQN(NNAgent):
     # -- NN agent interface --
     # ------------------------
     def _build_heads(self, builder: NetworkBuilder) -> None:
-        self.q = builder.addHead(lambda: hk.Linear(self.actions, name="q"))
+        *_, self.q = builder.addHead(lambda: hk.Linear(self.actions, name="q"))
 
     # internal compiled version of the value function
     @partial(jax.jit, static_argnums=0)
     def _values(self, state: AgentState, x: jax.Array, carry: jax.Array = None):  # type: ignore
         phi = self.phi(state.params, x, carry=carry)
         return self.q(state.params, phi[0][:, -1]), phi[1][:, -1], phi[2]
-    
+
     @partial(jax.jit, static_argnums=0)
     def _policy(self, state: AgentState, obs: jax.Array) -> Tuple[jax.Array, jax.Array]:
         obs = jnp.expand_dims(obs, 0)
         q, carry, _ = self._values(state, obs, carry=state.carry)
         pi = egreedy_probabilities(q, self.actions, state.hypers.epsilon)[0]
         return pi, carry
-    
+
     @partial(jax.jit, static_argnums=0)
     def act(
         self, state: AgentState, obs: jax.Array,
@@ -148,10 +148,15 @@ class DRQN(NNAgent):
         grad_fn = jax.grad(self._loss, has_aux=True)
         grad, metrics = grad_fn(state.params, state.target_params, batch, weights)
         optimizer = optax.adam(**state.hypers.optimizer.__dict__)
-        updates, optim = optimizer.update(grad, state.optim, state.params)
-        params = optax.apply_updates(state.params, updates)
 
-        return replace(state, params=params, optim=optim), metrics
+        new_params = {}
+        new_optim = {}
+        for name, p in state.params.items():
+            updates, optim = optimizer.update(grad[name], state.optim[name], p)
+            new_params[name] = optax.apply_updates(p, updates)
+            new_optim[name] = optim
+
+        return replace(state, params=new_params, optim=new_optim), metrics
 
     # Of shape: <batch, sequence, *feat>
     def _loss(
@@ -167,7 +172,7 @@ class DRQN(NNAgent):
         carry = batch["carry"][:, :-1]
         carryp = batch["carry"][:, 1:]
         reset = batch["reset"][:, :-1]
-        
+
         # Perform burn-in
         if self.burn_in_steps > 0:
             b_x, x = jnp.hsplit(x, [self.burn_in_steps])
@@ -179,7 +184,7 @@ class DRQN(NNAgent):
             _, r = jnp.hsplit(r, [self.burn_in_steps])
             _, g = jnp.hsplit(g, [self.burn_in_steps])
             _, weights = jnp.hsplit(weights, [self.burn_in_steps])
-            
+
             carry = carry.at[:, 0].set(jax.lax.stop_gradient(self.phi(params, b_x, carry=b_carry, reset=b_reset, is_target=False)[1][:, -1, ...]))
             carryp = carryp.at[:, 0].set(jax.lax.stop_gradient(self.phi(target, b_xp, carry=b_carryp, reset=b_reset, is_target=True)[1][:, -1, ...]))
 
@@ -188,13 +193,13 @@ class DRQN(NNAgent):
 
         qs = self.q(params, phi)
         qsp = self.q(target, phi_p)
-        
+
         qs = qs.reshape(-1, qs.shape[-1])
         qsp = qsp.reshape(-1, qsp.shape[-1])
         a = a.ravel()
         r = r.ravel()
         g = g.ravel()
-        
+
         weights = weights.ravel()
 
         batch_loss = jax.vmap(q_loss, in_axes=0)

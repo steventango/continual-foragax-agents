@@ -3,28 +3,29 @@ import sys
 
 sys.path.append(os.getcwd())
 
-import json
-import time
-import socket
-import logging
 import argparse
-import numpy as np
+import logging
+import socket
+import time
+
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jax.tree_util import tree_map
-from experiment import ExperimentModel
-from utils.checkpoint import Checkpoint
-from utils.preempt import TimeoutHandler
-from utils.rlglue import RlGlue
-from problems.registry import getProblem
-from PyExpUtils.results.tools import getParamsAsDict
+from jax_tqdm.scan_pbar import scan_tqdm
 from ml_instrumentation.Collector import Collector
+from ml_instrumentation.metadata import attach_metadata
 from ml_instrumentation.Sampler import Ignore, MovingAverage, Subsample
+from ml_instrumentation.utils import Pipe
+from PyExpUtils.results.tools import getParamsAsDict
+
+from experiment import ExperimentModel
+from problems.registry import getProblem
+from utils.checkpoint import Checkpoint
 from utils.ml_instrumentation.Sampler import Mean
 from utils.ml_instrumentation.utils import Last
-from ml_instrumentation.utils import Pipe
-from ml_instrumentation.metadata import attach_metadata
-from jax_tqdm.scan_pbar import scan_tqdm
+from utils.preempt import TimeoutHandler
+from utils.rlglue import RlGlue
 
 # ------------------
 # -- Command Args --
@@ -36,6 +37,7 @@ parser.add_argument("--save_path", type=str, default="./")
 parser.add_argument("--checkpoint_path", type=str, default="./checkpoints/")
 parser.add_argument("--silent", action="store_true", default=False)
 parser.add_argument("--gpu", action="store_true", default=False)
+parser.add_argument("--video", action="store_true", default=False)
 
 args = parser.parse_args()
 
@@ -117,11 +119,19 @@ for idx in indices:
     assert hypers.get("batch") == first_hypers.get("batch")
     assert hypers.get("buffer_size") == first_hypers.get("buffer_size")
     assert hypers.get("buffer_min_size") == first_hypers.get("buffer_min_size")
-    assert hypers.get("environment", {}).get("aperture_size") == first_hypers.get("environment", {}).get("aperture_size")
+    assert hypers.get("environment", {}).get("aperture_size") == first_hypers.get(
+        "environment", {}
+    ).get("aperture_size")
     assert hypers.get("n_step") == first_hypers.get("n_step")
-    assert hypers.get("optimizer", {}).get("name") == first_hypers.get("optimizer", {}).get("name")
-    assert hypers.get("representation", {}).get("type") == first_hypers.get("representation", {}).get("type")
-    assert hypers.get("representation", {}).get("hidden") == first_hypers.get("representation", {}).get("hidden")
+    assert hypers.get("optimizer", {}).get("name") == first_hypers.get(
+        "optimizer", {}
+    ).get("name")
+    assert hypers.get("representation", {}).get("type") == first_hypers.get(
+        "representation", {}
+    ).get("type")
+    assert hypers.get("representation", {}).get("hidden") == first_hypers.get(
+        "representation", {}
+    ).get("hidden")
 
     # build stateful things and attach to checkpoint
     problem = chk.build("p", lambda: Problem(exp, idx, collector))
@@ -131,17 +141,55 @@ for idx in indices:
     glue = chk.build("glue", lambda: RlGlue(agent, env))
     glues.append(glue)
 
-# combine states
-glue_states = tree_map(lambda *leaves: jnp.stack(leaves), *[g.state for g in glues])
-
-# vmap glue methods
-v_start = jax.vmap(glues[0]._start)
-v_step = jax.vmap(glues[0]._step)
+if len(glues) > 1:
+    # combine states
+    glue_states = tree_map(lambda *leaves: jnp.stack(leaves), *[g.state for g in glues])
+    # vmap glue methods
+    v_start = jax.vmap(glues[0]._start)
+    v_step = jax.vmap(glues[0]._step)
+else:
+    glue_states = glues[0].state
+    v_start = glues[0]._start
+    v_step = glues[0]._step
 
 total_setup_time = time.time() - start_time
 num_indices = len(indices)
 logger.debug("--- Batch Set-up Timings ---")
-logger.debug(f"Total setup time: {total_setup_time:.4f}s | Average: {total_setup_time / num_indices:.4f}s")
+logger.debug(
+    f"Total setup time: {total_setup_time:.4f}s | Average: {total_setup_time / num_indices:.4f}s"
+)
+
+
+# render video of first env
+if args.video:
+    from gymnasium.utils.save_video import save_video
+    first_glue = glues[0]
+    first_idx = indices[0]
+    first_state = first_glue._start(first_glue.state)[0]
+
+    video_length = 1000
+
+    @scan_tqdm(video_length)
+    def video_step(state, _):
+        frame = first_glue.environment.env.render(
+            state.env_state.state, None, render_mode="world"
+        )
+        next_state, _ = first_glue._step(state)
+        return next_state, frame
+
+    _, frames = jax.lax.scan(video_step, first_state, jnp.arange(video_length))
+    frames = np.asarray(frames)
+    frames = [frames[i] for i in range(frames.shape[0])]
+
+    context = exp.buildSaveContext(first_idx, base=args.save_path)
+    video_path = context.resolve(f"videos/{first_idx}")
+    context.ensureExists(video_path, is_file=True)
+    save_video(
+        frames,
+        video_path,
+        name_prefix="foragax",
+        fps=8,
+    )
 
 # --------------------
 # -- Batch Execution --
@@ -152,12 +200,17 @@ glue_states, _ = v_start(glue_states)
 
 n = exp.total_steps
 
+
 @scan_tqdm(n)
 def step(carry, _):
     carry, interaction = v_step(carry)
     return carry, interaction.reward
 
+
 glue_states, rewards = jax.lax.scan(step, glue_states, jnp.arange(n), unroll=1)
+
+if len(glues) < 2:
+    rewards = jnp.expand_dims(rewards, -1)
 
 # rewards is (steps, batch_size)
 # we want (batch_size, steps)
@@ -210,8 +263,16 @@ for i, idx in enumerate(indices):
     chk.delete()
 
 logger.debug("--- Saving Timings ---")
-logger.debug(f"Total collect time: {total_collect_time:.4f}s | Average: {total_collect_time / num_indices:.4f}s")
-logger.debug(f"Total numpy save time: {total_numpy_time:.4f}s | Average: {total_numpy_time / num_indices:.4f}s")
-logger.debug(f"Total db save time: {total_db_time:.4f}s | Average: {total_db_time / num_indices:.4f}s")
+logger.debug(
+    f"Total collect time: {total_collect_time:.4f}s | Average: {total_collect_time / num_indices:.4f}s"
+)
+logger.debug(
+    f"Total numpy save time: {total_numpy_time:.4f}s | Average: {total_numpy_time / num_indices:.4f}s"
+)
+logger.debug(
+    f"Total db save time: {total_db_time:.4f}s | Average: {total_db_time / num_indices:.4f}s"
+)
 total_save_time = total_collect_time + total_numpy_time + total_db_time
-logger.debug(f"Total save time: {total_save_time:.4f}s | Average: {total_save_time / num_indices:.4f}s")
+logger.debug(
+    f"Total save time: {total_save_time:.4f}s | Average: {total_save_time / num_indices:.4f}s"
+)

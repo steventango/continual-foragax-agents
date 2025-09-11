@@ -1,14 +1,21 @@
-# python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-3/DQN.json
-# python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-5/DQN.json
-# python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-7/DQN.json
-# python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-9/DQN.json
-# python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-11/DQN.json
-# python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-13/DQN.json
-# python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-15/DQN.json
-python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-3/W0-DQN.json
-python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-5/W0-DQN.json
-python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-7/W0-DQN.json
-python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-9/W0-DQN.json
-python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-11/W0-DQN.json
-python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-13/W0-DQN.json
-python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-15/W0-DQN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-3/DQN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-5/DQN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-7/DQN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-9/DQN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-11/DQN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-13/DQN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-15/DQN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-3/DQN_L2_Init.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-5/DQN_L2_Init.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-7/DQN_L2_Init.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-9/DQN_L2_Init.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-11/DQN_L2_Init.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-13/DQN_L2_Init.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-15/DQN_L2_Init.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-3/DQN_LN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-5/DQN_LN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-7/DQN_LN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-9/DQN_LN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-11/DQN_LN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-13/DQN_LN.json
+python scripts/slurm.py --cluster clusters/vulcan-foragax-sweep.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-15/DQN_LN.json
