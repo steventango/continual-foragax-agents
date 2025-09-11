@@ -60,7 +60,7 @@ def getJobScript(parallel: str, slurm):
 export CUDA_MPS_LOG_DIRECTORY=/tmp/nvidia-log
 nvidia-cuda-mps-control -d"""
     else:
-        device_str = "export JAX_PLATFORM_NAME=cpu"
+        device_str = "export JAX_PLATFORMS=cpu"
     return f"""#!/bin/bash
 
 #SBATCH --signal=B:SIGTERM@180
