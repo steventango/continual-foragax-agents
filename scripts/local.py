@@ -56,6 +56,7 @@ if __name__ == "__main__":
             env["CUDA_MPS_LOG_DIRECTORY"] = "/tmp/nvidia-log"
             subprocess.run("nvidia-cuda-mps-control -d", shell=True)
         else:
+            env["JAX_PLATFORM_NAME"] = "cpu"
             exe = f"python {cmdline.entry} --silent -e {path} -i "
 
         for group in batched(indices, cmdline.vmap):
