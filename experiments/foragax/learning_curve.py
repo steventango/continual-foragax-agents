@@ -15,7 +15,6 @@ from rlevaluation.temporal import (
 )
 from matplotlib.lines import Line2D
 from experiment.ExperimentModel import ExperimentModel
-from utils.plotting import label_lines
 from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
@@ -52,9 +51,9 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    nalgs = 8
-    nrows = int(np.ceil(np.sqrt(nalgs)))
-    ncols = int(np.ceil(nalgs / nrows))
+    nalgs = 6
+    ncols = int(np.ceil(np.sqrt(nalgs)))
+    nrows = int(np.ceil(nalgs / ncols))
     fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained")
     axs = axs.flatten()
     env = "unknown"
@@ -111,16 +110,12 @@ if __name__ == "__main__":
                 ax_idxs = [1]
             elif alg == "DQN_LN":
                 ax_idxs = [2]
-            elif alg == "DQN_Reset_head_3000":
-                ax_idxs = [3]
-            elif alg == "DQN_Reset_head_30000":
-                ax_idxs = [4]
             elif alg == "DQN_Reset_head_100000":
-                ax_idxs = [5]
+                ax_idxs = [3]
             elif alg == "DQN_Shrink_and_Perturb":
-                ax_idxs = [6]
+                ax_idxs = [4]
             elif alg == "DQN_Hare_and_Tortoise":
-                ax_idxs = [7]
+                ax_idxs = [5]
             else:
                 ax_idxs = np.arange(len(axs))
 
@@ -144,8 +139,10 @@ if __name__ == "__main__":
                 ax.ticklabel_format(
                     axis="x", style="sci", scilimits=(0, 0), useMathText=True
                 )
-                ax.set_xlabel("Time steps")
-                ax.set_ylabel("Average Reward")
+                if i % ncols == 0:
+                    ax.set_ylabel("Average Reward")
+                if i // ncols == nrows - 1:
+                    ax.set_xlabel("Time steps")
 
                 ax.spines["top"].set_visible(False)
                 ax.spines["right"].set_visible(False)
@@ -154,7 +151,6 @@ if __name__ == "__main__":
         if not ax.get_lines():
             ax.set_visible(False)
             continue
-        label_lines(ax)
 
     legend_elements = []
     aperture_keys = sorted([k for k in COLORS.keys() if isinstance(k, int)])
@@ -174,5 +170,5 @@ if __name__ == "__main__":
         save_type="pdf",
         f=fig,
         width=ncols,
-        height_ratio=2 / 3,
+        height_ratio=(nrows / ncols) * (2 / 3),
     )

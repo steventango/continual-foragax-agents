@@ -16,7 +16,9 @@ def plot(ax, data, label=None):
     )
 
 
-def _calculate_cost(line, x, y, angle, current_offset, placed_bboxes, **kwargs):
+def _calculate_cost(
+    line, x, y, angle, offset_perp, offset_parallel, placed_bboxes, **kwargs
+):
     """Helper to calculate the cost of a potential label position."""
     ax = line.axes
     label = line.get_label()
@@ -24,8 +26,14 @@ def _calculate_cost(line, x, y, angle, current_offset, placed_bboxes, **kwargs):
 
     # 2. Calculate final label position and its bounding box
     perp_angle_rad = np.deg2rad(angle + 90)
-    dx_offset = current_offset * np.cos(perp_angle_rad)
-    dy_offset = current_offset * np.sin(perp_angle_rad)
+    parallel_angle_rad = np.deg2rad(angle)
+
+    dx_offset = offset_perp * np.cos(perp_angle_rad) + offset_parallel * np.cos(
+        parallel_angle_rad
+    )
+    dy_offset = offset_perp * np.sin(perp_angle_rad) + offset_parallel * np.sin(
+        parallel_angle_rad
+    )
 
     pos_disp = ax.transData.transform((x, y))
     label_center_disp = (pos_disp[0] + dx_offset, pos_disp[1] + dy_offset)
@@ -44,7 +52,7 @@ def _calculate_cost(line, x, y, angle, current_offset, placed_bboxes, **kwargs):
     # 1. Overlap with other LABELS
     label_overlap_cost = 0
     if any(candidate_bbox.overlaps(bbox) for bbox in placed_bboxes):
-        label_overlap_cost = 10000  # Very high cost for text overlap
+        label_overlap_cost = 1e5  # Very high cost for text overlap
 
     # 2. Overlap with other LINES and CIs (now additive)
     line_overlap_cost = 0
@@ -69,7 +77,7 @@ def _calculate_cost(line, x, y, angle, current_offset, placed_bboxes, **kwargs):
             p2 = other_pts_disp[j + 1]
             segment_bbox = Bbox([p1, p2])
             if candidate_bbox.overlaps(segment_bbox):
-                line_overlap_cost += 500  # Add cost for each intersection
+                line_overlap_cost += 5000  # Add cost for each intersection
                 break  # Break to avoid counting multiple segments of the same line
 
     ci_overlap_cost = 0
@@ -79,7 +87,7 @@ def _calculate_cost(line, x, y, angle, current_offset, placed_bboxes, **kwargs):
         for path in collection.get_paths():
             path_transformed = path.transformed(ax.transData)
             if path_transformed.intersects_bbox(candidate_bbox):
-                ci_overlap_cost += 500  # Add cost for each CI intersection
+                ci_overlap_cost += 2000  # Add cost for each CI intersection
                 break  # Break to avoid counting the same CI multiple times
 
     # 3. Slope cost (prefer flatter parts of the line)
@@ -99,7 +107,7 @@ def _calculate_cost(line, x, y, angle, current_offset, placed_bboxes, **kwargs):
         ax_bbox_disp.contains(candidate_bbox.x0, candidate_bbox.y0)
         and ax_bbox_disp.contains(candidate_bbox.x1, candidate_bbox.y1)
     ):
-        clipping_cost += 1000
+        clipping_cost += 1e5
 
     # 6. Right-side clipping cost
     xlim = ax.get_xlim()
@@ -108,18 +116,82 @@ def _calculate_cost(line, x, y, angle, current_offset, placed_bboxes, **kwargs):
     if x_rel > 0.9:
         clipping_cost += (x_rel - 0.9) * 1000
 
+    # 7. Offset cost (prefer smaller offsets)
+    offset_cost = (abs(offset_perp) + abs(offset_parallel)) * 0.1
+
     total_cost = (
         label_overlap_cost
         + line_overlap_cost
         + ci_overlap_cost
         + slope_cost
         + clipping_cost
+        + offset_cost
     )
 
     return total_cost, candidate_bbox
 
 
-def label_lines(ax, align=False, xvals=None, offset_range=(6, 24), **kwargs):
+def _calculate_crowdedness(lines_to_consider, ax):
+    """Calculates a crowdedness score for each line."""
+    line_scores = {}
+    if not lines_to_consider:
+        return []
+
+    # Use a common x-axis for interpolation based on the visible range
+    xlim = ax.get_xlim()
+    x_common = np.linspace(xlim[0], xlim[1], num=100)
+
+    # Pre-interpolate all lines
+    interpolated_lines = {}
+    for line in lines_to_consider:
+        xdata, ydata = line.get_data()
+        mask = np.isfinite(ydata)
+        if np.any(mask):
+            y_interp = np.interp(
+                x_common, xdata[mask], ydata[mask], left=np.nan, right=np.nan
+            )
+            interpolated_lines[line] = y_interp
+
+    for line, y_interp in interpolated_lines.items():
+        score = 0
+        if np.all(np.isnan(y_interp)):
+            line_scores[line] = -np.inf  # Should not be processed
+            continue
+
+        for other_line, other_y_interp in interpolated_lines.items():
+            if line is other_line or np.all(np.isnan(other_y_interp)):
+                continue
+
+            # Calculate distance only where both lines are defined
+            valid_mask = ~np.isnan(y_interp) & ~np.isnan(other_y_interp)
+            if not np.any(valid_mask):
+                continue
+
+            # Normalize y-distances by the y-range of the axes
+            ylim = ax.get_ylim()
+            y_range = ylim[1] - ylim[0]
+            if y_range == 0:
+                y_range = 1
+
+            dist = np.nanmean(np.abs(y_interp[valid_mask] - other_y_interp[valid_mask]))
+            dist_normalized = dist / y_range
+
+            # Add inverse distance to score (closer lines give higher score)
+            # Add a small epsilon to avoid division by zero
+            score += 1 / (dist_normalized + 1e-6)
+
+        line_scores[line] = score
+
+    # Sort lines by score, descending (most crowded first)
+    sorted_lines = sorted(
+        lines_to_consider,
+        key=lambda line: line_scores.get(line, -np.inf),
+        reverse=True,
+    )
+    return sorted_lines
+
+
+def label_lines(ax, align=False, xvals=None, offset_range=(6, 48), **kwargs):
     """
     Adds labels to a list of Matplotlib line plots, attempting to position them
     to minimize overlap with other labels and lines.
@@ -135,22 +207,28 @@ def label_lines(ax, align=False, xvals=None, offset_range=(6, 24), **kwargs):
         **kwargs: Additional keyword arguments to pass to the annotation.
     """
     placed_bboxes = []  # List to store bounding boxes of labels already placed.
-    lines = ax.get_lines()
+    all_lines = ax.get_lines()
 
     # If xvals are provided, use them.
     if xvals:
         # In manual mode, we can't easily decide the best offset, so we use the average.
         offset = np.mean(offset_range)
-        for line, x in zip(lines, xvals, strict=True):
+        for line, x in zip(all_lines, xvals, strict=True):
             label_line(line, x, align=align, offset=offset, **kwargs)
         return
 
-    # Automatic placement
-    for line in lines:
-        label = line.get_label()
-        if not label or label.startswith("_"):
-            continue
+    # --- Automatic placement ---
+    # 1. Filter lines that need labels
+    lines_to_label = [
+        line
+        for line in all_lines
+        if line.get_label() and not line.get_label().startswith("_")
+    ]
 
+    # 2. Sort lines by crowdedness to place labels in dense areas first
+    sorted_lines = _calculate_crowdedness(lines_to_label, ax)
+
+    for line in sorted_lines:
         xdata = line.get_xdata()
         ydata = line.get_ydata()
 
@@ -165,8 +243,10 @@ def label_lines(ax, align=False, xvals=None, offset_range=(6, 24), **kwargs):
 
         # --- Find the best position for the label ---
         best_pos = None
-        best_offset = None
+        best_offset_perp = None
+        best_offset_parallel = None
         min_cost = float("inf")
+        best_bbox = None
 
         # Sample a number of points along the line
         candidate_indices = np.linspace(0, len(visible_xdata) - 1, num=30, dtype=int)[
@@ -174,9 +254,10 @@ def label_lines(ax, align=False, xvals=None, offset_range=(6, 24), **kwargs):
         ]
 
         # Sample a range of offsets to find the best one
-        offset_candidates = np.linspace(
-            offset_range[0], offset_range[1], num=5
+        offset_perp_candidates = np.linspace(
+            offset_range[0], offset_range[1], num=4
         )  # e.g., [6, 12, 18, 24]
+        offset_parallel_candidates = np.linspace(-30, 30, num=5)
 
         for i in candidate_indices:
             # Ensure we have a segment to calculate the angle
@@ -198,40 +279,64 @@ def label_lines(ax, align=False, xvals=None, offset_range=(6, 24), **kwargs):
                 angle += 180
 
             # --- Try different offsets for this point ---
-            for offset_val in offset_candidates:
-                # --- Calculate cost for both above and below positions ---
-                cost_above, bbox_above = _calculate_cost(
-                    line, x, y, angle, offset_val, placed_bboxes, **kwargs
-                )
-                cost_below, bbox_below = _calculate_cost(
-                    line, x, y, angle, -offset_val, placed_bboxes, **kwargs
-                )
+            for offset_perp in offset_perp_candidates:
+                for offset_parallel in offset_parallel_candidates:
+                    # --- Calculate cost for both above and below positions ---
+                    cost_above, bbox_above = _calculate_cost(
+                        line,
+                        x,
+                        y,
+                        angle,
+                        offset_perp,
+                        offset_parallel,
+                        placed_bboxes,
+                        **kwargs,
+                    )
+                    cost_below, bbox_below = _calculate_cost(
+                        line,
+                        x,
+                        y,
+                        angle,
+                        -offset_perp,
+                        offset_parallel,
+                        placed_bboxes,
+                        **kwargs,
+                    )
 
-                # Choose the better of the two options
-                current_cost, current_bbox, current_offset = (
-                    (cost_above, bbox_above, offset_val)
-                    if cost_above <= cost_below
-                    else (cost_below, bbox_below, -offset_val)
-                )
+                    # Choose the better of the two options
+                    current_cost, current_bbox, current_offset_perp = (
+                        (cost_above, bbox_above, offset_perp)
+                        if cost_above <= cost_below
+                        else (cost_below, bbox_below, -offset_perp)
+                    )
 
-                if current_cost < min_cost:
-                    min_cost = current_cost
-                    best_pos = x
-                    best_offset = current_offset
+                    if current_cost < min_cost:
+                        min_cost = current_cost
+                        best_pos = x
+                        best_offset_perp = current_offset_perp
+                        best_offset_parallel = offset_parallel
+                        best_bbox = current_bbox
 
-        if best_pos and best_offset is not None:
+        if (
+            best_pos is not None
+            and best_offset_perp is not None
+            and best_offset_parallel is not None
+            and best_bbox is not None
+        ):
             # Place the label at the best found position with the best offset
-            label_line(line, best_pos, align=align, offset=best_offset, **kwargs)
-
-            # Add the new label's bounding box to the list for future checks
-            # We need to recalculate the bbox for the final chosen position
-            final_bbox_info = _get_label_info(
-                line, best_pos, align, best_offset, **kwargs
+            label_line(
+                line,
+                best_pos,
+                align=align,
+                offset_perp=best_offset_perp,
+                offset_parallel=best_offset_parallel,
+                **kwargs,
             )
-            placed_bboxes.append(final_bbox_info["bbox"])
+
+            placed_bboxes.append(best_bbox)
 
 
-def _get_label_info(line, x, align, offset, **kwargs):
+def _get_label_info(line, x, align, offset_perp, offset_parallel=0, **kwargs):
     """Helper function to calculate label position and bbox without drawing."""
     ax = line.axes
     xdata, ydata = line.get_xdata(), line.get_ydata()
@@ -259,8 +364,13 @@ def _get_label_info(line, x, align, offset, **kwargs):
 
     # Calculate final position and bbox
     perp_angle_rad = np.deg2rad(angle + 90)
-    dx_offset = offset * np.cos(perp_angle_rad)
-    dy_offset = offset * np.sin(perp_angle_rad)
+    parallel_angle_rad = np.deg2rad(angle)
+    dx_offset = offset_perp * np.cos(perp_angle_rad) + offset_parallel * np.cos(
+        parallel_angle_rad
+    )
+    dy_offset = offset_perp * np.sin(perp_angle_rad) + offset_parallel * np.sin(
+        parallel_angle_rad
+    )
     pos_disp = ax.transData.transform((x, y))
     label_center_disp = (pos_disp[0] + dx_offset, pos_disp[1] + dy_offset)
 
@@ -279,7 +389,9 @@ def _get_label_info(line, x, align, offset, **kwargs):
     return {"x": x, "y": y, "angle": angle, "bbox": bbox}
 
 
-def label_line(line, x=None, label=None, align=False, offset=12, **kwargs):
+def label_line(
+    line, x=None, label=None, align=False, offset_perp=12, offset_parallel=0, **kwargs
+):
     """
     Adds a label to a Matplotlib line plot, positioned close to the line.
     """
@@ -320,8 +432,13 @@ def label_line(line, x=None, label=None, align=False, offset=12, **kwargs):
         angle = 0
 
     perp_angle_rad = np.deg2rad(angle + 90)
-    dx_offset = offset * np.cos(perp_angle_rad)
-    dy_offset = offset * np.sin(perp_angle_rad)
+    parallel_angle_rad = np.deg2rad(angle)
+    dx_offset = offset_perp * np.cos(perp_angle_rad) + offset_parallel * np.cos(
+        parallel_angle_rad
+    )
+    dy_offset = offset_perp * np.sin(perp_angle_rad) + offset_parallel * np.sin(
+        parallel_angle_rad
+    )
 
     text_kwargs = {
         "rotation": angle,

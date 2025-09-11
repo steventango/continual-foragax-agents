@@ -3,6 +3,7 @@ import sys
 from collections import defaultdict
 
 from constants import LABEL_MAP
+from utils.plotting import label_lines
 
 sys.path.append(os.getcwd() + "/src")
 
@@ -30,9 +31,7 @@ COLORS = {
     "DQN_LN": "tab:orange",
     "DQN_Shrink_and_Perturb": "magenta",
     "DQN_Hare_and_Tortoise": "brown",
-    "DQN_Reset_head_3000": "tab:olive",
-    "DQN_Reset_head_30000": "tab:cyan",
-    "DQN_Reset_head_300000": "tab:pink",
+    "DQN_Reset_head_100000": "tab:olive",
     "Search-Oracle": "tab:green",
     "Search-Nearest": "tab:red",
     "Random": "black",
@@ -138,6 +137,7 @@ if __name__ == "__main__":
         (line,) = ax.plot(
             sorted_apertures[alg],
             sorted_auc[alg],
+            label=label,
             color=color,
             linestyle=linestyle,
             linewidth=1,
@@ -158,6 +158,7 @@ if __name__ == "__main__":
         (line,) = ax.plot(
             a,
             [report.sample_stat] * len(a),
+            label=alg,
             color=color,
             linewidth=1,
         )
@@ -175,14 +176,7 @@ if __name__ == "__main__":
     ax.set_xticks(a)
     ax.set_xticklabels([str(int(x)) for x in a])
 
-    ax.legend(
-        handles=legend_handles.values(),
-        labels=legend_handles.keys(),
-        ncol=1,
-        loc="center left",
-        bbox_to_anchor=(1, 0.5),
-        frameon=False,
-    )
+    label_lines(ax)
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -193,5 +187,5 @@ if __name__ == "__main__":
         plot_name="auc_fov",
         save_type="pdf",
         f=f,
-        height_ratio=5 / 6,
+        width=1.5,
     )
