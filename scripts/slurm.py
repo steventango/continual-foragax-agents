@@ -94,7 +94,7 @@ threads = slurm.threads_per_task if isinstance(slurm, SingleNodeOptions) else 1
 tasks_per_core = slurm.tasks_per_core if isinstance(slurm, SingleNodeOptions) else 1
 
 # compute how many "tasks" to clump into each job
-groupSize = math.ceil(slurm.cores / threads * tasks_per_core) * slurm.sequential
+base_group_size = math.ceil(slurm.cores / threads * tasks_per_core) * slurm.sequential
 
 # compute how much time the jobs are going to take
 hours, minutes, seconds = slurm.time.split(":")
@@ -109,7 +109,7 @@ compute_cost = partial(
     approximate_cost, cores_per_job=slurm.cores, mem_per_core=memory, hours=total_hours
 )
 cost = sum(
-    compute_cost(math.ceil(len(job_list) / groupSize)) for job_list in missing.values()
+    compute_cost(math.ceil(len(job_list) / base_group_size)) for job_list in missing.values()
 )
 perc = (cost / ANNUAL_ALLOCATION) * 100
 
@@ -121,35 +121,34 @@ if not cmdline.debug and not cmdline.force:
 
 # start scheduling
 for path in missing:
+    total_tasks = len(missing[path])
+    if total_tasks == 0:
+        continue
+
+    # compute how many "tasks" to clump into each job
+    num_jobs = math.ceil(total_tasks / base_group_size)
+    groupSize = math.ceil(total_tasks / num_jobs)
+
     for g in group(missing[path], groupSize):
-        l = list(g)
-        print("scheduling:", path, l)
-        if not slurm.gpus:
-            # make sure to only request the number of CPU cores necessary
-            tasks = min([groupSize, len(l)])
-            par_tasks = max(math.ceil(tasks / slurm.sequential), 1)
-            cores = math.ceil(par_tasks * threads / tasks_per_core)
-            sub = dataclasses.replace(slurm, cores=cores)
-        else:
-            sub = slurm
+        job_indices = list(g)
+        print("scheduling:", path, job_indices)
+        # make sure to only request the number of CPU cores necessary
+        tasks = min([groupSize, len(job_indices)])
+        par_tasks = max(math.ceil(tasks / slurm.sequential), 1)
+        cores = math.ceil(par_tasks * threads / tasks_per_core)
+        sub = dataclasses.replace(slurm, cores=cores)
 
         # build the executable string
         # instead of activating the venv every time, just use its python directly
         gpu_str = "--gpu" if sub.gpus else ""
         runner = f"{venv}/.venv/bin/python {cmdline.entry} {gpu_str} -e {path} --save_path {cmdline.results} --checkpoint_path=$SCRATCH/checkpoints/{project_name} -i "
 
-        if sub.gpus:
-            # run all seeds on one gpu
-            parallel = ""
-            for g in group(l, groupSize // sub.sequential):
-                parallel += runner + " ".join([str(idx) for idx in g]) + "\n"
-        else:
-            # generate the gnu-parallel command for dispatching to many CPUs across server nodes
-            parallel = buildParallel(runner, l, sub)
+        # generate the gnu-parallel command for dispatching to many CPUs across server nodes
+        parallel = buildParallel(runner, job_indices, sub)
 
         # generate the bash script which will be scheduled
         script = getJobScript(parallel, sub)
-        script_name = get_script_name(Path(path), l)
+        script_name = get_script_name(Path(path), job_indices)
 
         if cmdline.debug:
             print(script_name)
