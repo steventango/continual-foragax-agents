@@ -4,7 +4,6 @@ from typing import Dict
 
 import jax
 import jax.lax
-import jax.numpy as jnp
 import optax
 from ml_instrumentation.Collector import Collector
 
@@ -17,7 +16,7 @@ from algorithms.nn.DQN import Hypers as BaseHypers
 @cxu.dataclass
 class Hypers(BaseHypers):
     reset_steps: int
-    reset_mask: Dict
+    reset_head_only: bool
 
 
 @cxu.dataclass
@@ -35,20 +34,11 @@ class DQN_Reset(DQN):
         seed: int,
     ):
         super().__init__(observations, actions, params, collector, seed)
-        reset_mask = {
-            "phi": {
-                k: jax.tree_util.tree_map(
-                    lambda _: not params["reset_head_only"] or k != "phi", v
-                )
-                for k, v in self.state.params["phi"].items()
-            },
-            "q": jax.tree_util.tree_map(lambda _: True, self.state.params["q"]),
-        }
 
         hypers = Hypers(
             **self.state.hypers.__dict__,
             reset_steps=params["reset_steps"],
-            reset_mask=reset_mask,
+            reset_head_only=params["reset_head_only"],
         )
 
         self.state = AgentState(
@@ -75,37 +65,29 @@ class DQN_Reset(DQN):
 
     @partial(jax.jit, static_argnums=0)
     def _reset(self, state: AgentState):
-        key, subkey = jax.random.split(state.key)
-        reset_params = self.builder.reset(subkey)
-        key, subkey = jax.random.split(key)
-        reset_params["q"] = self.q_net.init(subkey, self.builder._sample_phi)
-
-        params = jax.tree_util.tree_map(
-            lambda old, new, mask: jax.lax.select(mask, new, old),
-            state.params,
-            reset_params,
-            state.hypers.reset_mask,
-        )
-
+        key, q_key, body_key = jax.random.split(state.key, 3)
         optimizer = optax.adam(**state.hypers.optimizer.__dict__)
-        reset_optim = optimizer.init(params)
+        params = state.params
+        optim = state.optim
 
-        # TODO: count only for non-masked params, need 2 optimizers.
-        adam_state_mask = optax.ScaleByAdamState(
-            count=jnp.ones((), dtype=int),
-            mu=state.hypers.reset_mask,
-            nu=state.hypers.reset_mask
-        )
-        optim_reset_mask = (
-            adam_state_mask,
-            reset_optim[1]
-        )
+        q_params = self.q_net.init(q_key, self.builder._sample_phi)
+        params["q"] = q_params
+        optim["q"] = optimizer.init(q_params)
 
-        optim = jax.tree_util.tree_map(
-            lambda old, new, mask: jax.lax.select(mask, new, old),
-            state.optim,
-            reset_optim,
-            optim_reset_mask,
+        def _reset_body():
+            body_params = self.builder.reset(body_key)
+            body_optim = optimizer.init(body_params["phi"])
+            return body_params["phi"], body_optim
+
+        def _no_reset_body():
+            return params["phi"], optim["phi"]
+
+        new_phi, new_optim_phi = jax.lax.cond(
+            state.hypers.reset_head_only,
+            _no_reset_body,
+            _reset_body,
         )
+        params["phi"] = new_phi
+        optim["phi"] = new_optim_phi
 
         return replace(state, key=key, params=params, optim=optim)
