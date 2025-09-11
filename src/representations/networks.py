@@ -432,7 +432,6 @@ class AAGRU(hk.Module):
     def gru_call(self, inputs, action, state):
         # modified from https://github.com/google-deepmind/dm-haiku/blob/main/haiku/_src/recurrent.py#L521#L588
         self.input_size = inputs.shape[-1]
-        action = jnp.zeros((1,self.number_of_actions))
         w_i = hk.get_parameter("w_i", [self.input_size, 3 * self.hidden_size], init=self.w_init)
         w_h = hk.get_parameter("w_h", [self.hidden_size, 3 * self.hidden_size], init=self.w_init)
         w_a = hk.get_parameter("w_a", [self.number_of_actions, 3 * self.hidden_size], init=self.w_init)
@@ -783,9 +782,9 @@ class ForagerAAGRUNetReLU3Xavier(hk.Module):
         
         N, T, *feat = x.shape
         
-        # Use No-Op action -1 to populate a if None
+        # Use No-Op action 0 to populate a if None
         if a is None:
-            a = jnp.full((N, T, self.number_of_actions), jnp.int32(-1))
+            a = jnp.full((N, T, self.number_of_actions), jnp.float32(0))
         if (len(a.shape) < 3):
             a = jnp.broadcast_to(a, (N, T, self.number_of_actions))
         

@@ -114,6 +114,7 @@ class AADRQN(NNAgent):
     def act(
         self, state: AgentState, obs: jax.Array, last_a: jax.Array
     ) -> tuple[AgentState, jax.Array]:
+        last_a = self.encode_action(last_a)
         pi, state.carry = self._policy(state, obs, last_a)
         state.key, sample_key = jax.random.split(state.key)
         a = jax.random.choice(sample_key, self.actions, p=pi)
