@@ -50,11 +50,17 @@ venv = "$SLURM_TMPDIR"
 
 # the contents of the string below will be the bash script that is scheduled on compute canada
 # change the script accordingly (e.g. add the necessary `module load X` commands)
-def getJobScript(parallel: str):
+def getJobScript(parallel: str, slurm):
     if len(cmdline.exclude) > 0:
         exclude_str = "#SBATCH --exclude=" + ",".join(cmdline.exclude)
     else:
         exclude_str = ""
+    if slurm.gpus:
+        device_str = """export CUDA_MPS_PIPE_DIRECTORY=/tmp/nvidia-mps
+export CUDA_MPS_LOG_DIRECTORY=/tmp/nvidia-log
+nvidia-cuda-mps-control -d"""
+    else:
+        device_str = "export JAX_PLATFORM_NAME=cpu"
     return f"""#!/bin/bash
 
 #SBATCH --signal=B:SIGTERM@180
@@ -64,7 +70,9 @@ tar -xf {venv_origin} -C {venv}
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
-export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
+export XLA_PYTHON_CLIENT_MEM_FRACTION={0.3 / slurm.cores}
+{device_str}
+
 {parallel}
     """
 
@@ -140,7 +148,7 @@ for path in missing:
             parallel = buildParallel(runner, l, sub)
 
         # generate the bash script which will be scheduled
-        script = getJobScript(parallel)
+        script = getJobScript(parallel, sub)
         script_name = get_script_name(Path(path), l)
 
         if cmdline.debug:
