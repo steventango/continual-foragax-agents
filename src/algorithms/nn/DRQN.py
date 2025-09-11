@@ -169,20 +169,20 @@ class DRQN(NNAgent):
         carryp = batch["carry"][:, 1:]
         reset = batch["reset"][:, :-1]
         
-        # # Perform burn-in
-        # if self.burn_in_steps > 0:
-        #     b_x, x = jnp.hsplit(x, [self.burn_in_steps])
-        #     b_xp, xp = jnp.hsplit(xp, [self.burn_in_steps])
-        #     b_reset, reset = jnp.hsplit(reset, [self.burn_in_steps])
-        #     b_carry, carry = jnp.hsplit(carry, [self.burn_in_steps])
-        #     b_carryp, carryp = jnp.hsplit(carryp, [self.burn_in_steps])
-        #     _, a = jnp.hsplit(a, [self.burn_in_steps])
-        #     _, r = jnp.hsplit(r, [self.burn_in_steps])
-        #     _, g = jnp.hsplit(g, [self.burn_in_steps])
-        #     _, weights = jnp.hsplit(weights, [self.burn_in_steps])
+        # Perform burn-in
+        if self.burn_in_steps > 0:
+            b_x, x = jnp.hsplit(x, [self.burn_in_steps])
+            b_xp, xp = jnp.hsplit(xp, [self.burn_in_steps])
+            b_reset, reset = jnp.hsplit(reset, [self.burn_in_steps])
+            b_carry, carry = jnp.hsplit(carry, [self.burn_in_steps])
+            b_carryp, carryp = jnp.hsplit(carryp, [self.burn_in_steps])
+            _, a = jnp.hsplit(a, [self.burn_in_steps])
+            _, r = jnp.hsplit(r, [self.burn_in_steps])
+            _, g = jnp.hsplit(g, [self.burn_in_steps])
+            _, weights = jnp.hsplit(weights, [self.burn_in_steps])
             
-        #     carry = carry.at[:, 0].set(jax.lax.stop_gradient(self.phi(params, b_x, carry=b_carry, reset=b_reset, is_target=False)[1][:, -1, ...]))
-        #     carryp = carryp.at[:, 0].set(jax.lax.stop_gradient(self.phi(target, b_xp, carry=b_carryp, reset=b_reset, is_target=True)[1][:, -1, ...]))
+            carry = carry.at[:, 0].set(jax.lax.stop_gradient(self.phi(params, b_x, carry=b_carry, reset=b_reset, is_target=False)[1][:, -1, ...]))
+            carryp = carryp.at[:, 0].set(jax.lax.stop_gradient(self.phi(target, b_xp, carry=b_carryp, reset=b_reset, is_target=True)[1][:, -1, ...]))
 
         phi = self.phi(params, x, carry=carry, reset=reset, is_target=False)[0]
         phi_p = self.phi(target, xp, carry=carryp, reset=reset, is_target=True)[0]
