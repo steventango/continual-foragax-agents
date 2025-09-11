@@ -30,6 +30,9 @@ COLORS = {
     "DQN_LN": "tab:orange",
     "DQN_Shrink_and_Perturb": "magenta",
     "DQN_Hare_and_Tortoise": "brown",
+    "DQN_Reset_head_3000": "tab:olive",
+    "DQN_Reset_head_30000": "tab:cyan",
+    "DQN_Reset_head_300000": "tab:pink",
     "Search-Oracle": "tab:green",
     "Search-Nearest": "tab:red",
     "Random": "black",
@@ -63,6 +66,8 @@ if __name__ == "__main__":
     auc_ci_low = defaultdict(list)
     auc_ci_high = defaultdict(list)
     special = {}
+
+    legend_handles = {}
 
     # group by aperture
     for env, sub_results in results.groupby_directory(level=2):
@@ -130,54 +135,54 @@ if __name__ == "__main__":
         linestyle = "-"
         color = COLORS.get(alg, DEFAULT_COLOR)
 
-
-        ax.plot(
+        (line,) = ax.plot(
             sorted_apertures[alg],
             sorted_auc[alg],
-            label=label,
             color=color,
             linestyle=linestyle,
             linewidth=1,
         )
-        ax.fill_between(
+        fill = ax.fill_between(
             sorted_apertures[alg],
             sorted_auc_ci_low[alg],
             sorted_auc_ci_high[alg],
             color=color,
             alpha=0.2,
         )
+        legend_handles[label] = (fill, line)
 
     a = np.unique(np.concatenate(list(apertures.values())))
 
     for alg, report in sorted(special.items(), key=lambda x: ORDER[x[0]]):
         color = COLORS.get(alg, DEFAULT_COLOR)
-        ax.plot(
+        (line,) = ax.plot(
             a,
             [report.sample_stat] * len(a),
-            label=alg,
             color=color,
             linewidth=1,
         )
-        ax.fill_between(
+        fill = ax.fill_between(
             a,
             np.repeat(report.ci[0], len(a)),
             np.repeat(report.ci[1], len(a)),
             color=color,
             alpha=0.4,
         )
+        legend_handles[alg] = (fill, line)
 
     ax.set_xlabel("Field of View")
     ax.set_ylabel("Last 10% Average Reward AUC")
     ax.set_xticks(a)
     ax.set_xticklabels([str(int(x)) for x in a])
 
-    ax.legend(ncol=1, loc="center left", bbox_to_anchor=(1, 0.5), frameon=False)
-
-    # ax.text(3, 1.3, "Search Oracle", color=COLORS["EQRC"])
-    # right side
-    # ax.text(15, 1.2, "DQN", color=COLORS["DQN"], ha="right")
-    # ax.text(15, 0.95, "Search Nearest", color=COLORS["ESARSA"], ha="right")
-    # ax.text(15, 0.4, "Random", color=COLORS["SoftmaxAC"], ha="right")
+    ax.legend(
+        handles=legend_handles.values(),
+        labels=legend_handles.keys(),
+        ncol=1,
+        loc="center left",
+        bbox_to_anchor=(1, 0.5),
+        frameon=False,
+    )
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)

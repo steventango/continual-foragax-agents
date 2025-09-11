@@ -13,8 +13,9 @@ from rlevaluation.temporal import (
     curve_percentile_bootstrap_ci,
     extract_learning_curves,
 )
-
+from matplotlib.lines import Line2D
 from experiment.ExperimentModel import ExperimentModel
+from utils.plotting import label_lines
 from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
@@ -54,9 +55,8 @@ if __name__ == "__main__":
     nalgs = 8
     nrows = int(np.ceil(np.sqrt(nalgs)))
     ncols = int(np.ceil(nalgs / nrows))
-    fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all")
+    fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained")
     axs = axs.flatten()
-
     env = "unknown"
     for env_aperture, sub_results in sorted(
         results.groupby_directory(level=2), key=lambda x: int(x[0].split("-")[-1])
@@ -98,32 +98,34 @@ if __name__ == "__main__":
             )
             if alg not in SINGLE:
                 alg_label = LABEL_MAP.get(alg, alg)
-                label = f"{alg_label} [{aperture}]"
+                label = None
                 color = COLORS[aperture]
             else:
+                alg_label = alg
                 label = alg
                 color = COLORS[label]
 
             if alg == "DQN":
-                axes = [axs[0]]
+                ax_idxs = [0]
             elif alg == "DQN_L2_Init":
-                axes = [axs[1]]
+                ax_idxs = [1]
             elif alg == "DQN_LN":
-                axes = [axs[2]]
+                ax_idxs = [2]
             elif alg == "DQN_Reset_head_3000":
-                axes = [axs[3]]
+                ax_idxs = [3]
             elif alg == "DQN_Reset_head_30000":
-                axes = [axs[4]]
+                ax_idxs = [4]
             elif alg == "DQN_Reset_head_100000":
-                axes = [axs[5]]
+                ax_idxs = [5]
             elif alg == "DQN_Shrink_and_Perturb":
-                axes = [axs[6]]
+                ax_idxs = [6]
             elif alg == "DQN_Hare_and_Tortoise":
-                axes = [axs[7]]
+                ax_idxs = [7]
             else:
-                axes = axs
+                ax_idxs = np.arange(len(axs))
 
-            for ax in axes:
+            for i in ax_idxs:
+                ax = axs[i]
                 ax.plot(
                     xs[0],
                     res.sample_stat,
@@ -131,6 +133,8 @@ if __name__ == "__main__":
                     color=color,
                     linewidth=1.0,
                 )
+                if alg not in SINGLE:
+                    ax.set_title(alg_label)
                 if len(ys) >= 5:
                     ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
                 else:
@@ -142,12 +146,26 @@ if __name__ == "__main__":
                 )
                 ax.set_xlabel("Time steps")
                 ax.set_ylabel("Average Reward")
-                ax.legend(ncol=1, loc="best", frameon=False)
 
                 ax.spines["top"].set_visible(False)
                 ax.spines["right"].set_visible(False)
 
-    fig.tight_layout()
+    for ax in axs:
+        if not ax.get_lines():
+            ax.set_visible(False)
+            continue
+        label_lines(ax)
+
+    legend_elements = []
+    aperture_keys = sorted([k for k in COLORS.keys() if isinstance(k, int)])
+    for ap in aperture_keys:
+        legend_elements.append(Line2D([0], [0], color=COLORS[ap], lw=2, label=f"FOV {ap}"))
+
+    for k in SINGLE:
+        if k in COLORS:
+            legend_elements.append(Line2D([0], [0], color=COLORS[k], lw=2, label=k))
+
+    fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
 
     path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
     save(
@@ -155,6 +173,6 @@ if __name__ == "__main__":
         plot_name=env,
         save_type="pdf",
         f=fig,
-        width=ncols * 2,
-        height_ratio=0.9,
+        width=ncols,
+        height_ratio=2 / 3,
     )
