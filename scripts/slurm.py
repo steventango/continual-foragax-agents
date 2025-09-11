@@ -61,7 +61,7 @@ export CUDA_MPS_LOG_DIRECTORY=/tmp/nvidia-log
 nvidia-cuda-mps-control -d"""
     else:
         device_str = "export JAX_PLATFORMS=cpu"
-    jobs = math.ceil(int(slurm.cores / slurm.threads_per_task) * slurm.tasks_per_core)
+    jobs = math.ceil(int(slurm.cores / slurm.threads_per_task) * slurm.tasks_per_core / slurm.tasks_per_vmap)
     return f"""#!/bin/bash
 
 #SBATCH --signal=B:SIGTERM@180
