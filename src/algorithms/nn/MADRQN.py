@@ -89,7 +89,7 @@ class MADRQN(NNAgent):
     # -- NN agent interface --
     # ------------------------
     def _build_heads(self, builder: NetworkBuilder) -> None:
-        self.q = builder.addHead(lambda: hk.Linear(self.actions, name="q"))
+        self.q_net, _, self.q = builder.addHead(lambda: hk.Linear(self.actions, name="q"))
 
     # internal compiled version of the value function
     @partial(jax.jit, static_argnums=0)
@@ -151,10 +151,15 @@ class MADRQN(NNAgent):
         grad_fn = jax.grad(self._loss, has_aux=True)
         grad, metrics = grad_fn(state.params, state.target_params, batch, weights)
         optimizer = optax.adam(**state.hypers.optimizer.__dict__)
-        updates, optim = optimizer.update(grad, state.optim, state.params)
-        params = optax.apply_updates(state.params, updates)
 
-        return replace(state, params=params, optim=optim), metrics
+        new_params = {}
+        new_optim = {}
+        for name, p in state.params.items():
+            updates, optim = optimizer.update(grad[name], state.optim[name], p)
+            new_params[name] = optax.apply_updates(p, updates)
+            new_optim[name] = optim
+
+        return replace(state, params=new_params, optim=new_optim), metrics
 
     # Of shape: <batch, sequence, *feat>
     # TODO: Important, this assumes that no truncation happens, that is end() is properly called before calling start()

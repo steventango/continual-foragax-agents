@@ -90,7 +90,7 @@ class NNAgent(BaseAgent):
         # ---------------------
         self.builder = NetworkBuilder(observations, self.rep_params, self.key)
         self._build_heads(self.builder)
-        self.phi = self.get_feature_function(builder)
+        self.phi = self.get_feature_function(self.builder)
         net_params = self.builder.getParams()
 
         # ---------------
