@@ -35,6 +35,8 @@ COLORS = {
 LABEL_MAP = {
     "DQN_L2_Init": "DQN (L2 Init)",
     "DQN_LN": "DQN (LayerNorm)",
+    "DQN_Hare_and_Tortoise": "DQN (Hare & Tortoise)",
+    "DQN_Shrink_and_Perturb": "DQN (Shrink & Perturb)",
 }
 
 SINGLE = {
@@ -55,7 +57,7 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    nalgs = 3 + 2 * 4
+    nalgs = 3 + 2 * 4 + 2
     nrows = int(np.ceil(np.sqrt(nalgs)))
     ncols = int(np.ceil(nalgs / nrows))
     fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey='all')
@@ -67,8 +69,6 @@ if __name__ == "__main__":
     ):
         env, aperture = env_aperture.split("-", 1)
         aperture = int(aperture)
-        if aperture != 15:
-            continue
         for alg_result in sorted(
             sub_results, key=lambda x: x.filename
         ):
@@ -134,6 +134,10 @@ if __name__ == "__main__":
                 axes = [axs[9]]
             elif alg == "DQN_Reset_full_100000":
                 axes = [axs[10]]
+            elif alg == "DQN_Shrink_and_Perturb":
+                axes = [axs[11]]
+            elif alg == "DQN_Hare_and_Tortoise":
+                axes = [axs[12]]
             else:
                 axes = axs
 
@@ -156,18 +160,19 @@ if __name__ == "__main__":
                 ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
                 ax.set_xlabel("Time steps")
                 ax.set_ylabel("Average Reward")
-                ax.set_box_aspect(2/3)
-                ax.legend(ncol=1, loc="center left", bbox_to_anchor=(1, 0.5), frameon=False)
+                ax.legend(ncol=1, loc="best", frameon=False)
 
                 ax.spines["top"].set_visible(False)
                 ax.spines["right"].set_visible(False)
 
-        path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
-        save(
-            save_path=f"{path}/plots",
-            plot_name=env,
-            save_type="pdf",
-            f=fig,
-            width=ncols * 2,
-            height_ratio=2 / 3,
-        )
+    fig.tight_layout()
+
+    path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
+    save(
+        save_path=f"{path}/plots",
+        plot_name=env,
+        save_type="pdf",
+        f=fig,
+        width=ncols * 2,
+        height_ratio=0.9,
+    )
