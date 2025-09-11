@@ -2,6 +2,8 @@ import os
 import sys
 from collections import defaultdict
 
+from constants import LABEL_MAP
+
 sys.path.append(os.getcwd() + "/src")
 
 import matplotlib.pyplot as plt
@@ -31,12 +33,6 @@ COLORS = {
     "Search-Oracle": "tab:green",
     "Search-Nearest": "tab:red",
     "Random": "black",
-}
-LABEL_MAP = {
-    "DQN_L2_Init": "DQN (L2 Init)",
-    "DQN_LN": "DQN (LayerNorm)",
-    "DQN_Hare_and_Tortoise": "DQN (Hare & Tortoise)",
-    "DQN_Shrink_and_Perturb": "DQN (Shrink & Perturb)",
 }
 DEFAULT_COLOR = "gray"
 ORDER = {
@@ -134,24 +130,6 @@ if __name__ == "__main__":
         linestyle = "-"
         color = COLORS.get(alg, DEFAULT_COLOR)
 
-        if len(parts) > 2 and ("full" in parts or "head" in parts):
-            style_part = parts[-2]
-            num_part = parts[-1]
-            label = f"{style_part} {num_part}"
-
-            if style_part == "full":
-                linestyle = "--"
-            elif style_part == "head":
-                linestyle = ":"
-
-            # Define a color map for the numbers
-            color_map = {
-                "300": "brown",
-                "3000": "magenta",
-                "30000": "yellow",
-                "100000": "cyan",
-            }
-            color = color_map.get(num_part, DEFAULT_COLOR)
 
         ax.plot(
             sorted_apertures[alg],

@@ -5,6 +5,7 @@ sys.path.append(os.getcwd() + "/src")
 
 import matplotlib.pyplot as plt
 import numpy as np
+from constants import LABEL_MAP
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 from rlevaluation.statistics import Statistic
@@ -32,13 +33,6 @@ COLORS = {
     "Search-Oracle": "green",
 }
 
-LABEL_MAP = {
-    "DQN_L2_Init": "DQN (L2 Init)",
-    "DQN_LN": "DQN (LayerNorm)",
-    "DQN_Hare_and_Tortoise": "DQN (Hare & Tortoise)",
-    "DQN_Shrink_and_Perturb": "DQN (Shrink & Perturb)",
-}
-
 SINGLE = {
     "Random",
     "Search-Nearest",
@@ -57,10 +51,10 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    nalgs = 3 + 2 * 4 + 2
+    nalgs = 8
     nrows = int(np.ceil(np.sqrt(nalgs)))
     ncols = int(np.ceil(nalgs / nrows))
-    fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey='all')
+    fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all")
     axs = axs.flatten()
 
     env = "unknown"
@@ -69,9 +63,7 @@ if __name__ == "__main__":
     ):
         env, aperture = env_aperture.split("-", 1)
         aperture = int(aperture)
-        for alg_result in sorted(
-            sub_results, key=lambda x: x.filename
-        ):
+        for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename
             print(f"{env_aperture} {alg}")
 
@@ -118,26 +110,16 @@ if __name__ == "__main__":
                 axes = [axs[1]]
             elif alg == "DQN_LN":
                 axes = [axs[2]]
-            elif alg == "DQN_Reset_head_300":
-                axes = [axs[3]]
-            elif alg == "DQN_Reset_full_300":
-                axes = [axs[4]]
             elif alg == "DQN_Reset_head_3000":
-                axes = [axs[5]]
-            elif alg == "DQN_Reset_full_3000":
-                axes = [axs[6]]
+                axes = [axs[3]]
             elif alg == "DQN_Reset_head_30000":
-                axes = [axs[7]]
-            elif alg == "DQN_Reset_full_30000":
-                axes = [axs[8]]
+                axes = [axs[4]]
             elif alg == "DQN_Reset_head_100000":
-                axes = [axs[9]]
-            elif alg == "DQN_Reset_full_100000":
-                axes = [axs[10]]
+                axes = [axs[5]]
             elif alg == "DQN_Shrink_and_Perturb":
-                axes = [axs[11]]
+                axes = [axs[6]]
             elif alg == "DQN_Hare_and_Tortoise":
-                axes = [axs[12]]
+                axes = [axs[7]]
             else:
                 axes = axs
 
@@ -150,14 +132,14 @@ if __name__ == "__main__":
                     linewidth=1.0,
                 )
                 if len(ys) >= 5:
-                    ax.fill_between(
-                        xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2
-                    )
+                    ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
                 else:
                     for y in ys:
                         ax.plot(xs[0], y, color=color, linewidth=0.2)
 
-                ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+                ax.ticklabel_format(
+                    axis="x", style="sci", scilimits=(0, 0), useMathText=True
+                )
                 ax.set_xlabel("Time steps")
                 ax.set_ylabel("Average Reward")
                 ax.legend(ncol=1, loc="best", frameon=False)
