@@ -200,8 +200,7 @@ glue_states, _ = v_start(glue_states)
 
 n = exp.total_steps
 
-
-@scan_tqdm(n)
+@scan_tqdm(n, print_rate=min(n//20, 2000))
 def step(carry, _):
     carry, interaction = v_step(carry)
     return carry, interaction.reward

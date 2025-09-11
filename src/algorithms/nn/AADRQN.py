@@ -41,7 +41,7 @@ def q_loss(q, a, r, gamma, qp):
     }
 
 
-class DRQN(NNAgent):
+class AADRQN(NNAgent):
     def __init__(
         self,
         observations: Tuple,
@@ -52,10 +52,16 @@ class DRQN(NNAgent):
     ):
         super().__init__(observations, actions, params, collector, seed)
         # set up the target network parameters
+        self.target_refresh = params["target_refresh"]
+
+        self.num_actions = actions
+
         dummy_timestep = {
             "x": jnp.zeros(self.observations),
             "carry": jnp.zeros(self.hidden_size),
             "reset": jnp.bool(True),
+            "last_a": jnp.int32(-1),
+            "last_a_encoded": jnp.zeros((1,actions)),
             "a": jnp.int32(0),
             "r": jnp.float32(0),
             "gamma": jnp.float32(0),
@@ -76,12 +82,15 @@ class DRQN(NNAgent):
             carry=None,
             hypers=hypers,
         )
-
-        self.burn_in_steps = self.state.hypers.burn_in_steps
         
-    def get_feature_function(self, builder: NetworkBuilder):
-        return builder.getRecurrentFeatureFunction()
+        self.burn_in_steps = self.state.hypers.burn_in_steps
 
+    def get_feature_function(self, builder: NetworkBuilder):
+        return builder.getMultiplicativeActionRecurrentFeatureFunction()
+
+    def encode_action(self, a):
+        return jax.nn.one_hot(a, self.num_actions)
+        
     # ------------------------
     # -- NN agent interface --
     # ------------------------
@@ -90,22 +99,22 @@ class DRQN(NNAgent):
 
     # internal compiled version of the value function
     @partial(jax.jit, static_argnums=0)
-    def _values(self, state: AgentState, x: jax.Array, carry: jax.Array = None):  # type: ignore
-        phi = self.phi(state.params, x, carry=carry)
+    def _values(self, state: AgentState, x: jax.Array, last_a: jax.Array, carry: jax.Array = None):  # type: ignore
+        phi = self.phi(state.params, x, a=last_a, carry=carry)
         return self.q(state.params, phi[0][:, -1]), phi[1][:, -1], phi[2]
     
     @partial(jax.jit, static_argnums=0)
-    def _policy(self, state: AgentState, obs: jax.Array) -> Tuple[jax.Array, jax.Array]:
+    def _policy(self, state: AgentState, obs: jax.Array, last_a: jax.Array,) -> Tuple[jax.Array, jax.Array]:
         obs = jnp.expand_dims(obs, 0)
-        q, carry, _ = self._values(state, obs, carry=state.carry)
+        q, carry, _ = self._values(state, obs, last_a, carry=state.carry)
         pi = egreedy_probabilities(q, self.actions, state.hypers.epsilon)[0]
         return pi, carry
     
     @partial(jax.jit, static_argnums=0)
     def act(
-        self, state: AgentState, obs: jax.Array,
+        self, state: AgentState, obs: jax.Array, last_a: jax.Array
     ) -> tuple[AgentState, jax.Array]:
-        pi, state.carry = self._policy(state, obs)
+        pi, state.carry = self._policy(state, obs, last_a)
         state.key, sample_key = jax.random.split(state.key)
         a = jax.random.choice(sample_key, self.actions, p=pi)
         return state, a
@@ -163,29 +172,16 @@ class DRQN(NNAgent):
         x = batch["x"][:, :-1]
         xp = batch["x"][:, 1:]
         a = batch["a"][:, :-1]
+        last_a_encoded = batch["last_a_encoded"][:, :-1]
+        last_a_encodedp = batch["last_a_encoded"][:, 1:]
         r = batch["r"][:, :-1]
         g = batch["gamma"][:, :-1]
         carry = batch["carry"][:, :-1]
         carryp = batch["carry"][:, 1:]
         reset = batch["reset"][:, :-1]
-        
-        # # Perform burn-in
-        # if self.burn_in_steps > 0:
-        #     b_x, x = jnp.hsplit(x, [self.burn_in_steps])
-        #     b_xp, xp = jnp.hsplit(xp, [self.burn_in_steps])
-        #     b_reset, reset = jnp.hsplit(reset, [self.burn_in_steps])
-        #     b_carry, carry = jnp.hsplit(carry, [self.burn_in_steps])
-        #     b_carryp, carryp = jnp.hsplit(carryp, [self.burn_in_steps])
-        #     _, a = jnp.hsplit(a, [self.burn_in_steps])
-        #     _, r = jnp.hsplit(r, [self.burn_in_steps])
-        #     _, g = jnp.hsplit(g, [self.burn_in_steps])
-        #     _, weights = jnp.hsplit(weights, [self.burn_in_steps])
-            
-        #     carry = carry.at[:, 0].set(jax.lax.stop_gradient(self.phi(params, b_x, carry=b_carry, reset=b_reset, is_target=False)[1][:, -1, ...]))
-        #     carryp = carryp.at[:, 0].set(jax.lax.stop_gradient(self.phi(target, b_xp, carry=b_carryp, reset=b_reset, is_target=True)[1][:, -1, ...]))
-
-        phi = self.phi(params, x, carry=carry, reset=reset, is_target=False)[0]
-        phi_p = self.phi(target, xp, carry=carryp, reset=reset, is_target=True)[0]
+                 
+        phi = self.phi(params, x, a=last_a_encoded, carry=carry, reset=reset, is_target=False)[0]
+        phi_p = self.phi(target, xp, a=last_a_encodedp, carry=carryp, reset=reset, is_target=True)[0]
 
         qs = self.q(params, phi)
         qsp = self.q(target, phi_p)
@@ -195,21 +191,26 @@ class DRQN(NNAgent):
         a = a.ravel()
         r = r.ravel()
         g = g.ravel()
-        
-        # weights = weights.ravel()
+        weights = weights.ravel()
 
         batch_loss = jax.vmap(q_loss, in_axes=0)
         losses, metrics = batch_loss(qs, a, r, g, qsp)
 
-        # chex.assert_equal_shape((weights, losses))
-        loss = jnp.mean(losses) # jnp.mean(weights * losses)
+        chex.assert_equal_shape((weights, losses))
+        loss = jnp.mean(weights * losses)
 
         return loss, metrics
 
     @partial(jax.jit, static_argnums=0)
     def _start(self, state: AgentState, obs: jax.Array):
         state.carry = None
-        state, a = self.act(state, obs)
+        state.last_timestep.update(
+            {
+                "last_a": jnp.int32(-1),
+                "last_a_encoded": self.encode_action(jnp.int32(-1))
+            }
+        )
+        state, a = self.act(state, obs, state.last_timestep["last_a"])
         state.last_timestep.update(
             {
                 "x": obs,
@@ -242,11 +243,14 @@ class DRQN(NNAgent):
         )
         buffer_state = self.buffer.add(state.buffer_state, batch_sequence)
         state = replace(state, buffer_state=buffer_state)
-        
+        state.last_timestep.update(
+            {
+                "last_a": state.last_timestep["a"],
+                "last_a_encoded": self.encode_action(state.last_timestep["a"])
+            }
+        )
         last_carry = state.carry[0]
-        
-        state, a = self.act(state, obs)
-
+        state, a = self.act(state, obs, jnp.array(state.last_timestep["last_a"]))
         state.last_timestep.update(
             {
                 "x": obs,
