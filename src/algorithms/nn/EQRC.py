@@ -19,7 +19,7 @@ from algorithms.nn.NNAgent import (
 from algorithms.nn.NNAgent import (
     NNAgent,
 )
-from representations.networks import NetworkBuilder
+from representations.networks import NetworkBuilder, reluLayers
 from utils.jax import argmax_with_random_tie_breaking, vmap_except
 
 tree_leaves = jax.tree_util.tree_leaves
@@ -55,16 +55,31 @@ class EQRC(NNAgent):
     # -- NN agent interface --
     # ------------------------
     def _build_heads(self, builder: NetworkBuilder) -> None:
-        zero_init = hk.initializers.Constant(0)
+        name = self.rep_params["type"]
+        hidden = self.rep_params["hidden"]
+        num_layers = self.rep_params.get("num_layers", 2)
+        head_layers = [hidden] * num_layers
+        layer_norm = "LayerNorm" in name
+
+        # NOTE: the network architecture differs post-refactor
+        # old: -> Relu Layers -> [Dueling Heads q, stopgrad -> Dueling Heads h]
+        # new: -> [Relu Layers -> Dueling Heads q, stopgrad -> Relu Layers -> Dueling Heads h]
+        def net_builder(name):
+            zero_init = hk.initializers.Constant(0)
+            layers = reluLayers(head_layers, name=name, layer_norm=layer_norm)
+            layers += [
+                hku.DuelingHeads(
+                    self.actions, name=name, w_init=zero_init, b_init=zero_init
+                )
+            ]
+            return hk.Sequential(layers)
+
         *_, self.q = builder.addHead(
-            lambda: hku.DuelingHeads(
-                self.actions, name="q", w_init=zero_init, b_init=zero_init
-            )
+            net_builder("q"),
+            name="q",
         )
         *_, self.h = builder.addHead(
-            lambda: hku.DuelingHeads(
-                self.actions, name="h", w_init=zero_init, b_init=zero_init
-            ),
+            net_builder("h"),
             grad=False,
         )
 
@@ -102,17 +117,23 @@ class EQRC(NNAgent):
             params, hypers.epsilon, batch
         )
         optimizer = optax.adam(**hypers.optimizer.__dict__)
-        updates, new_optim = optimizer.update(grad, state.optim, params)
-        assert isinstance(updates, dict)
 
-        decay = tree_map(
-            lambda h, dh: dh - hypers.optimizer.learning_rate * hypers.beta * h,
-            params["h"],
-            updates["h"],  # type: ignore
-        )
+        new_params = {}
+        new_optim = {}
+        for component in params.keys():
+            updates, new_optim[component] = optimizer.update(
+                grad[component], state.optim[component], params[component]
+            )
 
-        updates |= {"h": decay}
-        new_params = optax.apply_updates(params, updates)
+            if component == "h":
+                decay = tree_map(
+                    lambda h, dh: dh - hypers.optimizer.learning_rate * hypers.beta * h,
+                    params["h"],
+                    updates,
+                )
+                updates = decay
+
+            new_params[component] = optax.apply_updates(params[component], updates)
 
         return replace(state, params=new_params, optim=new_optim), metrics
 

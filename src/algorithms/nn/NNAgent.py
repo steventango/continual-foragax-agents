@@ -40,7 +40,7 @@ class Hypers(BaseHypers):
 @cxu.dataclass
 class AgentState(BaseAgentState):
     params: Any
-    optim: optax.OptState
+    optim: Dict[str, optax.OptState]
     buffer_state: Any
     key: jax.Array
     last_timestep: Dict[str, jax.Array]
@@ -102,7 +102,7 @@ class NNAgent(BaseAgent):
             eps=self.optimizer_params["eps"],
         )
         optimizer = optax.adam(**optimizer_hypers.__dict__)
-        opt_state = optimizer.init(net_params)
+        opt_state = {name: optimizer.init(p) for name, p in net_params.items()}
 
         # ------------------
         # -- Data ingress --

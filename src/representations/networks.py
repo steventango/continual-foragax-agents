@@ -80,9 +80,17 @@ class NetworkBuilder:
             "phi": self._feat_net.init(key, sample_in),
         }
 
-def reluLayers(layers: List[int], name: Optional[str] = None, layer_norm: bool = False):
-    w_init = hk.initializers.Orthogonal(np.sqrt(2))
-    b_init = hk.initializers.Constant(0)
+def reluLayers(
+    layers: List[int],
+    name: Optional[str] = None,
+    layer_norm: bool = False,
+    w_init: Optional[hk.initializers.Initializer] = None,
+    b_init: Optional[hk.initializers.Initializer] = None,
+):
+    if w_init is None:
+        w_init = hk.initializers.Orthogonal(np.sqrt(2))
+    if b_init is None:
+        b_init = hk.initializers.Constant(0)
 
     out = []
     for width in layers:
@@ -112,7 +120,6 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 jax.nn.relu,
                 hk.Flatten(name="phi"),
             ]
-            layers += reluLayers([hidden], name="phi")
 
         elif name == "ForagerNet":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
@@ -121,7 +128,6 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 jax.nn.relu,
                 hk.Flatten(name="phi"),
             ]
-            layers += reluLayers([hidden], name="phi")
 
         elif name == "ForagerLayerNormNet":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
@@ -131,7 +137,6 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 jax.nn.relu,
                 hk.Flatten(name="phi"),
             ]
-            layers += reluLayers([hidden], name="phi", layer_norm=True)
 
         elif name == "Forager2Net":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
@@ -140,7 +145,6 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 jax.nn.relu,
                 hk.Flatten(name="phi"),
             ]
-            layers += reluLayers([hidden, hidden], name="phi")
 
         elif name == "Forager2LayerNormNet":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
@@ -150,7 +154,6 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 jax.nn.relu,
                 hk.Flatten(name="phi"),
             ]
-            layers += reluLayers([hidden, hidden], name="phi", layer_norm=True)
 
         elif name == "AtariNet":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
