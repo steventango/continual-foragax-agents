@@ -75,5 +75,5 @@ class DQN_Hare_and_Tortoise(DQN):
     def _reset(self, state: AgentState):
         params = state.target_params
         optimizer = optax.adam(**state.hypers.optimizer.__dict__)
-        optim = optimizer.init(params)
+        optim = {name: optimizer.init(p) for name, p in params.items()}
         return replace(state, params=params, optim=optim)

@@ -60,10 +60,15 @@ class DQN_L2_Init(DQN):
             state.hypers.lambda_l2_init,
         )
         optimizer = optax.adam(**state.hypers.optimizer.__dict__)
-        updates, optim = optimizer.update(grad, state.optim, state.params)
-        params = optax.apply_updates(state.params, updates)
 
-        return replace(state, params=params, optim=optim), metrics
+        new_params = {}
+        new_optim = {}
+        for name, p in state.params.items():
+            updates, optim = optimizer.update(grad[name], state.optim[name], p)
+            new_params[name] = optax.apply_updates(p, updates)
+            new_optim[name] = optim
+
+        return replace(state, params=new_params, optim=new_optim), metrics
 
     def _loss_w0(
         self,
