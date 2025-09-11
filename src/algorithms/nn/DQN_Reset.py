@@ -4,6 +4,7 @@ from typing import Dict
 
 import jax
 import jax.lax
+import jax.numpy as jnp
 import optax
 from ml_instrumentation.Collector import Collector
 
@@ -89,11 +90,22 @@ class DQN_Reset(DQN):
         optimizer = optax.adam(**state.hypers.optimizer.__dict__)
         reset_optim = optimizer.init(params)
 
+        # TODO: count only for non-masked params, need 2 optimizers.
+        adam_state_mask = optax.ScaleByAdamState(
+            count=jnp.ones((), dtype=int),
+            mu=state.hypers.reset_mask,
+            nu=state.hypers.reset_mask
+        )
+        optim_reset_mask = (
+            adam_state_mask,
+            reset_optim[1]
+        )
+
         optim = jax.tree_util.tree_map(
             lambda old, new, mask: jax.lax.select(mask, new, old),
             state.optim,
             reset_optim,
-            state.hypers.reset_mask,
+            optim_reset_mask,
         )
 
         return replace(state, key=key, params=params, optim=optim)
