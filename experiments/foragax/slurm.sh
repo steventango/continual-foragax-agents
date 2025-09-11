@@ -22,26 +22,12 @@ python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src
 python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-13/DQN_LN.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-15/DQN_LN.json
 
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-3/DQN_Reset_head_3000.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-3/DQN_Reset_head_30000.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-3/DQN_Reset_Head.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-5/DQN_Reset_head_3000.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-5/DQN_Reset_head_30000.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-5/DQN_Reset_Head.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-7/DQN_Reset_head_3000.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-7/DQN_Reset_head_30000.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-7/DQN_Reset_Head.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-9/DQN_Reset_head_3000.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-9/DQN_Reset_head_30000.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-9/DQN_Reset_Head.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-11/DQN_Reset_head_3000.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-11/DQN_Reset_head_30000.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-11/DQN_Reset_Head.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-13/DQN_Reset_head_3000.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-13/DQN_Reset_head_30000.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-13/DQN_Reset_Head.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-15/DQN_Reset_head_3000.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-15/DQN_Reset_head_30000.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-15/DQN_Reset_Head.json
 
 python scripts/slurm.py --cluster clusters/vulcan-cpu.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxTwoBiomeSmall-3/DQN_Hare_and_Tortoise.json
