@@ -127,8 +127,8 @@ for path in missing:
         if not slurm.gpus:
             # make sure to only request the number of CPU cores necessary
             tasks = min([groupSize, len(l)])
-            par_tasks = max(math.ceil(tasks / slurm.sequential * tasks_per_core), 1)
-            cores = par_tasks * threads
+            par_tasks = max(math.ceil(tasks / slurm.sequential), 1)
+            cores = math.ceil(par_tasks * threads / tasks_per_core)
             sub = dataclasses.replace(slurm, cores=cores)
         else:
             sub = slurm
