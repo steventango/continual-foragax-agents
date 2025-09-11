@@ -61,6 +61,7 @@ export CUDA_MPS_LOG_DIRECTORY=/tmp/nvidia-log
 nvidia-cuda-mps-control -d"""
     else:
         device_str = "export JAX_PLATFORMS=cpu"
+    jobs = math.ceil(int(slurm.cores / slurm.threads) * slurm.tasks_per_core)
     return f"""#!/bin/bash
 
 #SBATCH --signal=B:SIGTERM@180
@@ -70,7 +71,7 @@ tar -xf {venv_origin} -C {venv}
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
-export XLA_PYTHON_CLIENT_MEM_FRACTION={0.3 / slurm.cores}
+export XLA_PYTHON_CLIENT_MEM_FRACTION={0.3 / jobs}
 {device_str}
 
 {parallel}
