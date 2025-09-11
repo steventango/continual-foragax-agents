@@ -57,6 +57,7 @@ if __name__ == "__main__":
             subprocess.run("nvidia-cuda-mps-control -d", shell=True)
         else:
             env["JAX_PLATFORM_NAME"] = "cpu"
+            env["JAX_PLATFORMS"] = "cpu"
             exe = f"python {cmdline.entry} --silent -e {path} -i "
 
         for group in batched(indices, cmdline.vmap):
