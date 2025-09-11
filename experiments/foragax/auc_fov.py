@@ -3,6 +3,7 @@ import sys
 from collections import defaultdict
 
 from constants import LABEL_MAP
+
 from utils.plotting import label_lines
 
 sys.path.append(os.getcwd() + "/src")
@@ -31,7 +32,7 @@ COLORS = {
     "DQN_LN": "tab:orange",
     "DQN_Shrink_and_Perturb": "magenta",
     "DQN_Hare_and_Tortoise": "brown",
-    "DQN_Reset_head_100000": "tab:olive",
+    "DQN_Reset_Head": "tab:olive",
     "Search-Oracle": "tab:green",
     "Search-Nearest": "tab:red",
     "Random": "black",
