@@ -1,4 +1,5 @@
 import json
+import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,13 +13,13 @@ from PyExpUtils.utils.cmdline import flagString
 class SingleNodeOptions(Slurm.SingleNodeOptions):
     gpus: int | str | None = None
     tasks_per_core: int = 1
-
+    tasks_per_vmap: int = 1
 
 @dataclass
 class MultiNodeOptions(Slurm.MultiNodeOptions):
     gpus: int | str | None = None
     tasks_per_core: int = 1
-
+    tasks_per_vmap: int = 1
 
 def check_account(account: str):
     assert (
@@ -111,18 +112,20 @@ def buildParallel(
 ):
     threads = 1
     tasks_per_core = 1
+    tasks_per_vmap = 1
     if isinstance(opts, SingleNodeOptions):
         threads = opts.threads_per_task
         tasks_per_core = opts.tasks_per_core
+        tasks_per_vmap = opts.tasks_per_vmap
 
-    jobs = int(opts.cores / threads) * tasks_per_core
+    jobs = math.ceil(int(opts.cores / threads) * tasks_per_core / tasks_per_vmap)
 
     parallel_exec = f"srun -N1 -n{threads} --exclusive {executable}"
     if isinstance(opts, SingleNodeOptions):
         parallel_exec = executable
 
     task_str = " ".join(map(str, tasks))
-    return f'run-parallel --parallel {jobs} --exec "{parallel_exec}" --tasks {task_str}'
+    return f'parallel -u -j{jobs} -N{tasks_per_vmap} "{parallel_exec}"  ::: {task_str}'
 
 
 def schedule(
