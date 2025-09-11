@@ -125,7 +125,7 @@ def buildParallel(
         parallel_exec = executable
 
     task_str = " ".join(map(str, tasks))
-    return f'parallel -j{jobs} -N{tasks_per_vmap} "{parallel_exec}"  ::: {task_str}'
+    return f'parallel -u -j{jobs} -N{tasks_per_vmap} "{parallel_exec}"  ::: {task_str}'
 
 
 def schedule(
