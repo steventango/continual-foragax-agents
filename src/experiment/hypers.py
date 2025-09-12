@@ -112,11 +112,9 @@ def generate_hyper_sweep_table(env_reports: dict[str, dict[str, Any]], path: Pat
         return "", "", ""
 
     df = pd.DataFrame(table).T.reset_index()
-    algs = []
-    for env, alg_reports in env_reports.items():
-        for alg in alg_reports:
-            algs.append(f"{env}-{alg}")
-    df.columns = ["Hyperparameter"] + algs + ["Choices"]
+    columns = list(df.columns)
+    columns[0] = "Hyperparameter"
+    df.columns = columns
     # sort df by specific order on Hyperparameter
     # order desired: optimizer.alpha, update_freq , target_refresh, optimizer.beta2, optimizer.eps
     df = df.set_index("Hyperparameter")
@@ -132,8 +130,9 @@ def generate_hyper_sweep_table(env_reports: dict[str, dict[str, Any]], path: Pat
     )
 
     df_default = pd.DataFrame(default_table).T.reset_index()
-    default_algs = list(next(iter(env_reports.values())).keys())
-    df_default.columns = ["Hyperparameter"] + default_algs
+    columns = list(df_default.columns)
+    columns[0] = "Hyperparameter"
+    df_default.columns = columns
     df_default = df_default.set_index("Hyperparameter")
     df_default = df_default.reindex(list(hyper_to_pretty_map))
     df_default = df_default.drop(index=drop_non_hypers, errors="ignore")
