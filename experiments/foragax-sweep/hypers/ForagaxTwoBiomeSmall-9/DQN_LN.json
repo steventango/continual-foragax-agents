@@ -11,11 +11,11 @@
     "initial_epsilon": 1,
     "optimizer.alpha": 0.001,
     "optimizer.beta1": 0.9,
-    "optimizer.beta2": 0.9,
+    "optimizer.beta2": 0.999,
     "optimizer.eps": 1e-08,
     "optimizer.name": "Adam",
     "representation.hidden": 64,
     "representation.type": "Forager2LayerNormNet",
-    "target_refresh": 128,
+    "target_refresh": 1,
     "update_freq": 4
 }
