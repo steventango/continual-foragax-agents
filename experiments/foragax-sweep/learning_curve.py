@@ -1,4 +1,6 @@
+import json
 import os
+from pathlib import Path
 import sys
 
 sys.path.append(os.getcwd() + "/src")
@@ -65,9 +67,19 @@ if __name__ == "__main__":
             alg = alg_result.filename
             print(f"{env_aperture} {alg}")
 
-            df = alg_result.load()
+            exp_path = Path(alg_result.exp_path)
+            best_configuration_path = (
+                exp_path.parent.parent / "hypers" / exp_path.parent.name / exp_path.name
+            )
+            if not best_configuration_path.exists():
+                continue
+            with open(best_configuration_path) as f:
+                best_configuration = json.load(f)
+
+            df = alg_result.load_by_params(best_configuration)
             if df is None:
                 continue
+            df = df.sort("id", "frame")
 
             cols = set(dd.hyper_cols).intersection(df.columns)
             hyper_vals = {col: df[col][0] for col in cols}
