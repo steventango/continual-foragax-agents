@@ -6,6 +6,7 @@ sys.path.append(os.getcwd() + "/src")
 import matplotlib.pyplot as plt
 import numpy as np
 from constants import LABEL_MAP
+from matplotlib.lines import Line2D
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 from rlevaluation.statistics import Statistic
@@ -13,7 +14,7 @@ from rlevaluation.temporal import (
     curve_percentile_bootstrap_ci,
     extract_learning_curves,
 )
-from matplotlib.lines import Line2D
+
 from experiment.ExperimentModel import ExperimentModel
 from utils.results import ResultCollection
 
@@ -110,7 +111,7 @@ if __name__ == "__main__":
                 ax_idxs = [1]
             elif alg == "DQN_LN":
                 ax_idxs = [2]
-            elif alg == "DQN_Reset_head_100000":
+            elif alg == "DQN_Reset_Head":
                 ax_idxs = [3]
             elif alg == "DQN_Shrink_and_Perturb":
                 ax_idxs = [4]

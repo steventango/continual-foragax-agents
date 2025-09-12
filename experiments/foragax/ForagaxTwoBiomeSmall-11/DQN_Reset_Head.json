@@ -1,7 +1,7 @@
 {
-    "agent": "DQN_Reset_head_100000",
+    "agent": "DQN_Reset_Head",
     "problem": "Foragax",
-    "total_steps": 500000,
+    "total_steps": 1000000,
     "episode_cutoff": -1,
     "metaParameters": {
         "initial_epsilon": 1,
@@ -13,7 +13,7 @@
         "batch": 32,
         "environment": {
             "env_id": "ForagaxTwoBiomeSmall",
-            "aperture_size": 7
+            "aperture_size": 11
         },
         "experiment": {
             "seed_offset": 0

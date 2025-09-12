@@ -62,7 +62,7 @@ class DQN_Hare_and_Tortoise(DQN):
         obs: jax.Array,
         extra: Dict[str, jax.Array],
     ):
-        state, a = super(DQN, self)._step(state, reward, obs, extra)
+        state, a = super()._step(state, reward, obs, extra)
         state = jax.lax.cond(
             state.steps % state.hypers.ht_steps == 0,
             self._reset,
