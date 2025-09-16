@@ -14,7 +14,7 @@
         "buffer_min_size": "batch_size",
         "batch": 32,
         "environment": {
-            "env_id": "ForagaxTwoBiomeSmall",
+            "env_id": "ForagaxTwoBiomeSmall-v2",
             "aperture_size": 13
         },
         "experiment": {
