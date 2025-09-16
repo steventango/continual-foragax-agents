@@ -2040,6 +2040,7 @@ dependencies = [
     { name = "rlevaluation" },
     { name = "rlglue-andnp" },
     { name = "tile-coder-rs" },
+    { name = "tol-colors" },
 ]
 
 [package.dev-dependencies]
@@ -2080,6 +2081,7 @@ requires-dist = [
     { name = "rlevaluation", specifier = "~=1.0" },
     { name = "rlglue-andnp", specifier = "~=2.0" },
     { name = "tile-coder-rs", git = "https://github.com/andnp/tile-coder-rs.git" },
+    { name = "tol-colors", specifier = ">=2.1.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -2407,6 +2409,19 @@ wheels = [
 name = "tile-coder-rs"
 version = "0.4.0"
 source = { git = "https://github.com/andnp/tile-coder-rs.git#a480f1db337cdad43d60eee145cabda7dc5bc7e6" }
+
+[[package]]
+name = "tol-colors"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2d/26/a2a7635e82715ced8087e6bc0924bb426de3616b2464229877c3685888ee/tol_colors-2.1.0.tar.gz", hash = "sha256:79454d02d1b9578225bd88e9118f88d2242f7e7acb8e6c2330ff78190fd8963e", size = 1901374, upload-time = "2025-07-21T09:41:40.828Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b2/23/6183a5a967b1635b4333ac5efd9867038a3eb0e5b7a7f09f33ba5ceb8032/tol_colors-2.1.0-py3-none-any.whl", hash = "sha256:90c705b569a9372a182a24a1d9db7ebc11e2c5443b40c0f4e25e89a8907432f6", size = 12605, upload-time = "2025-07-21T09:41:39.654Z" },
+]
 
 [[package]]
 name = "tomlkit"

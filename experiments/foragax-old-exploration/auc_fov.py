@@ -10,6 +10,7 @@ sys.path.append(os.getcwd() + "/src")
 
 import matplotlib.pyplot as plt
 import numpy as np
+import tol_colors as tc
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 from rlevaluation.statistics import Statistic
@@ -26,18 +27,21 @@ setFonts(20)
 
 METRIC = "reward"
 LAST_PERCENT = 0.1
+colorset = tc.colorsets["muted"]
+
 COLORS = {
-    "DQN": "tab:blue",
-    "DQN_L2_Init": "purple",
-    "DQN_LN": "tab:orange",
-    "DQN_Shrink_and_Perturb": "magenta",
-    "DQN_Hare_and_Tortoise": "brown",
-    "DQN_Reset_Head": "tab:olive",
-    "Search-Oracle": "tab:green",
-    "Search-Nearest": "tab:red",
+    "DQN": colorset.indigo,
+    "DQN_L2_Init": colorset.purple,
+    "DQN_LN": colorset.teal,
+    "DQN_Shrink_and_Perturb": colorset.rose,
+    "DQN_Hare_and_Tortoise": colorset.sand,
+    "DQN_Reset_Head": colorset.olive,
+    "Search-Oracle": colorset.wine,
+    "Search-Nearest": colorset.green,
     "Random": "black",
 }
-DEFAULT_COLOR = "gray"
+
+DEFAULT_COLOR = colorset.pale_grey
 ORDER = {
     "Random": 0,
     "Search-Nearest": 2,
@@ -74,15 +78,19 @@ if __name__ == "__main__":
         aperture = int(env.rsplit("-", 1)[-1])
         for alg_result in sub_results:
             alg = alg_result.filename
+            if alg in {
+                "DQN_Shrink_and_Perturb",
+                "DQN_Hare_and_Tortoise",
+                "DQN_Reset_Head",
+            }:
+                continue
             print(f"{env} {alg}")
             df = alg_result.load()
             if df is None:
                 continue
 
             cols = set(dd.hyper_cols).intersection(df.columns)
-            hyper_vals = {
-                col: df[col][0] for col in cols
-            }
+            hyper_vals = {col: df[col][0] for col in cols}
 
             exp = alg_result.exp
 
@@ -181,6 +189,8 @@ if __name__ == "__main__":
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
+
+    f.suptitle(r"Exploration: $\epsilon: 1 \to 0.05, 800000$ steps")
 
     path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
     save(
