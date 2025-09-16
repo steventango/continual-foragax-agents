@@ -9,7 +9,7 @@
         "noise_scale": 0.01,
         "initial_epsilon": 1,
         "final_epsilon": 0.05,
-        "epsilon_linear_decay": 0.8,
+        "epsilon_linear_decay": 80000,
         "target_refresh": 128,
         "buffer_size": 10000,
         "buffer_min_size": "batch_size",
