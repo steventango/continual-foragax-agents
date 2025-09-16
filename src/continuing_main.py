@@ -159,6 +159,7 @@ logger.debug(
     f"Total setup time: {total_setup_time:.4f}s | Average: {total_setup_time / num_indices:.4f}s"
 )
 
+n = exp.total_steps
 
 # render video of first env
 if args.video:
@@ -168,8 +169,8 @@ if args.video:
     first_state = first_glue._start(first_glue.state)[0]
 
     video_length = 1000
+    video_every = 100000
 
-    @scan_tqdm(video_length)
     def video_step(state, _):
         frame = first_glue.environment.env.render(
             state.env_state.state, None, render_mode="world"
@@ -177,19 +178,34 @@ if args.video:
         next_state, _ = first_glue._step(state)
         return next_state, frame
 
-    _, frames = jax.lax.scan(video_step, first_state, jnp.arange(video_length))
-    frames = np.asarray(frames)
-    frames = [frames[i] for i in range(frames.shape[0])]
+    def no_video_step(state, _):
+        next_state, _ = first_glue._step(state)
+        return next_state, None
 
-    context = exp.buildSaveContext(first_idx, base=args.save_path)
-    video_path = context.resolve(f"videos/{first_idx}")
-    context.ensureExists(video_path, is_file=True)
-    save_video(
-        frames,
-        video_path,
-        name_prefix="foragax",
-        fps=8,
-    )
+    @scan_tqdm(n)
+    def maybe_video_step(state, _):
+        state, frames = jax.lax.scan(video_step, state, jnp.arange(video_length))
+        state, _ = jax.lax.scan(no_video_step, state, jnp.arange(video_every - video_length))
+        return state, frames
+
+    _, framess = jax.lax.scan(maybe_video_step, first_state, jnp.arange(0, n, video_every))
+
+    framess = np.asarray(framess)
+    for i, frames in enumerate(framess):
+        frames = [frames[i] for i in range(frames.shape[0])]
+
+        context = exp.buildSaveContext(first_idx, base=args.save_path)
+        start_frame = i * video_every
+        end_frame = start_frame + video_length
+        video_path = context.resolve(f"videos/{first_idx}_{start_frame}_{end_frame}.mp4")
+        context.ensureExists(video_path, is_file=True)
+        save_video(
+            frames,
+            video_path,
+            name_prefix="foragax",
+            fps=8,
+        )
+    exit(0)
 
 # --------------------
 # -- Batch Execution --
@@ -197,8 +213,6 @@ if args.video:
 
 # make the first interaction
 glue_states, _ = v_start(glue_states)
-
-n = exp.total_steps
 
 
 @scan_tqdm(n)
