@@ -5,8 +5,8 @@
     "episode_cutoff": -1,
     "metaParameters": {
         "initial_epsilon": 1,
-        "final_epsilon": 0.7625,
-        "epsilon_linear_decay": 1,
+        "final_epsilon": 0.05,
+        "epsilon_linear_decay": 0.8,
         "target_refresh": [
             1,
             128
