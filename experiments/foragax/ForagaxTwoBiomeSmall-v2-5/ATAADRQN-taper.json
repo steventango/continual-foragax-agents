@@ -1,19 +1,19 @@
 {
-    "agent": "DRQN3Xavier-b32-nbi",
+    "agent": "ATAADRQN-taper",
     "problem": "Foragax",
-    "total_steps": 500000,
+    "total_steps": 1000000,
     "episode_cutoff": -1,
     "metaParameters": {
         "initial_epsilon": 1,
         "final_epsilon": 0.05,
-        "epsilon_linear_decay": 0.8,
+        "epsilon_linear_decay": 0.08,
         "target_refresh": 128,
         "buffer_size": 10000,
-        "buffer_min_size": "batch_size*sequence_length",
+        "buffer_min_size": 4096,
         "batch": 32,
         "environment": {
-            "env_id": "ForagaxTwoBiomeSmall",
-            "aperture_size": 9
+            "env_id": "ForagaxTwoBiomeSmall-v2",
+            "aperture_size": 5
         },
         "experiment": {
             "seed_offset": 0
@@ -21,17 +21,19 @@
         "gamma": 0.99,
         "optimizer": {
             "name": "Adam",
-            "alpha": 0.003,
+            "alpha": 0.001,
             "beta1": 0.9,
-            "beta2": 0.999,
+            "beta2": 0.9,
             "eps": 1e-08
         },
         "representation": {
-            "type": "ForagerGRUNetReLU3Xavier",
-            "hidden": 64
+            "type": "ForagerATAAGRUNetReLU",
+            "hidden": 64,
+            "actions": 4
         },
-        "sequence_length": 128,
-        "burn_in_steps": 0,
+        "action_trace_decay_rate": 0.95,
+        "sequence_length": 512,
+        "burn_in_steps": 32,
         "update_freq": 4
     }
 }

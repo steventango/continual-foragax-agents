@@ -23,12 +23,14 @@ class Hypers(BaseHypers):
     target_refresh: int
     sequence_length: int
     burn_in_steps: int
+    action_trace_decay_rate: float
 
 @cxu.dataclass
 class AgentState(BaseAgentState):
     target_params: Any
     hypers: Hypers
     carry: Any
+    action_trace: Any
 
 def q_loss(q, a, r, gamma, qp):
     vp = qp.max()
@@ -41,7 +43,7 @@ def q_loss(q, a, r, gamma, qp):
     }
 
 
-class MADRQN(NNAgent):
+class ATAADRQN(NNAgent):
     def __init__(
         self,
         observations: Tuple,
@@ -52,13 +54,16 @@ class MADRQN(NNAgent):
     ):
         super().__init__(observations, actions, params, collector, seed)
         # set up the target network parameters
-        self.target_refresh = params["target_refresh"]
+
+        self.num_actions = actions
 
         dummy_timestep = {
             "x": jnp.zeros(self.observations),
             "carry": jnp.zeros(self.hidden_size),
             "reset": jnp.bool(True),
             "last_a": jnp.int32(-1),
+            "last_a_encoded": jnp.zeros((1,actions)),
+            "action_trace": jnp.zeros((1,actions)),
             "a": jnp.int32(0),
             "r": jnp.float32(0),
             "gamma": jnp.float32(0),
@@ -69,7 +74,8 @@ class MADRQN(NNAgent):
             **self.state.hypers.__dict__,
             target_refresh=params["target_refresh"],
             sequence_length=self.sequence_length,
-            burn_in_steps=params.get("burn_in_steps", 0)
+            burn_in_steps=params.get("burn_in_steps", 0),
+            action_trace_decay_rate=params.get("action_trace_decay_rate", 0.)
         )
 
         self.state = AgentState(
@@ -78,13 +84,20 @@ class MADRQN(NNAgent):
             buffer_state=buffer_state,
             carry=None,
             hypers=hypers,
+            action_trace=self.encode_action(jnp.int32(-1))
         )
         
         self.burn_in_steps = self.state.hypers.burn_in_steps
 
     def get_feature_function(self, builder: NetworkBuilder):
-        return builder.getMultiplicativeActionRecurrentFeatureFunction()
+        return builder.getActionTraceMultiplicativeActionRecurrentFeatureFunction()
 
+    def encode_action(self, a):
+        return jax.nn.one_hot(a, self.num_actions)
+    
+    def decay_action_trace(self, action_trace, action_encoded, alpha):
+        return alpha * action_trace + (1 - alpha) * action_encoded
+        
     # ------------------------
     # -- NN agent interface --
     # ------------------------
@@ -104,22 +117,23 @@ class MADRQN(NNAgent):
 
     # internal compiled version of the value function
     @partial(jax.jit, static_argnums=0)
-    def _values(self, state: AgentState, x: jax.Array, last_a: jax.Array, carry: jax.Array = None):  # type: ignore
-        phi = self.phi(state.params, x, a=last_a, carry=carry)
+    def _values(self, state: AgentState, x: jax.Array, last_a: jax.Array, action_trace: jax.Array, carry: jax.Array = None):  # type: ignore
+        phi = self.phi(state.params, x, a=last_a, action_trace=action_trace, carry=carry)
         return self.q(state.params, phi[0][:, -1]), phi[1][:, -1], phi[2]
     
     @partial(jax.jit, static_argnums=0)
-    def _policy(self, state: AgentState, obs: jax.Array, last_a: jax.Array,) -> Tuple[jax.Array, jax.Array]:
+    def _policy(self, state: AgentState, obs: jax.Array, last_a: jax.Array, action_trace: jax.Array) -> Tuple[jax.Array, jax.Array]:
         obs = jnp.expand_dims(obs, 0)
-        q, carry, _ = self._values(state, obs, last_a, carry=state.carry)
+        q, carry, _ = self._values(state, obs, last_a, action_trace, carry=state.carry)
         pi = egreedy_probabilities(q, self.actions, state.hypers.epsilon)[0]
         return pi, carry
     
     @partial(jax.jit, static_argnums=0)
     def act(
-        self, state: AgentState, obs: jax.Array, last_a: jax.Array
+        self, state: AgentState, obs: jax.Array, last_a: jax.Array, action_trace: jax.Array
     ) -> tuple[AgentState, jax.Array]:
-        pi, state.carry = self._policy(state, obs, last_a)
+        last_a = self.encode_action(last_a)
+        pi, state.carry = self._policy(state, obs, last_a, action_trace)
         state.key, sample_key = jax.random.split(state.key)
         a = jax.random.choice(sample_key, self.actions, p=pi)
         return state, a
@@ -182,14 +196,16 @@ class MADRQN(NNAgent):
         x = batch["x"][:, :-1]
         xp = batch["x"][:, 1:]
         a = batch["a"][:, :-1]
-        last_a = batch["last_a"][:, :-1]
-        last_ap = batch["last_a"][:, 1:]
+        last_a_encoded = batch["last_a_encoded"][:, :-1]
+        last_a_encodedp = batch["last_a_encoded"][:, 1:]
+        action_trace = batch["action_trace"][:, :-1]
+        action_tracep = batch["action_trace"][:, 1:]
         r = batch["r"][:, :-1]
         g = batch["gamma"][:, :-1]
         carry = batch["carry"][:, :-1]
         carryp = batch["carry"][:, 1:]
         reset = batch["reset"][:, :-1]
-                 
+        
         # Perform burn-in
         if self.burn_in_steps > 0:
             b_x, x = jnp.hsplit(x, [self.burn_in_steps])
@@ -197,18 +213,20 @@ class MADRQN(NNAgent):
             b_reset, reset = jnp.hsplit(reset, [self.burn_in_steps])
             b_carry, carry = jnp.hsplit(carry, [self.burn_in_steps])
             b_carryp, carryp = jnp.hsplit(carryp, [self.burn_in_steps])
-            b_last_a, last_a = jnp.hsplit(last_a, [self.burn_in_steps])
-            b_last_ap, last_ap = jnp.hsplit(last_ap, [self.burn_in_steps])
+            b_last_a_encoded, last_a_encoded = jnp.hsplit(last_a_encoded, [self.burn_in_steps])
+            b_last_a_encodedp, last_a_encodedp = jnp.hsplit(last_a_encodedp, [self.burn_in_steps])
+            b_action_trace, action_trace = jnp.hsplit(action_trace, [self.burn_in_steps])
+            b_action_tracep, action_tracep = jnp.hsplit(action_tracep, [self.burn_in_steps])
             _, a = jnp.hsplit(a, [self.burn_in_steps])
             _, r = jnp.hsplit(r, [self.burn_in_steps])
             _, g = jnp.hsplit(g, [self.burn_in_steps])
             _, weights = jnp.hsplit(weights, [self.burn_in_steps])
             
-            carry = carry.at[:, 0].set(jax.lax.stop_gradient(self.phi(params, b_x, a=b_last_a, carry=b_carry, reset=b_reset, is_target=False)[1][:, -1, ...]))
-            carryp = carryp.at[:, 0].set(jax.lax.stop_gradient(self.phi(target, b_xp, a=b_last_ap, carry=b_carryp, reset=b_reset, is_target=True)[1][:, -1, ...]))
+            carry = carry.at[:, 0].set(jax.lax.stop_gradient(self.phi(params, b_x, a=b_last_a_encoded, action_trace=b_action_trace, carry=b_carry, reset=b_reset, is_target=False)[1][:, -1, ...]))
+            carryp = carryp.at[:, 0].set(jax.lax.stop_gradient(self.phi(target, b_xp, a=b_last_a_encodedp, action_trace=b_action_tracep, carry=b_carryp, reset=b_reset, is_target=True)[1][:, -1, ...]))
 
-        phi = self.phi(params, x, a=last_a, carry=carry, reset=reset, is_target=False)[0]
-        phi_p = self.phi(target, xp, a=last_ap, carry=carryp, reset=reset, is_target=True)[0]
+        phi = self.phi(params, x, a=last_a_encoded, action_trace=action_trace, carry=carry, reset=reset, is_target=False)[0]
+        phi_p = self.phi(target, xp, a=last_a_encodedp, action_trace=action_tracep, carry=carryp, reset=reset, is_target=True)[0]
 
         qs = self.q(params, phi)
         qsp = self.q(target, phi_p)
@@ -233,10 +251,12 @@ class MADRQN(NNAgent):
         state.carry = None
         state.last_timestep.update(
             {
-                "last_a": jnp.int32(-1)
+                "last_a": jnp.int32(-1),
+                "last_a_encoded": self.encode_action(jnp.int32(-1)),
+                "action_trace": self.encode_action(jnp.int32(-1))
             }
         )
-        state, a = self.act(state, obs, state.last_timestep["last_a"])
+        state, a = self.act(state, obs, state.last_timestep["last_a"], state.last_timestep["action_trace"])
         state.last_timestep.update(
             {
                 "x": obs,
@@ -269,13 +289,18 @@ class MADRQN(NNAgent):
         )
         buffer_state = self.buffer.add(state.buffer_state, batch_sequence)
         state = replace(state, buffer_state=buffer_state)
+        last_a_encoded = self.encode_action(state.last_timestep["a"])
+        action_trace = self.decay_action_trace(state.action_trace, last_a_encoded, state.hypers.action_trace_decay_rate)
+        state = replace(state, action_trace=action_trace)
         state.last_timestep.update(
             {
-                "last_a": state.last_timestep["a"]
+                "last_a": state.last_timestep["a"],
+                "last_a_encoded": last_a_encoded,
+                "action_trace": action_trace
             }
         )
         last_carry = state.carry[0]
-        state, a = self.act(state, obs, jnp.array(state.last_timestep["last_a"]))
+        state, a = self.act(state, obs, jnp.array(state.last_timestep["last_a"]), action_trace)
         state.last_timestep.update(
             {
                 "x": obs,

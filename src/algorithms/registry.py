@@ -9,6 +9,7 @@ from algorithms.nn.DQN_Shrink_and_Perturb import DQN_Shrink_and_Perturb
 from algorithms.nn.DRQN import DRQN
 from algorithms.nn.MADRQN import MADRQN
 from algorithms.nn.AADRQN import AADRQN
+from algorithms.nn.ATAADRQN import ATAADRQN
 from algorithms.nn.EQRC import EQRC
 from algorithms.RandomAgent import RandomAgent
 from algorithms.SearchAgent import SearchAgent
@@ -27,6 +28,9 @@ def getAgent(name) -> Type[BaseAgent]:
     
     if name.startswith("AADRQN"):
         return AADRQN
+    
+    if name.startswith("ATAADRQN"):
+        return ATAADRQN
     
     if name.startswith("MADRQN"):
         return MADRQN
