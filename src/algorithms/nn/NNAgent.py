@@ -83,13 +83,14 @@ class NNAgent(BaseAgent):
         )
         self.reward_clip = params.get("reward_clip", 0)
         self.reward_scale = params.get("reward_scale")
+        self.hidden_size = self.rep_params["hidden"]
 
         # ---------------------
         # -- NN Architecture --
         # ---------------------
         self.builder = NetworkBuilder(observations, self.rep_params, self.key)
         self._build_heads(self.builder)
-        self.phi = self.builder.getFeatureFunction()
+        self.phi = self.get_feature_function(self.builder)
         net_params = self.builder.getParams()
 
         # ---------------
@@ -109,11 +110,14 @@ class NNAgent(BaseAgent):
         # ------------------
         self.buffer_size = params["buffer_size"]
         self.batch_size = params["batch"]
+        self.sequence_length = params.get("sequence_length", 1)
         self.buffer_min_size = params.get("buffer_min_size", self.batch_size)
         if self.buffer_min_size == "buffer_size":
             self.buffer_min_size = self.buffer_size
         elif self.buffer_min_size == "batch_size":
             self.buffer_min_size = self.batch_size
+        elif self.buffer_min_size == "batch_size*sequence_length":
+            self.buffer_min_size = self.batch_size * self.sequence_length
         self.priority_exponent = params.get("priority_exponent", 0.0)
 
         buffer = fbx.make_prioritised_trajectory_buffer(
@@ -121,7 +125,7 @@ class NNAgent(BaseAgent):
             min_length_time_axis=self.buffer_min_size,
             sample_batch_size=self.batch_size,
             add_batch_size=1,
-            sample_sequence_length=self.n_step + 1,
+            sample_sequence_length=self.n_step + self.sequence_length,
             period=1,
             priority_exponent=self.priority_exponent,
         )
@@ -167,6 +171,9 @@ class NNAgent(BaseAgent):
             updates=0,
             hypers=hypers,
         )
+
+    def get_feature_function(self, builder: NetworkBuilder):
+        return builder.getFeatureFunction()
 
     # ------------------------
     # -- NN agent interface --
