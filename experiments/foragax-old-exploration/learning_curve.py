@@ -33,6 +33,7 @@ COLORS = {
     15: colorset.purple,
     "Search-Oracle": colorset.wine,
     "Search-Nearest": colorset.green,
+    "Search-Oyster": tc.colorsets["light"].pear,
     "Random": "black",
 }
 
@@ -40,6 +41,7 @@ SINGLE = {
     "Random",
     "Search-Nearest",
     "Search-Oracle",
+    "Search-Oyster",
 }
 
 

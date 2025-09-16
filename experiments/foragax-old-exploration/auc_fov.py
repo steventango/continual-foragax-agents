@@ -38,19 +38,22 @@ COLORS = {
     "DQN_Reset_Head": colorset.olive,
     "Search-Oracle": colorset.wine,
     "Search-Nearest": colorset.green,
+    "Search-Oyster": tc.colorsets["light"].pear,
     "Random": "black",
 }
 
 DEFAULT_COLOR = colorset.pale_grey
 ORDER = {
-    "Random": 0,
-    "Search-Nearest": 2,
-    "Search-Oracle": 1,
+    "Search-Oracle": 0,
+    "Search-Nearest": 1,
+    "Search-Oyster": 2,
+    "Random": 3,
 }
 SPECIAL = {
     "Random",
     "Search-Nearest",
     "Search-Oracle",
+    "Search-Oyster",
 }
 
 if __name__ == "__main__":
