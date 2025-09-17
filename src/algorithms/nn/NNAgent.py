@@ -205,7 +205,7 @@ class NNAgent(BaseAgent):
         if state.hypers.epsilon_linear_decay is not None:
             assert state.hypers.initial_epsilon is not None
             assert state.hypers.final_epsilon is not None
-            decay_steps = state.hypers.epsilon_linear_decay * state.hypers.total_steps
+            decay_steps = state.hypers.epsilon_linear_decay
             progress = state.steps / decay_steps
             calculated_epsilon = (
                 state.hypers.initial_epsilon

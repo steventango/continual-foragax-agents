@@ -47,6 +47,8 @@ if __name__ == "__main__":
 
         indices = list(count(path, e_to_missing[path]))
         n = len(indices)
+        if not n:
+            continue
         processes = ceil(n / cmdline.vmap)
         env["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(0.3 / processes)
 

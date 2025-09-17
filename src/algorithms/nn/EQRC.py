@@ -95,13 +95,7 @@ class EQRC(NNAgent):
         state.key, buffer_sample_key = jax.random.split(state.key)
         batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
         state, metrics = self._computeUpdate(state, batch.experience)
-
-        priorities = metrics["delta"]
-        buffer_state = self.buffer.set_priorities(
-            state.buffer_state, batch.indices, priorities
-        )
-
-        return replace(state, buffer_state=buffer_state, updates=state.updates + 1)
+        return replace(state, updates=state.updates + 1)
 
     # -------------
     # -- Updates --

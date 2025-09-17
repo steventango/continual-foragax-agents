@@ -2,7 +2,7 @@ import os
 import sys
 from collections import defaultdict
 
-from constants import LABEL_MAP
+from utils.constants import LABEL_MAP
 
 from utils.plotting import label_lines
 
@@ -10,6 +10,7 @@ sys.path.append(os.getcwd() + "/src")
 
 import matplotlib.pyplot as plt
 import numpy as np
+import tol_colors as tc
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 from rlevaluation.statistics import Statistic
@@ -26,27 +27,33 @@ setFonts(20)
 
 METRIC = "reward"
 LAST_PERCENT = 0.1
+colorset = tc.colorsets["muted"]
+
 COLORS = {
-    "DQN": "tab:blue",
-    "DQN_L2_Init": "purple",
-    "DQN_LN": "tab:orange",
-    "DQN_Shrink_and_Perturb": "magenta",
-    "DQN_Hare_and_Tortoise": "brown",
-    "DQN_Reset_Head": "tab:olive",
-    "Search-Oracle": "tab:green",
-    "Search-Nearest": "tab:red",
+    "DQN": colorset.indigo,
+    "DQN_L2_Init": colorset.purple,
+    "DQN_LN": colorset.teal,
+    "DQN_Shrink_and_Perturb": colorset.rose,
+    "DQN_Hare_and_Tortoise": colorset.sand,
+    "DQN_Reset_Head": colorset.olive,
+    "Search-Oracle": colorset.wine,
+    "Search-Nearest": colorset.green,
+    "Search-Oyster": tc.colorsets["light"].pear,
     "Random": "black",
 }
-DEFAULT_COLOR = "gray"
+
+DEFAULT_COLOR = colorset.pale_grey
 ORDER = {
-    "Random": 0,
-    "Search-Nearest": 2,
-    "Search-Oracle": 1,
+    "Search-Oracle": 0,
+    "Search-Nearest": 1,
+    "Search-Oyster": 2,
+    "Random": 3,
 }
 SPECIAL = {
     "Random",
     "Search-Nearest",
     "Search-Oracle",
+    "Search-Oyster",
 }
 
 if __name__ == "__main__":
@@ -80,9 +87,7 @@ if __name__ == "__main__":
                 continue
 
             cols = set(dd.hyper_cols).intersection(df.columns)
-            hyper_vals = {
-                col: df[col][0] for col in cols
-            }
+            hyper_vals = {col: df[col][0] for col in cols}
 
             exp = alg_result.exp
 

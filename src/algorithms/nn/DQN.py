@@ -91,21 +91,13 @@ class DQN(NNAgent):
         state.key, buffer_sample_key = jax.random.split(state.key)
         batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
 
-        state, metrics = self._computeUpdate(
-            state, batch.experience, batch.probabilities
-        )
-
-        priorities = metrics["delta"]
-        buffer_state = self.buffer.set_priorities(
-            state.buffer_state, batch.indices, priorities
-        )
+        state, metrics = self._computeUpdate(state, batch.experience)
 
         target_params = self._update_target_network(state, updates)
 
         return replace(
             state,
             updates=updates,
-            buffer_state=buffer_state,
             target_params=target_params,
         )
 
@@ -122,9 +114,9 @@ class DQN(NNAgent):
     # -- Updates --
     # -------------
     @partial(jax.jit, static_argnums=0)
-    def _computeUpdate(self, state: AgentState, batch: Dict, weights: jax.Array):
+    def _computeUpdate(self, state: AgentState, batch: Dict):
         grad_fn = jax.grad(self._loss, has_aux=True)
-        grad, metrics = grad_fn(state.params, state.target_params, batch, weights)
+        grad, metrics = grad_fn(state.params, state.target_params, batch)
         optimizer = optax.adam(**state.hypers.optimizer.__dict__)
 
         new_params = {}
@@ -136,9 +128,7 @@ class DQN(NNAgent):
 
         return replace(state, params=new_params, optim=new_optim), metrics
 
-    def _loss(
-        self, params: hk.Params, target: hk.Params, batch: Dict, weights: jax.Array
-    ):
+    def _loss(self, params: hk.Params, target: hk.Params, batch: Dict):
         x = batch["x"][:, 0]
         xp = batch["x"][:, -1]
         a = batch["a"][:, 0]
@@ -159,7 +149,6 @@ class DQN(NNAgent):
         batch_loss = jax.vmap(q_loss, in_axes=0)
         losses, metrics = batch_loss(qs, a, r, g, qsp)
 
-        chex.assert_equal_shape((weights, losses))
-        loss = jnp.mean(weights * losses)
+        loss = jnp.mean(losses)
 
         return loss, metrics

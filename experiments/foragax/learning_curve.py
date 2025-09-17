@@ -2,10 +2,10 @@ import os
 import sys
 
 sys.path.append(os.getcwd() + "/src")
-
 import matplotlib.pyplot as plt
 import numpy as np
-from constants import LABEL_MAP
+import tol_colors as tc
+from utils.constants import LABEL_MAP
 from matplotlib.lines import Line2D
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
@@ -21,23 +21,27 @@ from utils.results import ResultCollection
 setDefaultConference("jmlr")
 setFonts(20)
 
+colorset = tc.colorsets["muted"]
+
 COLORS = {
-    3: "#00ffff",
-    5: "#3ddcff",
-    7: "#57abff",
-    9: "#8b8cff",
-    11: "#b260ff",
-    13: "#d72dff",
-    15: "#ff00ff",
+    3: colorset.rose,
+    5: colorset.indigo,
+    7: colorset.sand,
+    9: colorset.cyan,
+    11: colorset.teal,
+    13: colorset.olive,
+    15: colorset.purple,
+    "Search-Oracle": colorset.wine,
+    "Search-Nearest": colorset.green,
+    "Search-Oyster": tc.colorsets["light"].pear,
     "Random": "black",
-    "Search-Nearest": "red",
-    "Search-Oracle": "green",
 }
 
 SINGLE = {
     "Random",
     "Search-Nearest",
     "Search-Oracle",
+    "Search-Oyster",
 }
 
 
@@ -53,8 +57,8 @@ if __name__ == "__main__":
     )
 
     nalgs = 6
-    ncols = int(np.ceil(np.sqrt(nalgs)))
-    nrows = int(np.ceil(nalgs / ncols))
+    ncols = int(np.ceil(np.sqrt(nalgs))) if nalgs > 3 else nalgs
+    nrows = int(np.ceil(nalgs / ncols)) if nalgs > 3 else 1
     fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained")
     axs = axs.flatten()
     env = "unknown"
