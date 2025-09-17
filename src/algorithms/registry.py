@@ -6,6 +6,10 @@ from algorithms.nn.DQN_Hare_and_Tortoise import DQN_Hare_and_Tortoise
 from algorithms.nn.DQN_L2_Init import DQN_L2_Init
 from algorithms.nn.DQN_Reset import DQN_Reset
 from algorithms.nn.DQN_Shrink_and_Perturb import DQN_Shrink_and_Perturb
+from algorithms.nn.DRQN import DRQN
+from algorithms.nn.MADRQN import MADRQN
+from algorithms.nn.AADRQN import AADRQN
+from algorithms.nn.ATAADRQN import ATAADRQN
 from algorithms.nn.EQRC import EQRC
 from algorithms.RandomAgent import RandomAgent
 from algorithms.SearchAgent import SearchAgent
@@ -16,6 +20,20 @@ from algorithms.tc.SoftmaxAC import SoftmaxAC
 def getAgent(name) -> Type[BaseAgent]:
     if name == "DQN_L2_Init":
         return DQN_L2_Init
+    if name == "DQN":
+        return DQN
+    
+    if name.startswith("DRQN"):
+        return DRQN
+    
+    if name.startswith("AADRQN"):
+        return AADRQN
+    
+    if name.startswith("ATAADRQN"):
+        return ATAADRQN
+    
+    if name.startswith("MADRQN"):
+        return MADRQN
 
     if name.startswith("DQN_Reset"):
         return DQN_Reset
