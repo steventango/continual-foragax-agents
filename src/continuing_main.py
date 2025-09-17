@@ -168,8 +168,8 @@ if args.video:
     first_idx = indices[0]
     first_state = first_glue._start(first_glue.state)[0]
 
-    video_length = 1000
-    video_every = 100000
+    video_length = 1_000
+    video_every = 100_000
 
     def video_step(state, _):
         frame = first_glue.environment.env.render(
@@ -184,8 +184,8 @@ if args.video:
 
     @scan_tqdm(n)
     def maybe_video_step(state, _):
-        state, frames = jax.lax.scan(video_step, state, jnp.arange(video_length))
         state, _ = jax.lax.scan(no_video_step, state, jnp.arange(video_every - video_length))
+        state, frames = jax.lax.scan(video_step, state, jnp.arange(video_length))
         return state, frames
 
     _, framess = jax.lax.scan(maybe_video_step, first_state, jnp.arange(0, n, video_every))
@@ -195,7 +195,7 @@ if args.video:
         frames = [frames[i] for i in range(frames.shape[0])]
 
         context = exp.buildSaveContext(first_idx, base=args.save_path)
-        start_frame = i * video_every
+        start_frame = video_every * (i + 1) - video_length
         end_frame = start_frame + video_length
         video_path = context.resolve(f"videos/{first_idx}_{start_frame}_{end_frame}.mp4")
         context.ensureExists(video_path, is_file=True)
