@@ -24,6 +24,7 @@ def read_metrics_from_data(
     data_path: str | Path,
     metrics: Iterable[str] | None = None,
     run_ids: Iterable[int] | None = None,
+    sample: int = 500,
 ):
     if run_ids is None:
         run_id_paths = {}
@@ -50,7 +51,7 @@ def read_metrics_from_data(
             datas[run_id] = datas[run_id].with_columns(
                 pl.col("ewm_reward").mean().alias("mean_ewm_reward")
             )
-        datas[run_id] = datas[run_id].gather_every(max(1, len(datas[run_id]) // 500))
+        datas[run_id] = datas[run_id].gather_every(max(1, len(datas[run_id]) // sample))
     if len(datas) == 0:
         return pl.DataFrame().lazy()
     df = pl.concat(datas.values())
@@ -62,6 +63,7 @@ def load_all_results_from_data(
     db_path: str | Path,
     metrics: Iterable[str] | None = None,
     ids: Iterable[int] | None = None,
+    sample: int = 500,
 ):
     con = sqlite3.connect(db_path)
     cur = con.cursor()
@@ -70,7 +72,7 @@ def load_all_results_from_data(
     if metrics is None:
         metrics = tables - {"_metadata_"}
 
-    df = read_metrics_from_data(data_path, metrics, ids)
+    df = read_metrics_from_data(data_path, metrics, ids, sample)
 
     if "_metadata_" not in tables:
         return df.collect()
@@ -94,7 +96,7 @@ class Result(Generic[Exp]):
         self.exp = exp
         self.metrics = metrics
 
-    def load(self):
+    def load(self, sample: int = 500):
         db_path = self.exp.buildSaveContext(0).resolve("results.db")
         data_path = self.exp.buildSaveContext(0).resolve("data")
 
@@ -106,7 +108,7 @@ class Result(Generic[Exp]):
             params = getParamsAsDict(self.exp, param_id)
             run_ids.update(get_run_ids(db_path, params))
         run_ids = sorted(run_ids)
-        df = load_all_results_from_data(data_path, db_path, self.metrics, run_ids)
+        df = load_all_results_from_data(data_path, db_path, self.metrics, run_ids, sample)
         return df
 
     def load_by_params(self, params: dict):
