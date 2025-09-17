@@ -5,6 +5,9 @@ sys.path.append(os.getcwd())
 
 import argparse
 import logging
+import lzma
+import math
+import pickle
 import socket
 import time
 
@@ -142,13 +145,10 @@ for idx in indices:
     glues.append(glue)
 
 if len(glues) > 1:
-    # combine states
-    glue_states = tree_map(lambda *leaves: jnp.stack(leaves), *[g.state for g in glues])
     # vmap glue methods
     v_start = jax.vmap(glues[0]._start)
     v_step = jax.vmap(glues[0]._step)
 else:
-    glue_states = glues[0].state
     v_start = glues[0]._start
     v_step = glues[0]._step
 
@@ -211,19 +211,75 @@ if args.video:
 # -- Batch Execution --
 # --------------------
 
-# make the first interaction
-glue_states, _ = v_start(glue_states)
+start_step = None
+save_every = 1_000_000
+rewards = np.zeros((n, len(indices)))
+for i, idx in enumerate(indices):
+    context = exp.buildSaveContext(idx, base=args.save_path)
+    step_path = context.resolve(f"checkpoint/{idx}/step.txt")
+    glue_state_path = context.resolve(f"checkpoint/{idx}/glue_state.pkl.xz")
+    rewards_path = context.resolve(f"checkpoint/{idx}/rewards.npz")
+    if os.path.exists(step_path):
+        # load from checkpoint
+        with open(step_path, "r") as f:
+            start_step_idx = int(f.read())
+            if start_step is None:
+                start_step = start_step_idx
+            else:
+                assert start_step == start_step_idx
 
-@scan_tqdm(n, print_rate=min(n//20, 2000))
-def step(carry, _):
-    carry, interaction = v_step(carry)
-    return carry, interaction.reward
+        with lzma.open(glue_state_path, "rb") as f:
+            glues[i].state = pickle.load(f)
+
+        rewards_idx = np.load(rewards_path)["rewards"]
+        rewards[:len(rewards_idx), i] = rewards_idx
+
+if len(glues) > 1:
+    # combine states
+    glue_states = tree_map(lambda *leaves: jnp.stack(leaves), *[g.state for g in glues])
+else:
+    glue_states = glues[0].state
+
+if start_step is None:
+    glue_states, _ = v_start(glue_states)
+    start_step = 0
+
+for current_step in range(start_step, n, save_every):
+    steps_in_iter = min(save_every, n - current_step)
+    if steps_in_iter <= 0:
+        break
+
+    @scan_tqdm(n, print_rate=min(n // 20, 2000), initial=current_step)
+    def step(carry, _):
+        carry, interaction = v_step(carry)
+        return carry, interaction.reward
 
 
-glue_states, rewards = jax.lax.scan(step, glue_states, jnp.arange(n), unroll=1)
+    steps = jnp.arange(steps_in_iter)
+    glue_states, rewards_chunk = jax.lax.scan(step, glue_states, steps, unroll=1)
 
-if len(glues) < 2:
-    rewards = jnp.expand_dims(rewards, -1)
+    if n < save_every:
+        continue
+    # checkpointing
+    if len(glues) < 2:
+        rewards_chunk = np.expand_dims(rewards_chunk, -1)
+    rewards[current_step : current_step + steps_in_iter] = rewards_chunk
+    for i, idx in enumerate(indices):
+        context = exp.buildSaveContext(idx, base=args.save_path)
+        glue_state_path = context.resolve(f"checkpoint/{idx}/glue_state.pkl.xz")
+        context.ensureExists(glue_state_path, is_file=True)
+        if len(glues) > 1:
+            glue_state_idx = tree_map(lambda x: x[i], glue_states)
+        else:
+            glue_state_idx = glue_states
+        with lzma.open(glue_state_path, "wb") as f:
+            pickle.dump(glue_state_idx, f)
+        reward_path = context.resolve(f"checkpoint/{idx}/rewards.npz")
+        np.savez_compressed(reward_path, rewards=rewards[:, i])
+        step_path = context.resolve(f"checkpoint/{idx}/step.txt")
+        with open(step_path, "w") as f:
+            f.write(str(current_step + steps_in_iter))
+
 
 # rewards is (steps, batch_size)
 # we want (batch_size, steps)
