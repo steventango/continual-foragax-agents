@@ -258,8 +258,6 @@ for current_step in range(start_step, n, save_every):
     steps = jnp.arange(steps_in_iter)
     glue_states, rewards_chunk = jax.lax.scan(step, glue_states, steps, unroll=1)
 
-    if n < save_every:
-        continue
     # checkpointing
     if len(glues) < 2:
         rewards_chunk = np.expand_dims(rewards_chunk, -1)
