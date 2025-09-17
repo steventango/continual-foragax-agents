@@ -5,7 +5,7 @@ sys.path.append(os.getcwd() + "/src")
 import matplotlib.pyplot as plt
 import numpy as np
 import tol_colors as tc
-from constants import LABEL_MAP
+from utils.constants import LABEL_MAP
 from matplotlib.lines import Line2D
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
@@ -69,12 +69,6 @@ if __name__ == "__main__":
         aperture = int(aperture)
         for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename
-            if alg in {
-                "DQN_Shrink_and_Perturb",
-                "DQN_Hare_and_Tortoise",
-                "DQN_Reset_Head",
-            }:
-                continue
             print(f"{env_aperture} {alg}")
 
             df = alg_result.load()
@@ -173,7 +167,6 @@ if __name__ == "__main__":
             legend_elements.append(Line2D([0], [0], color=COLORS[k], lw=2, label=k))
 
     fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
-    fig.suptitle(r"Exploration: $\epsilon: 1 \to 0.05, 80000$ steps")
 
     path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
     save(

@@ -2,7 +2,7 @@ import os
 import sys
 from collections import defaultdict
 
-from constants import LABEL_MAP
+from utils.constants import LABEL_MAP
 
 from utils.plotting import label_lines
 
@@ -192,8 +192,6 @@ if __name__ == "__main__":
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-
-    f.suptitle(r"Exploration: $\epsilon: 1 \to 0.05, 80000$ steps")
 
     path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
     save(
