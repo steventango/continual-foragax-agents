@@ -17,7 +17,7 @@ class DebugAgent(BaseAgent):
     def __init__(self, observations: Tuple[int, ...], actions: int, params: Dict, collector: Collector, seed: int):
         super().__init__(observations, actions, params, collector, seed)
         self.state = AgentState(
-            state =jnp.zeros((), dtype=jnp.float32),
+            state = jnp.zeros((), dtype=jnp.float32),
         )
 
     @partial(jax.jit, static_argnums=0)
