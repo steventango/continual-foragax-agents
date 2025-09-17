@@ -173,7 +173,7 @@ if __name__ == "__main__":
             legend_elements.append(Line2D([0], [0], color=COLORS[k], lw=2, label=k))
 
     fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
-    fig.suptitle(r"Exploration: $\epsilon: 1 \to 0.05, 800000$ steps")
+    fig.suptitle(r"Exploration: $\epsilon: 0.05$ no updates for 32 steps")
 
     path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
     save(

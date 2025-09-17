@@ -114,18 +114,18 @@ def combine_pdfs_vertically(pdf_paths, output_path):
 if __name__ == "__main__":
     # Combine AUC_FOV plots
     auc_fov_files = [
-        "experiments/foragax-old-exploration/plots/auc-fov/auc_fov.pdf",
         "experiments/foragax/plots/auc-fov/auc_fov.pdf",
         "experiments/foragax-alt-exploration/plots/auc-fov/auc_fov.pdf",
+        "experiments/foragax-new-exploration/plots/auc-fov/auc_fov.pdf",
     ]
     output_auc_fov_pdf = "combined_auc_fov.pdf"
     combine_pdfs_horizontally(auc_fov_files, output_auc_fov_pdf)
 
     # Combine Learning Curve plots
     learning_curve_files = [
-        "experiments/foragax-old-exploration/plots/learning-curve/ForagaxTwoBiomeSmall.pdf",
         "experiments/foragax/plots/learning-curve/ForagaxTwoBiomeSmall.pdf",
         "experiments/foragax-alt-exploration/plots/learning-curve/ForagaxTwoBiomeSmall.pdf",
+        "experiments/foragax-new-exploration/plots/learning-curve/ForagaxTwoBiomeSmall.pdf",
         # Add other learning curve PDFs here if needed
     ]
     output_learning_curve_pdf = "combined_learning_curve.pdf"
