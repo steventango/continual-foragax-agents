@@ -56,7 +56,7 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    nalgs = 3
+    nalgs = 6
     ncols = int(np.ceil(np.sqrt(nalgs))) if nalgs > 3 else nalgs
     nrows = int(np.ceil(nalgs / ncols)) if nalgs > 3 else 1
     fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained")

@@ -81,12 +81,6 @@ if __name__ == "__main__":
         aperture = int(env.rsplit("-", 1)[-1])
         for alg_result in sub_results:
             alg = alg_result.filename
-            if alg in {
-                "DQN_Shrink_and_Perturb",
-                "DQN_Hare_and_Tortoise",
-                "DQN_Reset_Head",
-            }:
-                continue
             print(f"{env} {alg}")
             df = alg_result.load()
             if df is None:
