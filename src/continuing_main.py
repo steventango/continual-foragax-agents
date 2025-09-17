@@ -6,7 +6,6 @@ sys.path.append(os.getcwd())
 import argparse
 import logging
 import lzma
-import math
 import pickle
 import socket
 import time
@@ -22,6 +21,7 @@ from ml_instrumentation.Sampler import Ignore, MovingAverage, Subsample
 from ml_instrumentation.utils import Pipe
 from PyExpUtils.results.tools import getParamsAsDict
 
+from environments.Foragax import Foragax
 from experiment import ExperimentModel
 from problems.registry import getProblem
 from utils.checkpoint import Checkpoint
@@ -213,12 +213,31 @@ if args.video:
 
 start_step = None
 save_every = 1_000_000
-rewards = np.zeros((n, len(indices)))
+datas = {}
+datas["rewards"] = np.zeros((len(indices), n), dtype=np.float32)
+
+
+if isinstance(glues[0].environment, Foragax):
+    datas["pos"] = np.zeros((len(indices), n, 2), dtype=np.int32)
+    def get_data(carry, interaction):
+        data = {
+            "rewards": interaction.reward,
+            "pos": carry.env_state.state.pos,
+        }
+        return data
+else:
+    def get_data(carry, interaction):
+        data = {
+            "rewards": interaction.reward,
+        }
+        return data
+
+
 for i, idx in enumerate(indices):
     context = exp.buildSaveContext(idx, base=args.save_path)
     step_path = context.resolve(f"checkpoint/{idx}/step.txt")
     glue_state_path = context.resolve(f"checkpoint/{idx}/glue_state.pkl.xz")
-    rewards_path = context.resolve(f"checkpoint/{idx}/rewards.npz")
+    data_path = context.resolve(f"checkpoint/{idx}/data.npz")
     if os.path.exists(step_path):
         # load from checkpoint
         with open(step_path, "r") as f:
@@ -231,8 +250,9 @@ for i, idx in enumerate(indices):
         with lzma.open(glue_state_path, "rb") as f:
             glues[i].state = pickle.load(f)
 
-        rewards_idx = np.load(rewards_path)["rewards"]
-        rewards[:len(rewards_idx), i] = rewards_idx
+        with np.load(data_path) as data_idx:
+            for key in data_idx.keys():
+                datas[key][i, : len(data_idx[key])] = data_idx[key]
 
 if len(glues) > 1:
     # combine states
@@ -249,22 +269,27 @@ for current_step in range(start_step, n, save_every):
     if steps_in_iter <= 0:
         break
 
-    @scan_tqdm(n, print_rate=min(n // 20, 2000), initial=current_step)
+    @scan_tqdm(n, print_rate=min(n // 20, 10000), initial=current_step)
     def step(carry, _):
         carry, interaction = v_step(carry)
-        return carry, interaction.reward
-
+        data = get_data(carry, interaction)
+        return carry, data
 
     steps = jnp.arange(steps_in_iter)
-    glue_states, rewards_chunk = jax.lax.scan(step, glue_states, steps, unroll=1)
+    glue_states, data_chunk = jax.lax.scan(step, glue_states, steps, unroll=1)
+    # data_chunk is dict of (steps, batch, ...)
 
     if n < save_every:
         continue
     # checkpointing
     if len(glues) < 2:
-        rewards_chunk = np.expand_dims(rewards_chunk, -1)
-    rewards[current_step : current_step + steps_in_iter] = rewards_chunk
+        data_chunk = tree_map(lambda x: np.expand_dims(x, 1), data_chunk)
+
     for i, idx in enumerate(indices):
+        data_idx = tree_map(lambda x: x[:, i], data_chunk)
+        for key in datas:
+            datas[key][i, current_step : current_step + steps_in_iter] = data_idx[key]
+
         context = exp.buildSaveContext(idx, base=args.save_path)
         glue_state_path = context.resolve(f"checkpoint/{idx}/glue_state.pkl.xz")
         context.ensureExists(glue_state_path, is_file=True)
@@ -274,16 +299,20 @@ for current_step in range(start_step, n, save_every):
             glue_state_idx = glue_states
         with lzma.open(glue_state_path, "wb") as f:
             pickle.dump(glue_state_idx, f)
-        reward_path = context.resolve(f"checkpoint/{idx}/rewards.npz")
-        np.savez_compressed(reward_path, rewards=rewards[:, i])
+
+        data_to_save = tree_map(
+            lambda d: d[i, : current_step + steps_in_iter], datas
+        )
+        data_path = context.resolve(f"checkpoint/{idx}/data.npz")
+        np.savez_compressed(data_path, **data_to_save)
+
         step_path = context.resolve(f"checkpoint/{idx}/step.txt")
         with open(step_path, "w") as f:
             f.write(str(current_step + steps_in_iter))
 
 
-# rewards is (steps, batch_size)
-# we want (batch_size, steps)
-rewards = rewards.T
+# rewards is (batch_size, steps)
+rewards = datas["rewards"]
 
 # --------------------
 # -- Saving --
@@ -317,7 +346,8 @@ for i, idx in enumerate(indices):
     context.ensureExists(data_path, is_file=True)
 
     start_time = time.time()
-    np.savez_compressed(data_path, rewards=run_rewards)
+    data_to_save = tree_map(lambda d: d[i], datas)
+    np.savez_compressed(data_path, **data_to_save)
     total_numpy_time += time.time() - start_time
 
     meta = getParamsAsDict(exp, idx)
