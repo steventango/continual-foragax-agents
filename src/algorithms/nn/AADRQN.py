@@ -159,7 +159,7 @@ class AADRQN(NNAgent):
             updates=updates,
             # buffer_state=buffer_state,
             target_params=target_params,
-        )
+        ), metrics
 
     # -------------
     # -- Updates --
@@ -172,10 +172,13 @@ class AADRQN(NNAgent):
 
         new_params = {}
         new_optim = {}
+        weight_change = 0
         for name, p in state.params.items():
             updates, optim = optimizer.update(grad[name], state.optim[name], p)
             new_params[name] = optax.apply_updates(p, updates)
             new_optim[name] = optim
+            weight_change += jnp.linalg.norm(updates, ord=1)
+        metrics["weight_change"] = weight_change
 
         return replace(state, params=new_params, optim=new_optim), metrics
 
@@ -228,10 +231,16 @@ class AADRQN(NNAgent):
         # weights = weights.ravel()
 
         batch_loss = jax.vmap(q_loss, in_axes=0)
-        losses, metrics = batch_loss(qs, a, r, g, qsp)
+        losses, batch_metrics = batch_loss(qs, a, r, g, qsp)
 
         # chex.assert_equal_shape((weights, losses))
-        loss = jnp.mean(losses) # jnp.mean(weights * losses)
+        loss = jnp.mean(losses)  # jnp.mean(weights * losses)
+
+        # aggregate metrics
+        metrics = {
+            "abs_td_error": jnp.mean(jnp.abs(batch_metrics["delta"])),
+            "squared_td_error": jnp.mean(jnp.square(batch_metrics["delta"])),
+        }
 
         return loss, metrics
 
@@ -255,7 +264,8 @@ class AADRQN(NNAgent):
         )
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)
-        return state, a
+        state, update_metrics = self._maybe_update(state)
+        return state, a, update_metrics
 
     @partial(jax.jit, static_argnums=0)
     def _step(self, state: AgentState, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
@@ -293,10 +303,10 @@ class AADRQN(NNAgent):
                 "reset": jnp.bool(False)
             }
         )
-        state = self._maybe_update(state)
+        state, update_metrics = self._maybe_update(state)
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)
-        return state, a
+        return state, a, update_metrics
 
     @partial(jax.jit, static_argnums=0)
     def _end(self, state, reward: jax.Array, extra: Dict[str, jax.Array]):
@@ -315,7 +325,7 @@ class AADRQN(NNAgent):
         )
         buffer_state = self.buffer.add(state.buffer_state, batch_sequence)
         state = replace(state, buffer_state=buffer_state)
-        state = self._maybe_update(state)
+        state, update_metrics = self._maybe_update(state)
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)
-        return state
+        return state, update_metrics

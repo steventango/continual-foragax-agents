@@ -95,7 +95,7 @@ class EQRC(NNAgent):
         state.key, buffer_sample_key = jax.random.split(state.key)
         batch = self.buffer.sample(state.buffer_state, buffer_sample_key)
         state, metrics = self._computeUpdate(state, batch.experience)
-        return replace(state, updates=state.updates + 1)
+        return replace(state, updates=state.updates + 1), metrics
 
     # -------------
     # -- Updates --
@@ -114,6 +114,7 @@ class EQRC(NNAgent):
 
         new_params = {}
         new_optim = {}
+        weight_change = 0
         for component in params.keys():
             updates, new_optim[component] = optimizer.update(
                 grad[component], state.optim[component], params[component]
@@ -128,6 +129,8 @@ class EQRC(NNAgent):
                 updates = decay
 
             new_params[component] = optax.apply_updates(params[component], updates)
+            weight_change += jnp.linalg.norm(updates, ord=1)
+        metrics["weight_change"] = weight_change
 
         return replace(state, params=new_params, optim=new_optim), metrics
 
@@ -154,14 +157,16 @@ class EQRC(NNAgent):
         # apply qc loss function to each sample in the minibatch
         # gives back value of the loss individually for parameters of v and h
         # note QC instead of QRC (i.e. no regularization)
-        v_loss, h_loss, metrics = qc_loss(q, a, r, g, qp, h, epsilon)
+        v_loss, h_loss, batch_metrics = qc_loss(q, a, r, g, qp, h, epsilon)
 
         h_loss = h_loss.mean()
         v_loss = v_loss.mean()
 
-        metrics |= {
+        metrics = {
             "v_loss": v_loss,
             "h_loss": h_loss,
+            "abs_td_error": jnp.mean(jnp.abs(batch_metrics["delta"])),
+            "squared_td_error": jnp.mean(jnp.square(batch_metrics["delta"])),
         }
 
         return v_loss + h_loss, metrics

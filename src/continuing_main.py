@@ -215,20 +215,48 @@ start_step = None
 save_every = 1_000_000
 datas = {}
 datas["rewards"] = np.zeros((len(indices), n), dtype=np.float32)
+datas["weight_change"] = np.zeros((len(indices), n), dtype=np.float32)
+datas["squared_td_error"] = np.zeros((len(indices), n), dtype=np.float32)
+datas["abs_td_error"] = np.zeros((len(indices), n), dtype=np.float32)
+
+def get_agent_metrics(agent_state):
+    """Safely extract metrics from agent state, handling different agent types."""
+    weight_change = 0.0
+    squared_td_error = 0.0
+    abs_td_error = 0.0
+
+    if hasattr(agent_state, 'metrics'):
+        metrics = agent_state.metrics
+        if hasattr(metrics, 'weight_change'):
+            weight_change = float(metrics.weight_change)
+        if hasattr(metrics, 'squared_td_error'):
+            squared_td_error = float(metrics.squared_td_error)
+        if hasattr(metrics, 'abs_td_error'):
+            abs_td_error = float(metrics.abs_td_error)
+
+    return weight_change, squared_td_error, abs_td_error
 
 
 if isinstance(glues[0].environment, Foragax):
     datas["pos"] = np.zeros((len(indices), n, 2), dtype=np.int32)
     def get_data(carry, interaction):
+        weight_change, squared_td_error, abs_td_error = get_agent_metrics(carry.agent_state)
         data = {
             "rewards": interaction.reward,
             "pos": carry.env_state.state.pos,
+            "weight_change": weight_change,
+            "squared_td_error": squared_td_error,
+            "abs_td_error": abs_td_error,
         }
         return data
 else:
     def get_data(carry, interaction):
+        weight_change, squared_td_error, abs_td_error = get_agent_metrics(carry.agent_state)
         data = {
             "rewards": interaction.reward,
+            "weight_change": weight_change,
+            "squared_td_error": squared_td_error,
+            "abs_td_error": abs_td_error,
         }
         return data
 
