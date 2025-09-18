@@ -8,5 +8,5 @@ git add .
 git commit -m "Process hypers"
 git push
 
-bash scripts/sync_results.sh
-bash experiments/foragax/run.sh
+# bash scripts/sync_results.sh
+# bash experiments/foragax/run.sh
