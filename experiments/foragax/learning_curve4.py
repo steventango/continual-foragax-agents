@@ -44,7 +44,7 @@ SINGLE = {
 
 
 if __name__ == "__main__":
-    results = ResultCollection(Model=ExperimentModel)
+    results = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
     dd = data_definition(
         hyper_cols=results.get_hyperparameter_columns(),
         seed_col="seed",
@@ -55,7 +55,6 @@ if __name__ == "__main__":
     )
 
     fig, ax = plt.subplots(1, 1)
-    
 
     env = "unknown"
     for env_aperture, sub_results in sorted(
@@ -78,7 +77,6 @@ if __name__ == "__main__":
             df = alg_result.load()
             if df is None:
                 continue
-            
 
             cols = set(dd.hyper_cols).intersection(df.columns)
             hyper_vals = {col: df[col][0] for col in cols}
@@ -103,7 +101,7 @@ if __name__ == "__main__":
                 iterations=10000,
             )
 
-            
+
             ax.plot(
                 xs[0],
                 res.sample_stat,
