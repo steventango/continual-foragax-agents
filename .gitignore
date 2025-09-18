@@ -1,5 +1,5 @@
 # ignore checkpoints
-checkpoint/
+checkpoints/
 
 # ignore all results folders
 results
