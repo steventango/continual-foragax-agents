@@ -1,5 +1,5 @@
 {
-    "agent": "DQN",
+    "agent": "DQN_LN",
     "problem": "Foragax",
     "total_steps": 100000,
     "episode_cutoff": -1,
@@ -24,7 +24,7 @@
             "name": "Adam",
             "alpha": [
                 0.001,
-                0.003,
+                0.0003,
                 0.0001,
                 3e-05,
                 1e-05
@@ -40,7 +40,7 @@
             ]
         },
         "representation": {
-            "type": "Forager2Net",
+            "type": "Forager2LayerNormNet",
             "hidden": 64
         },
         "update_freq": 4
