@@ -19,3 +19,8 @@ python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-30m.json --runs 5 --e
 python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-45m.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-v2-11/DQN_LN.json
 python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-45m.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-v2-13/DQN_LN.json
 python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-1h.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-v2-15/DQN_LN.json
+
+python scripts/slurm.py --cluster clusters/vulcan-cpu-15m.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-v2-15/Random.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-15m.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-v2-15/Search-Nearest.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-15m.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-v2-15/Search-Oracle.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-15m.json --runs 5 --entry src/continuing_main.py --force -e experiments/foragax-sweep/ForagaxTwoBiomeSmall-v2-15/Search-Oyster.json
