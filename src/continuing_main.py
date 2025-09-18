@@ -239,7 +239,6 @@ for i, idx in enumerate(indices):
     glue_state_path = context.resolve(f"{idx}/glue_state.pkl.xz")
     data_path = context.resolve(f"{idx}/data.npz")
     if os.path.exists(step_path):
-        # load from checkpoint
         with open(step_path, "r") as f:
             start_step_idx = int(f.read())
             if start_step is None:
@@ -263,6 +262,8 @@ else:
 if start_step is None:
     glue_states, _ = v_start(glue_states)
     start_step = 0
+else:
+    logger.debug(f"Loaded checkpoints, resuming from step {start_step}")
 
 for current_step in range(start_step, n, save_every):
     steps_in_iter = min(save_every, n - current_step)
@@ -359,7 +360,6 @@ for i, idx in enumerate(indices):
     total_db_time += time.time() - start_time
 
     collector.close()
-    chk.delete()
 
 logger.debug("--- Saving Timings ---")
 logger.debug(
