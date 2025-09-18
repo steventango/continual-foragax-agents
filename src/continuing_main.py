@@ -205,11 +205,11 @@ if args.video:
 start_step = None
 save_every = 1_000_000
 datas = {}
-datas["rewards"] = np.zeros((len(indices), n), dtype=np.float32)
-datas["weight_change"] = np.zeros((len(indices), n), dtype=np.float32)
-datas["squared_td_error"] = np.zeros((len(indices), n), dtype=np.float32)
-datas["abs_td_error"] = np.zeros((len(indices), n), dtype=np.float32)
-datas["loss"] = np.zeros((len(indices), n), dtype=np.float32)
+datas["rewards"] = np.zeros((len(indices), n), dtype=np.float16)
+datas["weight_change"] = np.zeros((len(indices), n), dtype=np.float16)
+datas["squared_td_error"] = np.zeros((len(indices), n), dtype=np.float16)
+datas["abs_td_error"] = np.zeros((len(indices), n), dtype=np.float16)
+datas["loss"] = np.zeros((len(indices), n), dtype=np.float16)
 
 
 def get_agent_metrics(agent_state):
