@@ -206,7 +206,7 @@ class NNAgent(BaseAgent):
     @partial(jax.jit, static_argnums=0)
     def _maybe_update(
         self, state: AgentState
-    ) -> Tuple[AgentState, Dict[str, jax.Array]]:
+    ) -> AgentState:
         def do_update():
             new_state, metrics = self._update(state)
             # Update the latest metrics in the state
@@ -219,10 +219,10 @@ class NNAgent(BaseAgent):
                 loss=metrics.get("loss", state.metrics.loss),
             )
             new_state = replace(new_state, metrics=metrics)
-            return new_state, metrics
+            return new_state
 
         def no_update():
-            return state, {}
+            return state
 
         return jax.lax.cond(
             (state.steps % state.hypers.update_freq == 0)
@@ -291,7 +291,7 @@ class NNAgent(BaseAgent):
     # -- RLGlue interface --
     # ----------------------
     def start(self, obs: jax.Array):
-        self.state, a, _ = self._start(self.state, obs)
+        self.state, a = self._start(self.state, obs)
         return a
 
     @partial(jax.jit, static_argnums=0)
@@ -305,11 +305,11 @@ class NNAgent(BaseAgent):
         )
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)
-        state, update_metrics = self._maybe_update(state)
-        return state, a, update_metrics
+        state = self._maybe_update(state)
+        return state, a
 
     def step(self, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
-        self.state, a, _ = self._step(self.state, reward, obs, extra)
+        self.state, a = self._step(self.state, reward, obs, extra)
         return a
 
     @partial(jax.jit, static_argnums=0)
@@ -348,13 +348,13 @@ class NNAgent(BaseAgent):
                 "a": a,
             }
         )
-        state, update_metrics = self._maybe_update(state)
+        state = self._maybe_update(state)
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)
-        return state, a, update_metrics
+        return state, a
 
     def end(self, reward: jax.Array, extra: Dict[str, jax.Array]):
-        self.state, _ = self._end(self.state, reward, extra)
+        self.state = self._end(self.state, reward, extra)
 
     @partial(jax.jit, static_argnums=0)
     def _end(self, state, reward: jax.Array, extra: Dict[str, jax.Array]):
@@ -375,7 +375,7 @@ class NNAgent(BaseAgent):
         )
         buffer_state = self.buffer.add(state.buffer_state, batch_sequence)
         state = replace(state, buffer_state=buffer_state)
-        state, update_metrics = self._maybe_update(state)
+        state = self._maybe_update(state)
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)
-        return state, update_metrics
+        return state

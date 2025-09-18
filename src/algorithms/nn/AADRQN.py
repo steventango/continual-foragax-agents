@@ -267,8 +267,8 @@ class AADRQN(NNAgent):
         )
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)
-        state, update_metrics = self._maybe_update(state)
-        return state, a, update_metrics
+        state = self._maybe_update(state)
+        return state, a
 
     @partial(jax.jit, static_argnums=0)
     def _step(self, state: AgentState, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
@@ -306,10 +306,10 @@ class AADRQN(NNAgent):
                 "reset": jnp.bool(False)
             }
         )
-        state, update_metrics = self._maybe_update(state)
+        state = self._maybe_update(state)
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)
-        return state, a, update_metrics
+        return state, a
 
     @partial(jax.jit, static_argnums=0)
     def _end(self, state, reward: jax.Array, extra: Dict[str, jax.Array]):
@@ -328,7 +328,7 @@ class AADRQN(NNAgent):
         )
         buffer_state = self.buffer.add(state.buffer_state, batch_sequence)
         state = replace(state, buffer_state=buffer_state)
-        state, update_metrics = self._maybe_update(state)
+        state = self._maybe_update(state)
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)
-        return state, update_metrics
+        return state
