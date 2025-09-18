@@ -15,27 +15,12 @@ from utils.results import ResultCollection
 setDefaultConference("jmlr")
 setFonts(20)
 
-colorset = tc.colorsets["muted"]
+colorset = tc.colorsets["high_contrast"]
 
-COLORS = {
-    3: colorset.rose,
-    5: colorset.indigo,
-    7: colorset.sand,
-    9: colorset.cyan,
-    11: colorset.teal,
-    13: colorset.olive,
-    15: colorset.purple,
-    "Search-Oracle": colorset.wine,
-    "Search-Nearest": colorset.green,
-    "Search-Oyster": tc.colorsets["light"].pear,
-    "Random": "black",
-}
-
-SINGLE = {
-    "Random",
-    "Search-Nearest",
-    "Search-Oracle",
-    "Search-Oyster",
+BIOME_COLORS = {
+    "Morel": colorset.blue,
+    "Oyster": colorset.red,
+    "Neither": colorset.yellow,
 }
 
 ENV_MAP = {
@@ -93,42 +78,45 @@ def plot_biome_occupancy_over_time(df, biomes, alg, env, aperture):
     # downsample for plotting
     full_df = full_df.gather_every(max(1, full_df.height // 1000))
 
-
-    # Aggregate data
-    agg_cols = [f"{name}_occupancy" for name in biome_names]
-    agg_df = full_df.group_by(["frame"]).agg(
-        [pl.mean(col).alias(f"{col}_mean") for col in agg_cols] +
-        [pl.std(col).alias(f"{col}_std") for col in agg_cols] +
-        [pl.count().alias("count")]
-    ).sort("frame")
-
-    agg_df = agg_df.with_columns(
-        [(pl.col(f"{col}_std") / pl.col("count").sqrt()).alias(f"{col}_sem") for col in agg_cols]
-    )
-
     # Plotting
     fig, ax = plt.subplots(figsize=(10, 6))
 
+    # one legend entry per biome
+    for biome_name in biome_names:
+        color = BIOME_COLORS.get(biome_name)
+        ax.plot([], [], label=biome_name, color=color)
+
+    for seed_val, seed_df in full_df.group_by("seed"):
+        seed_df = seed_df.sort("frame")
+        frames = seed_df["frame"]
+        for biome_name in biome_names:
+            occupancy_col = f"{biome_name}_occupancy"
+            if occupancy_col in seed_df.columns:
+                occupancy = seed_df[occupancy_col]
+                color = BIOME_COLORS.get(biome_name)
+                ax.plot(frames, occupancy, color=color, alpha=0.2)
+
+    # Aggregate and plot mean
+    agg_cols = [f"{name}_occupancy" for name in biome_names]
+    agg_df = full_df.group_by("frame").agg(
+        [pl.mean(col).alias(f"{col}_mean") for col in agg_cols]
+    ).sort("frame")
+
     for biome_name in biome_names:
         mean_col = f"{biome_name}_occupancy_mean"
-        sem_col = f"{biome_name}_occupancy_sem"
-
         if mean_col in agg_df.columns:
             frames = agg_df["frame"]
             means = agg_df[mean_col]
-            sems = agg_df[sem_col]
+            color = BIOME_COLORS.get(biome_name)
+            ax.plot(frames, means, color=color, linewidth=2.5)
 
-            line = ax.plot(frames, means, label=biome_name)
-            color = line[0].get_color()
-            ax.fill_between(frames, means - sems, means + sems, color=color, alpha=0.2)
 
     ax.set_xlabel("Time")
     ax.set_ylabel("Biome Occupancy (EMA)")
-    ax.set_title(f"Biome Occupancy Over Time: {alg} ({env}, aperture {aperture})")
-    ax.legend()
-    ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+    ax.set_title(f"{alg} ({env}, {aperture})")
+    ax.legend(frameon=False)
     ax.set_ylim(0, 1)
-
+    ax.spines[['top', 'right']].set_visible(False)
 
     path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
     plot_name = f"biome_over_time-{env}-{aperture}-{alg}"
@@ -137,6 +125,7 @@ def plot_biome_occupancy_over_time(df, biomes, alg, env, aperture):
         plot_name=plot_name,
         save_type="pdf",
         f=fig,
+        height_ratio=2/3.
     )
     plt.close(fig)
 
@@ -169,7 +158,7 @@ if __name__ == "__main__":
             alg = alg_result.filename
             print(f"{env_aperture} {alg}")
 
-            df = alg_result.load(sample=1_000_000)
+            df = alg_result.load(sample=10_000, sample_type="random")
             if df is None or df.height == 0:
                 continue
 

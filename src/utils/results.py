@@ -24,7 +24,8 @@ def read_metrics_from_data(
     data_path: str | Path,
     metrics: Iterable[str] | None = None,
     run_ids: Iterable[int] | None = None,
-    sample: int = 500,
+    sample: int | None = 500,
+    sample_type: str = "every"
 ):
     if run_ids is None:
         run_id_paths = {}
@@ -51,7 +52,13 @@ def read_metrics_from_data(
             datas[run_id] = datas[run_id].with_columns(
                 pl.col("ewm_reward").mean().alias("mean_ewm_reward")
             )
-        datas[run_id] = datas[run_id].gather_every(max(1, len(datas[run_id]) // sample))
+        if sample is None:
+            continue
+        if sample_type == "every":
+            datas[run_id] = datas[run_id].gather_every(max(1, len(datas[run_id]) // sample))
+        elif sample_type == "random":
+            datas[run_id] = datas[run_id].sample(n=sample, seed=0).sort("frame")
+
     if len(datas) == 0:
         return pl.DataFrame().lazy()
     df = pl.concat(datas.values())
@@ -64,6 +71,7 @@ def load_all_results_from_data(
     metrics: Iterable[str] | None = None,
     ids: Iterable[int] | None = None,
     sample: int = 500,
+    sample_type: str = "every",
 ):
     con = sqlite3.connect(db_path)
     cur = con.cursor()
@@ -72,7 +80,7 @@ def load_all_results_from_data(
     if metrics is None:
         metrics = tables - {"_metadata_"}
 
-    df = read_metrics_from_data(data_path, metrics, ids, sample)
+    df = read_metrics_from_data(data_path, metrics, ids, sample, sample_type)
 
     if "_metadata_" not in tables:
         return df.collect()
@@ -96,7 +104,7 @@ class Result(Generic[Exp]):
         self.exp = exp
         self.metrics = metrics
 
-    def load(self, sample: int = 500):
+    def load(self, sample: int = 500, sample_type: str = "every"):
         db_path = self.exp.buildSaveContext(0).resolve("results.db")
         data_path = self.exp.buildSaveContext(0).resolve("data")
 
@@ -108,7 +116,7 @@ class Result(Generic[Exp]):
             params = getParamsAsDict(self.exp, param_id)
             run_ids.update(get_run_ids(db_path, params))
         run_ids = sorted(run_ids)
-        df = load_all_results_from_data(data_path, db_path, self.metrics, run_ids, sample)
+        df = load_all_results_from_data(data_path, db_path, self.metrics, run_ids, sample, sample_type)
         return df
 
     def load_by_params(self, params: dict):

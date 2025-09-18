@@ -15,27 +15,12 @@ from utils.results import ResultCollection
 setDefaultConference("jmlr")
 setFonts(20)
 
-colorset = tc.colorsets["muted"]
+colorset = tc.colorsets["high_contrast"]
 
-COLORS = {
-    3: colorset.rose,
-    5: colorset.indigo,
-    7: colorset.sand,
-    9: colorset.cyan,
-    11: colorset.teal,
-    13: colorset.olive,
-    15: colorset.purple,
-    "Search-Oracle": colorset.wine,
-    "Search-Nearest": colorset.green,
-    "Search-Oyster": tc.colorsets["light"].pear,
-    "Random": "black",
-}
-
-SINGLE = {
-    "Random",
-    "Search-Nearest",
-    "Search-Oracle",
-    "Search-Oyster",
+BIOME_COLORS = {
+    "Morel": colorset.blue,
+    "Oyster": colorset.red,
+    "Neither": colorset.yellow,
 }
 
 ENV_MAP = {
@@ -85,7 +70,7 @@ if __name__ == "__main__":
             alg = alg_result.filename
             print(f"{env_aperture} {alg}")
 
-            df = alg_result.load(sample=1_000_000)
+            df = alg_result.load(sample=10_000, sample_type="random")
             if df is None:
                 continue
 
@@ -129,11 +114,14 @@ if __name__ == "__main__":
 
             labels = list(avg_percentages.keys())
             sizes = list(avg_percentages.values())
+            colors = [BIOME_COLORS.get(l) for l in labels]
 
-            ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
+            ax.pie(
+                sizes, labels=labels, autopct="%1.1f%%", startangle=90, colors=colors
+            )
             ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
 
-            ax.set_title(f"Biome Occupancy: {alg} ({env}, aperture {aperture})")
+            ax.set_title(f"{alg} ({env}, aperture {aperture})")
 
             path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
             plot_name = f"biome-pie-{env}-{aperture}-{alg}"

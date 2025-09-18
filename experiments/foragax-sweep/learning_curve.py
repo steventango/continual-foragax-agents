@@ -68,7 +68,7 @@ if __name__ == "__main__":
     for env_aperture, sub_results in sorted(
         results.groupby_directory(level=2), key=lambda x: int(x[0].split("-")[-1])
     ):
-        env, aperture = env_aperture.split("-", 1)
+        env, aperture = env_aperture.rsplit("-", 1)
         aperture = int(aperture)
         for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename

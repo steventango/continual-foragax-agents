@@ -234,10 +234,10 @@ else:
 
 
 for i, idx in enumerate(indices):
-    context = exp.buildSaveContext(idx, base=args.save_path)
-    step_path = context.resolve(f"checkpoint/{idx}/step.txt")
-    glue_state_path = context.resolve(f"checkpoint/{idx}/glue_state.pkl.xz")
-    data_path = context.resolve(f"checkpoint/{idx}/data.npz")
+    context = exp.buildSaveContext(idx, base=args.checkpoint_path)
+    step_path = context.resolve(f"{idx}/step.txt")
+    glue_state_path = context.resolve(f"{idx}/glue_state.pkl.xz")
+    data_path = context.resolve(f"{idx}/data.npz")
     if os.path.exists(step_path):
         # load from checkpoint
         with open(step_path, "r") as f:
@@ -290,8 +290,8 @@ for current_step in range(start_step, n, save_every):
 
         if n < save_every:
             continue
-        context = exp.buildSaveContext(idx, base=args.save_path)
-        glue_state_path = context.resolve(f"checkpoint/{idx}/glue_state.pkl.xz")
+        context = exp.buildSaveContext(idx, base=args.checkpoint_path)
+        glue_state_path = context.resolve(f"{idx}/glue_state.pkl.xz")
         context.ensureExists(glue_state_path, is_file=True)
         if len(glues) > 1:
             glue_state_idx = tree_map(lambda x: x[i], glue_states)
@@ -303,10 +303,10 @@ for current_step in range(start_step, n, save_every):
         data_to_save = tree_map(
             lambda d: d[i, : current_step + steps_in_iter], datas
         )
-        data_path = context.resolve(f"checkpoint/{idx}/data.npz")
+        data_path = context.resolve(f"{idx}/data.npz")
         np.savez_compressed(data_path, **data_to_save)
 
-        step_path = context.resolve(f"checkpoint/{idx}/step.txt")
+        step_path = context.resolve(f"{idx}/step.txt")
         with open(step_path, "w") as f:
             f.write(str(current_step + steps_in_iter))
 

@@ -148,9 +148,11 @@ def generate_hyper_sweep_table(env_reports: dict[str, dict[str, Any]], path: Pat
     # Create a mapping from old column names to new column names
     # e.g., 'foragax-3-DQN' -> 'DQN-3'
     new_columns = {}
+
     for col in df_selected.columns:
+        # remove common prefix
         parts = col.split("-")
-        env_name, aperture, alg = parts[0], parts[1], "-".join(parts[2:])
+        *env, aperture, alg = parts[0], parts[1], parts[2], "-".join(parts[3:])
         new_columns[col] = f"{alg}-{aperture}"
 
     # Rename columns
@@ -158,7 +160,7 @@ def generate_hyper_sweep_table(env_reports: dict[str, dict[str, Any]], path: Pat
 
     # Sort columns based on aperture size (as integer) and then algorithm name
     sorted_columns = sorted(
-        df_selected.columns, key=lambda x: (int(x.split("-")[-1]), x.split("-")[0])
+        df_selected.columns, key=lambda x: (int(x.rsplit("-")[-1]), x.rsplit("-")[0])
     )
     df_selected = df_selected[sorted_columns]
 

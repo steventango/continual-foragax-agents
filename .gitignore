@@ -1,3 +1,6 @@
+# ignore checkpoints
+checkpoints/
+
 # ignore all results folders
 results
 results/
