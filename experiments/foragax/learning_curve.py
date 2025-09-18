@@ -16,7 +16,7 @@ from rlevaluation.temporal import (
 )
 
 from experiment.ExperimentModel import ExperimentModel
-from utils.results import ResultCollection
+from utils.results import ResultCollection, read_metrics_from_data
 
 setDefaultConference("jmlr")
 setFonts(20)
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    nalgs = 6
+    nalgs = 8
     ncols = int(np.ceil(np.sqrt(nalgs))) if nalgs > 3 else nalgs
     nrows = int(np.ceil(nalgs / ncols)) if nalgs > 3 else 1
     fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained")
@@ -65,15 +65,25 @@ if __name__ == "__main__":
     for env_aperture, sub_results in sorted(
         results.groupby_directory(level=2), key=lambda x: int(x[0].split("-")[-1])
     ):
-        env, aperture = env_aperture.split("-", 1)
+        env, aperture = env_aperture.rsplit("-", 1)
         aperture = int(aperture)
+        if aperture != 15: continue
+
         for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename
             print(f"{env_aperture} {alg}")
 
             df = alg_result.load()
             if df is None:
-                continue
+                # load PPO (Continual Backprop)
+                context = alg_result.exp.buildSaveContext(0)
+                data_path = context.resolve("data")
+                if not context.exists("data"):
+                    continue
+                df = read_metrics_from_data(data_path, sample=500).collect()
+                df = df.with_columns(
+                    df["id"].alias("seed"),
+                )
 
             cols = set(dd.hyper_cols).intersection(df.columns)
             hyper_vals = {col: df[col][0] for col in cols}
@@ -121,6 +131,10 @@ if __name__ == "__main__":
                 ax_idxs = [4]
             elif alg == "DQN_Hare_and_Tortoise":
                 ax_idxs = [5]
+            elif alg == "PPO":
+                ax_idxs = [6]
+            elif alg == "PPO_CB":
+                ax_idxs = [7]
             else:
                 ax_idxs = np.arange(len(axs))
 

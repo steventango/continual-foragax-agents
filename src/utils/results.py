@@ -24,7 +24,7 @@ def read_metrics_from_data(
     data_path: str | Path,
     metrics: Iterable[str] | None = None,
     run_ids: Iterable[int] | None = None,
-    sample: int = 500,
+    sample: int | None = 500,
 ):
     if run_ids is None:
         run_id_paths = {}
@@ -51,7 +51,8 @@ def read_metrics_from_data(
             datas[run_id] = datas[run_id].with_columns(
                 pl.col("ewm_reward").mean().alias("mean_ewm_reward")
             )
-        datas[run_id] = datas[run_id].gather_every(max(1, len(datas[run_id]) // sample))
+        if sample is not None:
+            datas[run_id] = datas[run_id].gather_every(max(1, len(datas[run_id]) // sample))
     if len(datas) == 0:
         return pl.DataFrame().lazy()
     df = pl.concat(datas.values())
