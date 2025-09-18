@@ -64,7 +64,7 @@ def plot_biome_occupancy_on_ax(ax, df, biomes, alg, env, aperture):
 
         for name in biome_names:
             biome_df = biome_df.with_columns(
-                (pl.col("biome") == name).cast(pl.Float32).ewm_mean(alpha=1e-3, adjust=True).alias(f"{name}_occupancy")
+                (pl.col("biome") == name).cast(pl.Float32).ewm_mean(alpha=1e-2, adjust=True).alias(f"{name}_occupancy")
             )
 
         all_biome_data.append(biome_df)
