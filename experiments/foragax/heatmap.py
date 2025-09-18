@@ -47,92 +47,154 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    for env_aperture, sub_results in sorted(
-        results.groupby_directory(level=2), key=lambda x: int(x[0].split("-")[-1])
-    ):
+    env_groups = {}
+    for env_aperture, sub_results in results.groupby_directory(level=2):
         env, aperture = env_aperture.rsplit("-", 1)
         env = ENV_MAP.get(env, env)
         aperture = int(aperture)
 
-        env_parts = env.split("-")
-        grid_size_str = env_parts[-1]
+        if env not in env_groups:
+            env_groups[env] = {}
+        env_groups[env][aperture] = sub_results
 
+    for env, aperture_results in env_groups.items():
         background = get_background(env)
         grid_w, grid_h = background.shape[1] // 24, background.shape[0] // 24
 
-        for alg_result in sorted(sub_results, key=lambda x: x.filename):
-            alg = alg_result.filename
-            print(f"{env_aperture} {alg}")
+        apertures = sorted(aperture_results.keys())
 
-            df = alg_result.load(sample=10_000, sample_type="random")
-            if df is None:
-                continue
-
-            # Aggregate position data from all seeds
-            all_pos = []
-            for _, group_df in df.group_by("seed"):
-                # group_df is a DataFrame for a single seed
-                # The 'pos' column contains numpy arrays of shape (n, 2)
-                # We concatenate them all.
-                if "pos" not in group_df.columns:
+        all_algs = set()
+        for sub_results in aperture_results.values():
+            for alg_result in sub_results:
+                alg = alg_result.filename
+                if "DRQN" in alg or "taper" in alg:
                     continue
-                pos_arrays = group_df["pos"].to_list()
-                if pos_arrays:
+                all_algs.add(alg)
+
+        algs = sorted(list(all_algs))
+        alg_map = {name: i for i, name in enumerate(algs)}
+
+        if not algs:
+            continue
+
+        fig, axes = plt.subplots(
+            len(apertures),
+            len(algs),
+            squeeze=False,
+            layout="constrained",
+            figsize=(len(algs) * 4, len(apertures) * 4),
+        )
+        for ax in axes.flatten():
+            ax.set_frame_on(False)
+            ax.set_axis_off()
+
+        max_visitation = 0
+        occupancy_maps = {}
+
+        for i, aperture in enumerate(apertures):
+            sub_results = aperture_results.get(aperture, [])
+            for alg_result in sorted(sub_results, key=lambda x: x.filename):
+                alg = alg_result.filename
+                if "DRQN" in alg or "taper" in alg:
+                    continue
+
+                print(f"{env}-{aperture} {alg}")
+
+                df = alg_result.load(sample=10_000, sample_type="random")
+                if df is None:
+                    print(f"No data found for {env}-{aperture} {alg}")
+                    continue
+
+                all_pos = []
+                for _, group_df in df.group_by("seed"):
+                    if "pos" not in group_df.columns:
+                        continue
+                    pos_arrays = group_df["pos"].to_list()
+                    if len(pos_arrays) == 0:
+                        continue
                     all_pos.extend(pos_arrays)
 
-            if not all_pos:
-                print(f"No position data for {env_aperture} {alg}")
-                continue
+                if not all_pos:
+                    print(f"No position data for {env}-{aperture} {alg}")
+                    continue
 
-            pos_data = np.stack(all_pos)
-            x = pos_data[:, 0]
-            y = pos_data[:, 1]
+                pos_data = np.stack(all_pos)
+                x = pos_data[:, 0]
+                y = pos_data[:, 1]
 
-            occupancy_map, xedges, yedges = np.histogram2d(
-                x,
-                y,
-                bins=(grid_w, grid_h),
+                occupancy_map, _, _ = np.histogram2d(
+                    x,
+                    y,
+                    bins=(grid_w, grid_h),
+                    range=[[0, grid_w], [0, grid_h]],
+                )
+                max_visitation = max(max_visitation, occupancy_map.max())
+                occupancy_maps[(aperture, alg)] = occupancy_map
+
+        for i, aperture in enumerate(apertures):
+            axes[i, 0].set_ylabel(
+                f"FOV {aperture}",
+                rotation=0,
+                labelpad=40,
+                verticalalignment="center",
             )
+            sub_results = aperture_results.get(aperture, [])
+            for alg_result in sorted(sub_results, key=lambda x: x.filename):
+                alg = alg_result.filename
+                if "DRQN" in alg or "taper" in alg:
+                    continue
+                j = alg_map[alg]
+                ax = axes[i, j]
 
-            fig, axes = plt.subplots(2, 1, figsize=(8, 8))
-            ax1, ax2 = axes
+                if i == 0:
+                    ax.set_title(alg)
 
-            # Plot environment on the first subplot
-            ax1.imshow(
-                background,
-                extent=(0, grid_w, 0, grid_h),
-                origin="lower",
-                aspect="equal",
-            )
-            ax1.set_title(f"{env}")
-            ax1.invert_yaxis()
-            ax1.set_xticks([])
-            ax1.set_yticks([])
+                occupancy_map = occupancy_maps.get((aperture, alg))
+                if occupancy_map is None:
+                    continue
 
-            # Plot occupancy map on the second subplot
-            im = ax2.imshow(
-                occupancy_map.T,
-                origin="lower",
-                cmap="tol.YlOrBr",
-                extent=(0, grid_w, 0, grid_h),
-                aspect="equal",
-            )
-            ax2.set_title(f"{alg}-{aperture}")
-            ax2.invert_yaxis()
-            ax2.set_xticks([])
-            ax2.set_yticks([])
+                ax.set_frame_on(True)
+                ax.set_axis_on()
+                ax.imshow(
+                    background,
+                    extent=(0, grid_w, 0, grid_h),
+                    origin="lower",
+                )
+                im = ax.imshow(
+                    occupancy_map.T,
+                    origin="lower",
+                    cmap="inferno",
+                    extent=(0, grid_w, 0, grid_h),
+                    alpha=0.7,
+                    vmin=0,
+                    vmax=max_visitation,
+                )
+                ax.invert_yaxis()
+                ax.set_xticks([])
+                ax.set_yticks([])
 
-            fig.tight_layout()
-            fig.colorbar(
-                im, ax=axes.ravel().tolist(), label="Visitation Count", shrink=0.5
-            )
+        fig.suptitle(env)
+        fig.colorbar(
+            im,
+            ax=axes.ravel().tolist(),
+            label="Visitation Count",
+            shrink=0.6,
+            location="bottom",
+            anchor=(0.5, -0.5),
+        )
 
-            path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
-            plot_name = f"{env}-{aperture}-{alg}"
-            save(
-                save_path=f"{path}/plots/heatmaps",
-                plot_name=plot_name,
-                save_type="pdf",
-                f=fig,
-            )
-            plt.close(fig)
+        path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
+        plot_name = f"heatmap-{env}"
+
+        nrows = len(apertures)
+        ncols = len(algs)
+
+        save(
+            save_path=f"{path}/plots/heatmaps",
+            plot_name=plot_name,
+            save_type="pdf",
+            f=fig,
+            width=ncols * 1.5,
+            height_ratio=(nrows / ncols) if ncols > 0 else 1,
+        )
+        plt.close(fig)
