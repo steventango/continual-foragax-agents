@@ -23,6 +23,9 @@ METRICS_TO_PLOT = [
     "squared_td_error",
     "abs_td_error",
     "weight_change",
+    "Morel_occupancy",
+    "Oyster_occupancy",
+    "Neither_occupancy",
 ]
 
 ENV_MAP = {"ForagaxTwoBiomeSmall": "ForagaxTwoBiomeSmall-v2"}
@@ -54,8 +57,7 @@ def plot_metric_seed_grid(ax, df, metric, seed_val, alg, env, aperture):
 
 
 if __name__ == "__main__":
-    # Load all metrics except pos
-    results = ResultCollection(Model=ExperimentModel, metrics=METRICS_TO_PLOT + ["pos"])
+    results = ResultCollection(Model=ExperimentModel, metrics=METRICS_TO_PLOT)
     dd = data_definition(
         hyper_cols=results.get_hyperparameter_columns(),
         seed_col="seed",

@@ -16,7 +16,7 @@ from rlevaluation.temporal import (
 
 from experiment.ExperimentModel import ExperimentModel
 from utils.constants import LABEL_MAP
-from utils.results import ResultCollection, read_metrics_from_data
+from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
 setFonts(20)
