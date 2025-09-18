@@ -15,23 +15,23 @@ from algorithms.RandomAgent import RandomAgent
 from algorithms.SearchAgent import SearchAgent
 from algorithms.tc.ESARSA import ESARSA
 from algorithms.tc.SoftmaxAC import SoftmaxAC
-
+from algorithms.DebugAgent import DebugAgent
 
 def getAgent(name) -> Type[BaseAgent]:
     if name == "DQN_L2_Init":
         return DQN_L2_Init
     if name == "DQN":
         return DQN
-    
+
     if name.startswith("DRQN"):
         return DRQN
-    
+
     if name.startswith("AADRQN"):
         return AADRQN
-    
+
     if name.startswith("ATAADRQN"):
         return ATAADRQN
-    
+
     if name.startswith("MADRQN"):
         return MADRQN
 
@@ -55,6 +55,9 @@ def getAgent(name) -> Type[BaseAgent]:
 
     if name == "SoftmaxAC":
         return SoftmaxAC
+
+    if name == "Debug":
+        return DebugAgent
 
     if name == "Random":
         return RandomAgent
