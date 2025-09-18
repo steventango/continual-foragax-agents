@@ -346,12 +346,6 @@ for current_step in range(start_step, n, save_every):
         f"Checkpointed at {current_step + steps_in_iter} in {checkpoint_time:.4f}s"
     )
 
-# rewards is (batch_size, steps)
-
-
-# rewards is (batch_size, steps)
-rewards = datas["rewards"]
-
 # --------------------
 # -- Saving --
 # --------------------
