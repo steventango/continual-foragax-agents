@@ -162,14 +162,17 @@ class EQRC(NNAgent):
         h_loss = h_loss.mean()
         v_loss = v_loss.mean()
 
+        loss = v_loss + h_loss
+
         metrics = {
+            "loss": loss,
             "v_loss": v_loss,
             "h_loss": h_loss,
             "abs_td_error": jnp.mean(jnp.abs(batch_metrics["delta"])),
             "squared_td_error": jnp.mean(jnp.square(batch_metrics["delta"])),
         }
 
-        return v_loss + h_loss, metrics
+        return loss, metrics
 
 
 # ---------------

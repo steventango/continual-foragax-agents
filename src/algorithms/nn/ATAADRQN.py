@@ -249,6 +249,7 @@ class ATAADRQN(NNAgent):
 
         # aggregate metrics
         metrics = {
+            "loss": loss,
             "abs_td_error": jnp.mean(jnp.abs(batch_metrics["delta"])),
             "squared_td_error": jnp.mean(jnp.square(batch_metrics["delta"])),
         }

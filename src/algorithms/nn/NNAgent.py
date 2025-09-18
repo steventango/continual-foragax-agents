@@ -31,6 +31,7 @@ class Metrics:
     weight_change: jax.Array
     abs_td_error: jax.Array
     squared_td_error: jax.Array
+    loss: jax.Array
 
 
 @cxu.dataclass
@@ -182,6 +183,7 @@ class NNAgent(BaseAgent):
                 weight_change=jnp.float32(0.0),
                 abs_td_error=jnp.float32(0.0),
                 squared_td_error=jnp.float32(0.0),
+                loss=jnp.float32(0.0),
             ),
         )
 
@@ -209,15 +211,12 @@ class NNAgent(BaseAgent):
             new_state, metrics = self._update(state)
             # Update the latest metrics in the state
             metrics = Metrics(
-                weight_change=metrics.get(
-                    "weight_change", state.metrics.weight_change
-                ),
-                abs_td_error=metrics.get(
-                    "abs_td_error", state.metrics.abs_td_error
-                ),
+                weight_change=metrics.get("weight_change", state.metrics.weight_change),
+                abs_td_error=metrics.get("abs_td_error", state.metrics.abs_td_error),
                 squared_td_error=metrics.get(
                     "squared_td_error", state.metrics.squared_td_error
                 ),
+                loss=metrics.get("loss", state.metrics.loss),
             )
             new_state = replace(new_state, metrics=metrics)
             return new_state, metrics
