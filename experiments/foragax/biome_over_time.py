@@ -86,7 +86,7 @@ def plot_biome_occupancy_on_ax(ax, df, biomes, alg, env, aperture):
             if occupancy_col in seed_df.columns:
                 occupancy = seed_df[occupancy_col]
                 color = BIOME_COLORS.get(biome_name)
-                ax.plot(frames, occupancy, color=color, alpha=0.2)
+                ax.plot(frames, occupancy, color=color, alpha=0.2, linewidth=0.2)
 
     # Aggregate and plot mean
     agg_cols = [f"{name}_occupancy" for name in biome_names]
@@ -102,12 +102,13 @@ def plot_biome_occupancy_on_ax(ax, df, biomes, alg, env, aperture):
             frames = agg_df["frame"]
             means = agg_df[mean_col]
             color = BIOME_COLORS.get(biome_name)
-            ax.plot(frames, means, color=color, linewidth=2.5)
+            ax.plot(frames, means, color=color, linewidth=1.0)
 
     ax.set_xlabel("Time")
     ax.set_ylabel("Biome Occupancy (EMA)")
     ax.set_ylim(0, 1)
     ax.spines[["top", "right"]].set_visible(False)
+    ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
 
 
 if __name__ == "__main__":
