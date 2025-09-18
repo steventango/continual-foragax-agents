@@ -52,13 +52,17 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    for env_aperture, sub_results in sorted(
-        results.groupby_directory(level=2), key=lambda x: int(x[0].split("-")[-1])
-    ):
+    env_groups = {}
+    for env_aperture, sub_results in results.groupby_directory(level=2):
         env, aperture = env_aperture.rsplit("-", 1)
         env = ENV_MAP.get(env, env)
         aperture = int(aperture)
 
+        if env not in env_groups:
+            env_groups[env] = {}
+        env_groups[env][aperture] = sub_results
+
+    for env, aperture_results in env_groups.items():
         if env not in BIOME_DEFINITIONS:
             print(f"Skipping {env} as no biome definition found")
             continue
@@ -66,69 +70,137 @@ if __name__ == "__main__":
         biomes = BIOME_DEFINITIONS[env]
         biome_names = list(biomes.keys()) + ["Neither"]
 
-        for alg_result in sorted(sub_results, key=lambda x: x.filename):
-            alg = alg_result.filename
-            print(f"{env_aperture} {alg}")
+        apertures = sorted(aperture_results.keys())
 
-            df = alg_result.load(sample=10_000, sample_type="random")
-            if df is None:
-                continue
-
-            all_biome_data = []
-            for seed, group_df in df.group_by("seed"):
-                if "pos" not in group_df.columns:
+        all_algs = set()
+        for sub_results in aperture_results.values():
+            for alg_result in sub_results:
+                alg = alg_result.filename
+                if "DRQN" in alg or "taper" in alg:
                     continue
+                all_algs.add(alg)
 
-                pos_arrays = group_df["pos"].to_list()
-                if not pos_arrays:
+        algs = sorted(list(all_algs))
+        alg_map = {name: i for i, name in enumerate(algs)}
+
+        if not algs:
+            continue
+
+        fig, axes = plt.subplots(
+            len(apertures),
+            len(algs),
+            squeeze=False,
+            layout="constrained",
+        )
+        for ax in axes.flatten():
+            ax.set_frame_on(False)
+            ax.set_axis_off()
+
+        for i, aperture in enumerate(apertures):
+            axes[i, 0].set_ylabel(
+                f"FOV {aperture}",
+                rotation=0,
+                labelpad=40,
+                verticalalignment="center",
+            )
+            sub_results = aperture_results.get(aperture, [])
+            for alg_result in sorted(sub_results, key=lambda x: x.filename):
+                alg = alg_result.filename
+                if "DRQN" in alg or "taper" in alg:
                     continue
+                j = alg_map[alg]
+                ax = axes[i, j]
 
-                # Assuming each element in pos_arrays is a (steps, 2) array
-                for pos_array in pos_arrays:
-                    pos_array = np.array(pos_array).reshape(-1, 2)
+                print(f"{env}-{aperture} {alg}")
 
-                    last_idx = int(0.9 * len(pos_array))
-                    pos_array = pos_array[last_idx:]
+                if i == 0:
+                    ax.set_title(alg)
+                df = alg_result.load(sample=10_000, sample_type="random")
+                if df is None:
+                    print(f"No data found for {env}-{aperture} {alg}")
+                    continue
+                ax.set_frame_on(True)
+                ax.set_axis_on()
 
-                    biome_visits = [get_biome(pos, biomes) for pos in pos_array]
+                all_biome_data = []
+                for seed, group_df in df.group_by("seed"):
+                    if "pos" not in group_df.columns:
+                        continue
 
-                    # Count occurrences of each biome
-                    biome_counts = {name: biome_visits.count(name) for name in biome_names}
-                    total_visits = len(biome_visits)
+                    pos_arrays = group_df["pos"].to_list()
+                    if not pos_arrays:
+                        continue
 
-                    if total_visits > 0:
-                        biome_percentages = {name: count / total_visits for name, count in biome_counts.items()}
-                        biome_percentages["seed"] = seed[0] if isinstance(seed, tuple) else seed
-                        all_biome_data.append(biome_percentages)
+                    # Assuming each element in pos_arrays is a (steps, 2) array
+                    for pos_array in pos_arrays:
+                        pos_array = np.array(pos_array).reshape(-1, 2)
 
-            if not all_biome_data:
-                print(f"No biome data for {env_aperture} {alg}")
-                continue
+                        biome_visits = [get_biome(pos, biomes) for pos in pos_array]
 
-            biome_df = pl.DataFrame(all_biome_data)
+                        # Count occurrences of each biome
+                        biome_counts = {
+                            name: biome_visits.count(name) for name in biome_names
+                        }
+                        total_visits = len(biome_visits)
 
-            # Plotting
-            fig, ax = plt.subplots(figsize=(10, 6))
+                        if total_visits > 0:
+                            biome_percentages = {
+                                name: count / total_visits
+                                for name, count in biome_counts.items()
+                            }
+                            biome_percentages["seed"] = (
+                                seed[0] if isinstance(seed, tuple) else seed
+                            )
+                            all_biome_data.append(biome_percentages)
 
-            avg_percentages = biome_df.select(pl.col(biome_names)).mean().to_dicts()[0]
+                biome_df = pl.DataFrame(all_biome_data)
 
-            labels = list(avg_percentages.keys())
-            sizes = list(avg_percentages.values())
-            colors = [BIOME_COLORS.get(l) for l in labels]
+                avg_percentages = (
+                    biome_df.select(pl.col(biome_names)).mean().to_dicts()[0]
+                )
 
-            ax.pie(
-                sizes, labels=labels, autopct="%1.1f%%", startangle=90, colors=colors
-            )
-            ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+                labels = list(avg_percentages.keys())
+                sizes = list(avg_percentages.values())
+                colors = [BIOME_COLORS.get(label) for label in labels]
 
-            ax.set_title(f"{alg} ({env}, aperture {aperture})")
+                ax.pie(
+                    sizes,
+                    labels=None,
+                    autopct="%1f%%",
+                    startangle=90,
+                    colors=colors,
+                    textprops={"fontsize": 14},
+                )
+                ax.axis("equal")
 
-            path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
-            plot_name = f"biome-pie-{env}-{aperture}-{alg}"
-            save(
-                save_path=f"{path}/plots/biome_occupancy",
-                plot_name=plot_name,
-                save_type="pdf",
-                f=fig,
-            )
-            plt.close(fig)
+        handles, labels = [], []
+        for name, color in BIOME_COLORS.items():
+            handles.append(plt.Rectangle((0, 0), 1, 1, color=color))
+            labels.append(name)
+
+        fig.legend(
+            handles,
+            labels,
+            loc="lower center",
+            ncol=len(labels),
+            bbox_to_anchor=(0.5, -0.05),
+            frameon=False,
+        )
+
+        fig.suptitle(env)
+
+        path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
+        plot_name = f"biome-pie-{env}"
+
+        nrows = len(apertures)
+        ncols = len(algs)
+
+        save(
+            save_path=f"{path}/plots/biome_occupancy",
+            plot_name=plot_name,
+            save_type="pdf",
+            f=fig,
+            width=ncols,
+            height_ratio=(nrows / ncols) * (2 / 3) if ncols > 0 else 1,
+        )
+        plt.close(fig)
