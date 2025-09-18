@@ -109,7 +109,13 @@ class Result(Generic[Exp]):
         data_path = self.exp.buildSaveContext(0).resolve("data")
 
         if not Path(db_path).exists():
-            return None
+            if not Path(data_path).exists():
+                return None
+            df = read_metrics_from_data(data_path, self.metrics, None, sample, sample_type).collect()
+            df = df.with_columns(
+                df["id"].alias("seed"),
+            )
+            return df
 
         run_ids = set()
         for param_id in range(self.exp.numPermutations()):
