@@ -2,7 +2,7 @@
     "batch": 32,
     "buffer_min_size": 500,
     "buffer_size": 10000,
-    "environment.aperture_size": 15,
+    "environment.aperture_size": 13,
     "environment.env_id": "ForagaxTwoBiomeSmall-v2",
     "epsilon": 0.05,
     "experiment.seed_offset": 1000000,
@@ -14,6 +14,6 @@
     "optimizer.name": "Adam",
     "representation.hidden": 64,
     "representation.type": "Forager2LayerNormNet",
-    "target_refresh": 1,
+    "target_refresh": 128,
     "update_freq": 4
 }
