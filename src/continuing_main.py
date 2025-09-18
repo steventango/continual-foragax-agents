@@ -311,6 +311,7 @@ for current_step in range(start_step, n, save_every):
     # data_chunk is dict of (steps, batch, ...)
 
     # checkpointing
+    checkpoint_start_time = time.time()
     if len(glues) < 2:
         data_chunk = tree_map(lambda x: np.expand_dims(x, 1), data_chunk)
 
@@ -340,6 +341,12 @@ for current_step in range(start_step, n, save_every):
         step_path = context.resolve(f"{idx}/step.txt")
         with open(step_path, "w") as f:
             f.write(str(current_step + steps_in_iter))
+    checkpoint_time = time.time() - checkpoint_start_time
+    logger.debug(
+        f"Checkpointed at {current_step + steps_in_iter} in {checkpoint_time:.4f}s"
+    )
+
+# rewards is (batch_size, steps)
 
 
 # rewards is (batch_size, steps)
