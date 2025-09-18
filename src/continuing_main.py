@@ -222,13 +222,13 @@ def get_agent_metrics(agent_state):
     if hasattr(agent_state, "metrics"):
         metrics = agent_state.metrics
         if hasattr(metrics, "weight_change"):
-            weight_change = float(metrics.weight_change)
+            weight_change = metrics.weight_change
         if hasattr(metrics, "squared_td_error"):
-            squared_td_error = float(metrics.squared_td_error)
+            squared_td_error = metrics.squared_td_error
         if hasattr(metrics, "abs_td_error"):
-            abs_td_error = float(metrics.abs_td_error)
+            abs_td_error = metrics.abs_td_error
         if hasattr(metrics, "loss"):
-            loss = float(metrics.loss)
+            loss = metrics.loss
 
     return weight_change, squared_td_error, abs_td_error, loss
 
