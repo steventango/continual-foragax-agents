@@ -67,7 +67,6 @@ if __name__ == "__main__":
     ):
         env, aperture = env_aperture.rsplit("-", 1)
         aperture = int(aperture)
-        if aperture != 15: continue
 
         for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename

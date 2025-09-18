@@ -18,28 +18,7 @@ from utils.results import ResultCollection
 setDefaultConference("jmlr")
 setFonts(20)
 
-colorset = tc.colorsets["muted"]
 
-COLORS = {
-    3: colorset.rose,
-    5: colorset.indigo,
-    7: colorset.sand,
-    9: colorset.cyan,
-    11: colorset.teal,
-    13: colorset.olive,
-    15: colorset.purple,
-    "Search-Oracle": colorset.wine,
-    "Search-Nearest": colorset.green,
-    "Search-Oyster": tc.colorsets["light"].pear,
-    "Random": "black",
-}
-
-SINGLE = {
-    "Random",
-    "Search-Nearest",
-    "Search-Oracle",
-    "Search-Oyster",
-}
 
 ENV_MAP = {
     "ForagaxTwoBiomeSmall": "ForagaxTwoBiomeSmall-v2"
@@ -85,7 +64,7 @@ if __name__ == "__main__":
             alg = alg_result.filename
             print(f"{env_aperture} {alg}")
 
-            df = alg_result.load(sample=1000000)
+            df = alg_result.load(sample=10_000, sample_type="random")
             if df is None:
                 continue
 
@@ -134,7 +113,7 @@ if __name__ == "__main__":
             im = ax2.imshow(
                 occupancy_map.T,
                 origin="lower",
-                cmap="viridis",
+                cmap="tol.YlOrBr",
                 extent=(0, grid_w, 0, grid_h),
                 aspect="equal",
             )
