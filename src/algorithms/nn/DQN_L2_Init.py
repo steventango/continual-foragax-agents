@@ -67,7 +67,8 @@ class DQN_L2_Init(DQN):
             updates, optim = optimizer.update(grad[name], state.optim[name], p)
             new_params[name] = optax.apply_updates(p, updates)
             new_optim[name] = optim
-            weight_change += jnp.linalg.norm(updates, ord=1)
+            flat_updates, _ = ravel_pytree(updates)
+            weight_change += jnp.linalg.norm(flat_updates, ord=1)
         metrics["weight_change"] = weight_change
         return replace(state, params=new_params, optim=new_optim), metrics
 

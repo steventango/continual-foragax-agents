@@ -6,6 +6,7 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import optax
+from jax.flatten_util import ravel_pytree
 from ml_instrumentation.Collector import Collector
 
 import utils.chex as cxu
@@ -129,7 +130,8 @@ class EQRC(NNAgent):
                 updates = decay
 
             new_params[component] = optax.apply_updates(params[component], updates)
-            weight_change += jnp.linalg.norm(updates, ord=1)
+            flat_updates, _ = ravel_pytree(updates)
+            weight_change += jnp.linalg.norm(flat_updates, ord=1)
         metrics["weight_change"] = weight_change
 
         return replace(state, params=new_params, optim=new_optim), metrics
