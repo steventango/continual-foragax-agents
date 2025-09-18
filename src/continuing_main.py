@@ -94,16 +94,7 @@ for idx in indices:
             #  - Identity() (save everything)
             #  - Window(n)  take a window average of size n
             #  - Subsample(n) save one of every n elements
-            config={
-                "ewm_reward": Pipe(
-                    MovingAverage(0.999),
-                    Subsample(max(exp.total_steps // 1000, 1)),
-                ),
-                "mean_ewm_reward": Last(
-                    MovingAverage(0.999),
-                    Mean(),
-                ),
-            },
+            config={},
             # by default, ignore keys that are not explicitly listed above
             default=Ignore(),
         ),
@@ -357,25 +348,11 @@ rewards = datas["rewards"]
 # --------------------
 # -- Saving --
 # --------------------
-total_collect_time = 0
 total_numpy_time = 0
 total_db_time = 0
 num_indices = len(indices)
-rewards = np.asarray(rewards)
 for i, idx in enumerate(indices):
     collector = collectors[i]
-    chk = chks[i]
-
-    # process rewards for this run
-    run_rewards = rewards[i]
-
-    start_time = time.time()
-    for reward in run_rewards:
-        collector.next_frame()
-        collector.collect("ewm_reward", reward.item())
-        collector.collect("mean_ewm_reward", reward.item())
-    collector.reset()
-    total_collect_time += time.time() - start_time
 
     # ------------
     # -- Saving --
@@ -402,15 +379,12 @@ for i, idx in enumerate(indices):
 
 logger.debug("--- Saving Timings ---")
 logger.debug(
-    f"Total collect time: {total_collect_time:.4f}s | Average: {total_collect_time / num_indices:.4f}s"
-)
-logger.debug(
     f"Total numpy save time: {total_numpy_time:.4f}s | Average: {total_numpy_time / num_indices:.4f}s"
 )
 logger.debug(
     f"Total db save time: {total_db_time:.4f}s | Average: {total_db_time / num_indices:.4f}s"
 )
-total_save_time = total_collect_time + total_numpy_time + total_db_time
+total_save_time = total_numpy_time + total_db_time
 logger.debug(
     f"Total save time: {total_save_time:.4f}s | Average: {total_save_time / num_indices:.4f}s"
 )
