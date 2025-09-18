@@ -279,8 +279,6 @@ for current_step in range(start_step, n, save_every):
     glue_states, data_chunk = jax.lax.scan(step, glue_states, steps, unroll=1)
     # data_chunk is dict of (steps, batch, ...)
 
-    if n < save_every:
-        continue
     # checkpointing
     if len(glues) < 2:
         data_chunk = tree_map(lambda x: np.expand_dims(x, 1), data_chunk)
@@ -290,6 +288,8 @@ for current_step in range(start_step, n, save_every):
         for key in datas:
             datas[key][i, current_step : current_step + steps_in_iter] = data_idx[key]
 
+        if n < save_every:
+            continue
         context = exp.buildSaveContext(idx, base=args.save_path)
         glue_state_path = context.resolve(f"checkpoint/{idx}/glue_state.pkl.xz")
         context.ensureExists(glue_state_path, is_file=True)
