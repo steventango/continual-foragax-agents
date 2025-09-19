@@ -535,7 +535,7 @@ def main():
             collector.next_frame()
             collector.collect("ewm_reward", reward.item())
             collector.collect("mean_ewm_reward", reward.item())
-        logger.debug(f"Mean rewards {rewards.mean()}")
+        logger.debug(f"Mean rewards {run_rewards.mean()}")
         collector.reset()
         total_collect_time += time.time() - start_time
 
