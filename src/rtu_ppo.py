@@ -27,7 +27,8 @@ from utils.checkpoint import Checkpoint
 from utils.ml_instrumentation.Sampler import Mean
 from utils.ml_instrumentation.utils import Last
 from utils.preempt import TimeoutHandler
-from algorithms.nn.RealTimeAC import RealTimeActorCritic
+from algorithms.PPORegistry import getAgent
+
 import optax
 from flax.training.train_state import TrainState
 import argparse
@@ -42,6 +43,8 @@ class LogEnvState:
 class TrainConfig:
     # ---- STATIC (uniform across vmapped runs) ----
     d_hidden: int = struct.field(pytree_node=False)
+    hidden_size: int = struct.field(pytree_node=False)
+    agent_type: str = struct.field(pytree_node=False)
     rollout_steps: int = struct.field(pytree_node=False)
     epochs: int = struct.field(pytree_node=False)
     num_mini_batch: int = struct.field(pytree_node=False)
@@ -296,10 +299,13 @@ def experiment(rng, config: TrainConfig):
     )
     action_dim = 4
     
+    agent = getAgent(config.agent_type)
+    
     # Create and initialize the network.
-    network = RealTimeActorCritic(
+    network = agent(
         action_dim=action_dim,
         activation='tanh',
+        hidden_size=config.hidden_size,
         d_hidden=config.d_hidden,
         cont=False)
     
@@ -307,7 +313,7 @@ def experiment(rng, config: TrainConfig):
     rng, _rng = jax.random.split(rng)
     init_x = (jnp.zeros((1, *obs.shape)), jnp.zeros((1, action_dim)), jnp.zeros((1, 1)))
     
-    init_hstate = RealTimeActorCritic.initialize_memory(1, config.d_hidden)
+    init_hstate = agent.initialize_memory(1, config.d_hidden, config.hidden_size)
     network_params = network.init(_rng, init_hstate, init_x)
     
     def make_label_tree(params):
@@ -486,7 +492,9 @@ def main():
         # derive num_updates if not explicitly present
         num_updates = int(hypers['num_updates']) if 'num_updates' in hypers else exp.total_steps // int(hypers['rollout_steps'])
         config = TrainConfig(
-            d_hidden=int(hypers['representation']['hidden']),
+            d_hidden=int(hypers['representation']['d_hidden']),
+            agent_type=exp.agent,
+            hidden_size=int(hypers['representation']['hidden']),
             rollout_steps=int(hypers['rollout_steps']),
             epochs=int(hypers['epochs']),
             num_mini_batch=int(hypers.get('num_mini_batch', hypers.get('num_minibatch', 1))),
