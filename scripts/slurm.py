@@ -65,7 +65,6 @@ nvidia-cuda-mps-control -d"""
     max_xla_python_client_mem_fraction = 0.95 if jobs == 1 else 0.3
     return f"""#!/bin/bash
 
-#SBATCH --signal=B:SIGTERM@180
 {exclude_str}
 cd {cwd}
 tar -xf {venv_origin} -C {venv}
