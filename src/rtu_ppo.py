@@ -88,7 +88,6 @@ class Transition(NamedTuple):
     obs: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray] # o_t, a_{t-1}, r_{t-1}
     info: jnp.ndarray
 
-#### for visualizations 
 class Interaction(NamedTuple):
     a: int
     r: bool
@@ -204,6 +203,7 @@ def env_step(runner_state,_):
     info["reward"] = reward
     info["moving_average"] = new_return
     info["timestep"] = log_env_state.timestep
+    info["pos"] = env_state.pos
     ### Create transition
     transition = Transition(action.squeeze(), value.squeeze(), reward, log_prob.squeeze(), last_obs_encoded, info)
     ### Update runner state
@@ -363,7 +363,7 @@ def experiment(rng, config: TrainConfig):
     env_step_state = (train_state, gymnax_state, log_env_state, obs, 0, 0, rng, init_hstate)
 
     @scan_tqdm(config.num_updates)
-    def experiemnt_step(carry, _):
+    def experiment_step(carry, _):
         env_step_state, train_state, rng = carry
         # Roll out for config.rollout_steps
         env_step_state, traj_hstate_batch = jax.lax.scan(
@@ -395,18 +395,20 @@ def experiment(rng, config: TrainConfig):
 
         # Collect a scalar reward summary for this iteration (mean reward over rollout)
         rewards = traj_batch.reward
+        pos = traj_batch.info["pos"]
 
         # Optional lightweight debug
-        return (env_step_state, train_state, rng), rewards
+        return (env_step_state, train_state, rng), (rewards, pos)
 
     # Run training loop with lax.scan (collect per-iteration rewards)
-    last_carry, rewards = jax.lax.scan(
-        experiemnt_step,
+    last_carry, info = jax.lax.scan(
+        experiment_step,
         PBar(id=config.id, carry=(env_step_state, train_state, rng)),
         xs=jnp.arange(int(config.num_updates))
     )
-    (env_step_state, train_state, rng) = last_carry.carry
-    return rewards
+    rewards, pos = info
+    env_step_state, train_state, rng = last_carry.carry
+    return rewards, pos
     
 def main():
     parser = argparse.ArgumentParser()
@@ -521,9 +523,10 @@ def main():
     rngs = jnp.stack(rngs)
     configs = tree_map(lambda *xs: jnp.stack(xs), *configs)
     results = batch_experiment(rngs, configs)
-    rewards = results
+    rewards, pos = results
     rewards = rewards.reshape((rewards.shape[0], -1))
-    
+    pos = pos.reshape((pos.shape[0], -1, pos.shape[-1]))
+    print(pos.shape)
     # --------------------
     # -- Saving --
     # --------------------
@@ -537,6 +540,7 @@ def main():
 
         # process rewards for this run
         run_rewards = rewards[i]
+        run_pos = pos[i]
 
         start_time = time.time()
         for reward in run_rewards:
@@ -556,7 +560,7 @@ def main():
         context.ensureExists(data_path, is_file=True)
 
         start_time = time.time()
-        np.savez_compressed(data_path, rewards=run_rewards)
+        np.savez_compressed(data_path, rewards=run_rewards, pos=run_pos)
         total_numpy_time += time.time() - start_time
 
         meta = getParamsAsDict(exp, idx)
