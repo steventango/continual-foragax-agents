@@ -1,3 +1,4 @@
+import gc
 import importlib
 import sqlite3
 from collections.abc import Callable, Iterable, Sequence
@@ -39,8 +40,9 @@ def read_metrics_from_data(
     for run_id, path in run_id_paths.items():
         if not path.exists():
             continue
-        data = np.load(path)
-        data_dict = {k: np.asarray(data[k]) for k in data.keys()}
+        with np.load(path) as data:
+            data_dict = {k: np.asarray(data[k]) for k in data.keys()}
+        del data
         datas[run_id] = pl.DataFrame(data_dict)
         datas[run_id] = datas[run_id].with_columns(
             pl.lit(run_id).alias("id"),
@@ -71,9 +73,11 @@ def read_metrics_from_data(
             datas[run_id] = datas[run_id].sample(n=sample, seed=0).sort("frame")
 
     if len(datas) == 0:
-        return pl.DataFrame().lazy()
+        return pl.DataFrame()
     df = pl.concat(datas.values())
-    return df.lazy()
+    del datas
+    gc.collect()
+    return df
 
 
 def load_all_results_from_data(
@@ -94,17 +98,18 @@ def load_all_results_from_data(
     df = read_metrics_from_data(data_path, metrics, ids, sample, sample_type)
 
     if "_metadata_" not in tables:
-        return df.collect()
+        return df
 
     meta = cx.read_sql(
         f"sqlite://{db_path}",
         "SELECT * FROM _metadata_",
         return_type="polars",
         partition_on="id",
-        partition_num=1000,
+        partition_num=1,
     )
-    meta = meta.lazy()
-    return df.join(meta, how="left", on=["id"]).collect()
+    df = df.join(meta, how="left", on=["id"])
+    del meta
+    return df
 
 
 class Result(Generic[Exp]):
@@ -128,7 +133,7 @@ class Result(Generic[Exp]):
                 return None
             df = read_metrics_from_data(
                 data_path, self.metrics, None, sample, sample_type
-            ).collect()
+            )
             df = df.with_columns(
                 df["id"].alias("seed"),
             )
