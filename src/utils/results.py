@@ -73,11 +73,11 @@ def read_metrics_from_data(
             datas[run_id] = datas[run_id].sample(n=sample, seed=0).sort("frame")
 
     if len(datas) == 0:
-        return pl.DataFrame()
+        return pl.DataFrame().lazy()
     df = pl.concat(datas.values())
     del datas
     gc.collect()
-    return df
+    return df.lazy()
 
 
 def load_all_results_from_data(
@@ -107,7 +107,8 @@ def load_all_results_from_data(
         partition_on="id",
         partition_num=1,
     )
-    df = df.join(meta, how="left", on=["id"])
+    meta = meta.lazy()
+    df = df.join(meta, how="left", on=["id"]).collect()
     del meta
     return df
 
@@ -135,7 +136,7 @@ class Result(Generic[Exp]):
                 data_path, self.metrics, None, sample, sample_type
             )
             df = df.with_columns(
-                df["id"].alias("seed"),
+                pl.col("id").alias("seed"),
             )
             return df
 
