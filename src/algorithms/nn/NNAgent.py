@@ -43,6 +43,7 @@ class Hypers(BaseHypers):
     epsilon_linear_decay: Optional[float]
     initial_epsilon: Optional[float]
     final_epsilon: Optional[float]
+    freeze_steps: float
 
 
 @cxu.dataclass
@@ -77,6 +78,7 @@ class NNAgent(BaseAgent):
         self.optimizer_params: Dict = params["optimizer"]
 
         total_steps = params["total_steps"]
+        freeze_steps = params.get("freeze_steps", jnp.inf)
         epsilon_linear_decay = params.get("epsilon_linear_decay")
         initial_epsilon = params.get("initial_epsilon")
         final_epsilon = params.get("final_epsilon")
@@ -168,6 +170,7 @@ class NNAgent(BaseAgent):
             epsilon_linear_decay=epsilon_linear_decay,
             initial_epsilon=initial_epsilon,
             final_epsilon=final_epsilon,
+            freeze_steps=freeze_steps,
         )
         self.state = AgentState(
             **{k: v for k, v in self.state.__dict__.items() if k != "hypers"},
@@ -226,7 +229,8 @@ class NNAgent(BaseAgent):
 
         return jax.lax.cond(
             (state.steps % state.hypers.update_freq == 0)
-            & self.buffer.can_sample(state.buffer_state),
+            & self.buffer.can_sample(state.buffer_state)
+            & (state.steps < state.hypers.freeze_steps),
             do_update,
             no_update,
         )
