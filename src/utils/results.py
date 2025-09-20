@@ -138,7 +138,7 @@ class Result(Generic[Exp]):
             df = df.with_columns(
                 pl.col("id").alias("seed"),
             )
-            return df
+            return df.collect()
 
         run_ids = set()
         for param_id in range(self.exp.numPermutations()):
