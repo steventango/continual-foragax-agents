@@ -460,7 +460,7 @@ class AAGRU(hk.Module):
         """
         Args:
           x: Input tensor with shape [N, T, ...]
-          a: Action tensor with shape [N, T]
+          a: Action tensor with shape [N, T, number_of_actions]
           reset: Optional binary flag sequence with shape [N, T] indicating when to reset the GRU state.
                  For example, at episode boundaries.
           carry: The initial hidden state for RNN.
@@ -486,7 +486,7 @@ class AAGRU(hk.Module):
             carry = jnp.where(reset[..., None], init_state, carry)
 
         # Vectorize the per-sequence unroll over the batch dimension.
-        # x has shape [N, T, ...], a has shape [N, T, num_action], and reset has shape [N, T].
+        # x has shape [N, T, ...], a has shape [N, T, number_of_actions], and reset has shape [N, T].
         outputs_sequence, states_sequence = jax.vmap(self.process_sequence)(x, a, reset, carry)
 
         # Return both the GRU outputs and hidden states across the entire sequence.
@@ -525,7 +525,7 @@ class ATAAGRU(hk.Module):
 
         gates_x = jnp.matmul(inputs, w_i)
         gates_a = jnp.matmul(action, w_a) 
-        gates_at = jnp.matmul(action, w_at) 
+        gates_at = jnp.matmul(action_trace, w_at) 
         
         zr_x, a_x = jnp.split(gates_x, indices_or_sections=[2 * self.hidden_size], axis=-1)
         zr_a, a_a = jnp.split(gates_a, indices_or_sections=[2 * self.hidden_size], axis=-1)
@@ -559,7 +559,8 @@ class ATAAGRU(hk.Module):
         """
         Args:
           x: Input tensor with shape [N, T, ...]
-          a: Action tensor with shape [N, T]
+          a: Action tensor with shape [N, T, number_of_actions]
+          action_trace: Action-trace tensor with shape [N, T, number_of_actions]
           reset: Optional binary flag sequence with shape [N, T] indicating when to reset the GRU state.
                  For example, at episode boundaries.
           carry: The initial hidden state for RNN.
@@ -585,7 +586,7 @@ class ATAAGRU(hk.Module):
             carry = jnp.where(reset[..., None], init_state, carry)
 
         # Vectorize the per-sequence unroll over the batch dimension.
-        # x has shape [N, T, ...], a has shape [N, T, num_action], and reset has shape [N, T].
+        # x has shape [N, T, ...], a has shape [N, T, number_of_actions], and reset has shape [N, T].
         outputs_sequence, states_sequence = jax.vmap(self.process_sequence)(x, a, action_trace, reset, carry)
 
         # Return both the GRU outputs and hidden states across the entire sequence.
@@ -601,9 +602,11 @@ class ForagerGRUNetReLU(hk.Module):
 
         self.flatten = hk.Flatten(preserve_dims=2, name='flatten')
         
-        self.skip_connection = hk.Linear(self.hidden, w_init=w_init, name='skip_connection')
+        self.linear1 = hk.Linear(self.hidden, w_init=w_init, name='linear1')
 
         self.gru = GRU(self.hidden, learn_initial_h=learn_initial_h, name='gru')
+        
+        self.linear2 = hk.Linear(self.hidden, w_init=w_init, name='linear2')
         
         self.phi = hk.Flatten(preserve_dims=2, name='phi')
 
@@ -636,11 +639,21 @@ class ForagerGRUNetReLU(hk.Module):
         
         h = self.flatten(h)
         
+        h = self.linear1(h)
+        
+        h = jax.nn.relu(h)
+        
+        skip_connection = h
+        
         outputs_sequence, states_sequence, initial_carry = self.gru(h, reset, carry, is_target=is_target)
         
         outputs_sequence = jax.nn.relu(outputs_sequence)
         
-        outputs_sequence = outputs_sequence + self.skip_connection(h)
+        outputs_sequence = jnp.append(outputs_sequence, skip_connection, axis=-1)
+        
+        outputs_sequence = self.linear2(outputs_sequence)
+        
+        outputs_sequence = jax.nn.relu(outputs_sequence)
         
         outputs_sequence = self.phi(outputs_sequence)
 
@@ -658,9 +671,11 @@ class ForagerAAGRUNetReLU(hk.Module):
 
         self.flatten = hk.Flatten(preserve_dims=2, name='flatten')
         
-        self.skip_connection = hk.Linear(self.hidden, w_init=w_init, name='skip_connection')
+        self.linear1 = hk.Linear(self.hidden, w_init=w_init, name='linear1')
 
         self.aagru = AAGRU(self.hidden, self.number_of_actions, learn_initial_h=learn_initial_h, name='aagru')
+        
+        self.linear2 = hk.Linear(self.hidden, w_init=w_init, name='linear2')
         
         self.phi = hk.Flatten(preserve_dims=2, name='phi')
 
@@ -668,6 +683,7 @@ class ForagerAAGRUNetReLU(hk.Module):
         """
         Args:
           x: Input tensor with shape [N, T, ...]
+          a: Action tensor with shape [N, T, number_of_actions]
           reset: Optional binary flag sequence with shape [N, T] indicating when to reset the GRU state.
                  For example, at episode boundaries.
           carry: The initial hidden state for RNN.
@@ -699,11 +715,21 @@ class ForagerAAGRUNetReLU(hk.Module):
         
         h = self.flatten(h)
         
+        h = self.linear1(h)
+        
+        h = jax.nn.relu(h)
+        
+        skip_connection = h
+        
         outputs_sequence, states_sequence, initial_carry = self.aagru(h, a, reset, carry, is_target=is_target)
         
         outputs_sequence = jax.nn.relu(outputs_sequence)
         
-        outputs_sequence = outputs_sequence + self.skip_connection(h)
+        outputs_sequence = jnp.append(outputs_sequence, skip_connection, axis=-1)
+        
+        outputs_sequence = self.linear2(outputs_sequence)
+        
+        outputs_sequence = jax.nn.relu(outputs_sequence)
    
         outputs_sequence = self.phi(outputs_sequence)
 
@@ -721,9 +747,11 @@ class ForagerATAAGRUNetReLU(hk.Module):
 
         self.flatten = hk.Flatten(preserve_dims=2, name='flatten')
         
-        self.skip_connection = hk.Linear(self.hidden, w_init=w_init, name='skip_connection')
+        self.linear1 = hk.Linear(self.hidden, w_init=w_init, name='linear1')
 
-        self.ataagru = ATAAGRU(self.hidden, self.number_of_actions, learn_initial_h=learn_initial_h, name='aagru')
+        self.ataagru = ATAAGRU(self.hidden, self.number_of_actions, learn_initial_h=learn_initial_h, name='ataagru')
+        
+        self.linear2 = hk.Linear(self.hidden, w_init=w_init, name='linear2')
         
         self.phi = hk.Flatten(preserve_dims=2, name='phi')
 
@@ -731,6 +759,8 @@ class ForagerATAAGRUNetReLU(hk.Module):
         """
         Args:
           x: Input tensor with shape [N, T, ...]
+          a: Action tensor with shape [N, T, number_of_actions]
+          action_trace: Action-trace tensor with shape [N, T, number_of_actions]
           reset: Optional binary flag sequence with shape [N, T] indicating when to reset the GRU state.
                  For example, at episode boundaries.
           carry: The initial hidden state for RNN.
@@ -753,7 +783,7 @@ class ForagerATAAGRUNetReLU(hk.Module):
         if action_trace is None:
             action_trace = jnp.full((N, T, self.number_of_actions), jnp.float32(0))
         if (len(action_trace.shape) < 3):
-            action_trace = jnp.broadcast_to(a, (N, T, self.number_of_actions))
+            action_trace = jnp.broadcast_to(action_trace, (N, T, self.number_of_actions))
         
         x = jnp.reshape(x, (N * T, *feat))
 
@@ -766,11 +796,21 @@ class ForagerATAAGRUNetReLU(hk.Module):
         
         h = self.flatten(h)
         
+        h = self.linear1(h)
+        
+        h = jax.nn.relu(h)
+        
+        skip_connection = h
+        
         outputs_sequence, states_sequence, initial_carry = self.ataagru(h, a, action_trace, reset, carry, is_target=is_target)
         
         outputs_sequence = jax.nn.relu(outputs_sequence)
         
-        outputs_sequence = outputs_sequence + self.skip_connection(h)
+        outputs_sequence = jnp.append(outputs_sequence, skip_connection, axis=-1)
+        
+        outputs_sequence = self.linear2(outputs_sequence)
+        
+        outputs_sequence = jax.nn.relu(outputs_sequence)
    
         outputs_sequence = self.phi(outputs_sequence)
 
@@ -780,17 +820,19 @@ class ForagerATAAGRUNetReLU(hk.Module):
 class ForagerMAGRUNetReLU(hk.Module):
     def __init__(self, hidden: int, actions: int, learn_initial_h=True, name: str = ""):
         super().__init__(name=name)
-        self.hidden_size = hidden
+        self.hidden = hidden
         self.number_of_actions = actions
         w_init = hk.initializers.Orthogonal(np.sqrt(2))
 
-        self.conv = hk.Conv2D(16, 3, 2, w_init=w_init, name='phi')
+        self.conv = hk.Conv2D(16, 3, 1, w_init=w_init, name='phi')
 
         self.flatten = hk.Flatten(preserve_dims=2, name='flatten')
         
-        self.skip_connection = hk.Linear(self.hidden_size, w_init=w_init, name='skip_connection')
+        self.linear1 = hk.Linear(self.hidden, w_init=w_init, name='linear1')
 
-        self.magru = MAGRU(self.hidden_size, self.number_of_actions, learn_initial_h=learn_initial_h, name='gru')
+        self.magru = MAGRU(self.hidden, self.number_of_actions, learn_initial_h=learn_initial_h, name='gru')
+        
+        self.linear2 = hk.Linear(self.hidden, w_init=w_init, name='linear2')
         
         self.phi = hk.Flatten(preserve_dims=2, name='phi')
 
@@ -829,12 +871,22 @@ class ForagerMAGRUNetReLU(hk.Module):
         h = jnp.reshape(h, (N, T, *feat))
         
         h = self.flatten(h)
+
+        h = self.linear1(h)
+        
+        h = jax.nn.relu(h)
+        
+        skip_connection = h
         
         outputs_sequence, states_sequence, initial_carry = self.magru(h, a, reset, carry, is_target=is_target)
         
         outputs_sequence = jax.nn.relu(outputs_sequence)
         
-        outputs_sequence = outputs_sequence + self.skip_connection(h)
+        outputs_sequence = jnp.append(outputs_sequence, skip_connection, axis=-1)
+        
+        outputs_sequence = self.linear2(outputs_sequence)
+        
+        outputs_sequence = jax.nn.relu(outputs_sequence)
         
         outputs_sequence = self.phi(outputs_sequence)
 
