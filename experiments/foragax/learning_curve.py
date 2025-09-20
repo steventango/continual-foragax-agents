@@ -56,7 +56,7 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    nalgs = 8
+    nalgs = 11
     ncols = int(np.ceil(np.sqrt(nalgs))) if nalgs > 3 else nalgs
     nrows = int(np.ceil(nalgs / ncols)) if nalgs > 3 else 1
     fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained")
@@ -67,6 +67,7 @@ if __name__ == "__main__":
     ):
         env, aperture = env_aperture.rsplit("-", 1)
         aperture = int(aperture)
+        if aperture != 3 and aperture != 15: continue
 
         for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename
@@ -126,6 +127,12 @@ if __name__ == "__main__":
                 ax_idxs = [6]
             elif alg == "PPO_CB":
                 ax_idxs = [7]
+            elif alg == "DQN_Freeze_100k":
+                ax_idxs = [8]
+            elif alg == "DQN_Freeze_1M":
+                ax_idxs = [9]
+            elif alg == "DQN_Freeze_5M":
+                ax_idxs = [11]
             else:
                 ax_idxs = np.arange(len(axs))
 
