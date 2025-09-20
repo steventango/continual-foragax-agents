@@ -526,7 +526,7 @@ def main():
     rewards, pos = results
     rewards = rewards.reshape((rewards.shape[0], -1))
     pos = pos.reshape((pos.shape[0], -1, pos.shape[-1]))
-    print(pos.shape)
+
     # --------------------
     # -- Saving --
     # --------------------
