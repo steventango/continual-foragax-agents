@@ -205,11 +205,11 @@ if args.video:
 start_step = None
 save_every = 1_000_000
 datas = {}
-datas["rewards"] = np.zeros((len(indices), n), dtype=np.float16)
-datas["weight_change"] = np.zeros((len(indices), n), dtype=np.float16)
-datas["squared_td_error"] = np.zeros((len(indices), n), dtype=np.float16)
-datas["abs_td_error"] = np.zeros((len(indices), n), dtype=np.float16)
-datas["loss"] = np.zeros((len(indices), n), dtype=np.float16)
+datas["rewards"] = np.empty((len(indices), n), dtype=np.float16)
+datas["weight_change"] = np.empty((len(indices), n), dtype=np.float16)
+datas["squared_td_error"] = np.empty((len(indices), n), dtype=np.float16)
+datas["abs_td_error"] = np.empty((len(indices), n), dtype=np.float16)
+datas["loss"] = np.empty((len(indices), n), dtype=np.float16)
 
 
 def get_agent_metrics(agent_state):
@@ -234,7 +234,7 @@ def get_agent_metrics(agent_state):
 
 
 if isinstance(glues[0].environment, Foragax):
-    datas["pos"] = np.zeros((len(indices), n, 2), dtype=np.int32)
+    datas["pos"] = np.empty((len(indices), n, 2), dtype=np.int32)
     def get_data(carry, interaction):
         weight_change, squared_td_error, abs_td_error, loss = get_agent_metrics(
             carry.agent_state
