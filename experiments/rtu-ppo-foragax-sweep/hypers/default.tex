@@ -1,0 +1,22 @@
+\begin{tabular}{lllll}
+ & \bfseries RealTimeActorCriticConvPooling & \bfseries RealTimeActorCriticMLP & \bfseries RealTimeActorCriticConvEmb & \bfseries RealTimeActorCriticConv \\
+Hyperparameter &  &  &  &  \\
+epochs & 4 & 4 & 4 & 4 \\
+optimizer_critic.name & Adam & Adam & Adam & Adam \\
+max_grad_norm & 0.5 & 0.5 & 0.5 & 0.5 \\
+Discount factor \gamma & 0.99 & 0.99 & 0.99 & 0.99 \\
+representation.d_hidden & 192 & 192 & 192 & 192 \\
+optimizer_critic.beta1 & 0.9 & 0.9 & 0.9 & 0.9 \\
+clip_eps & 0.2 & 0.2 & 0.2 & 0.2 \\
+optimizer_critic.eps & $10^{-5}$ & $10^{-5}$ & $10^{-5}$ & $10^{-5}$ \\
+rollout_steps & 1024 & 1024 & 1024 & 1024 \\
+optimizer_critic.beta2 & 0.999 & 0.999 & 0.999 & 0.999 \\
+environment.aperture_size & 3 & 3 & 3 & 3 \\
+optimizer_actor.eps & $10^{-5}$ & $10^{-5}$ & $10^{-5}$ & $10^{-5}$ \\
+vf_coef & 0.5 & 0.5 & 0.5 & 0.5 \\
+Minibatch size & 32 & 32 & 32 & 32 \\
+optimizer_actor.name & Adam & Adam & Adam & Adam \\
+gradient_clipping & 1 & 1 & 1 & 1 \\
+optimizer_actor.beta2 & 0.999 & 0.999 & 0.999 & 0.999 \\
+optimizer_actor.beta1 & 0.9 & 0.9 & 0.9 & 0.9 \\
+\end{tabular}

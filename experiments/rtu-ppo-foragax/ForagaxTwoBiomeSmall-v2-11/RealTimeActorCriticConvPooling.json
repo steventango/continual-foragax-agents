@@ -1,21 +1,17 @@
 {
-    "agent": "RTU-PPO",
+    "agent": "RealTimeActorCriticConvPooling",
     "problem": "Foragax",
-    "total_steps": 100000,
+    "total_steps": 10000000,
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxTwoBiomeSmall-v2",
-            "aperture_size": 7
+            "aperture_size": 11
         },
         "experiment": {
-            "seed_offset": 1000000
+            "seed_offset": 0
         },
         "gamma": 0.99,
-        "gae_lambda": [
-            0.7, 
-            0.8, 
-            0.95
-        ],
+        "gae_lambda": 0.7,
         "rollout_steps": 1024,
         "epochs": 4,
         "batch": 32,
@@ -23,37 +19,20 @@
         "gradient_clipping": true,
         "max_grad_norm": 0.5,
         "vf_coef": 0.5,
-        "entropy_coef": [
-            0, 
-            0.0001, 
-            0.001, 
-            0.01
-        ],
+        "entropy_coef": 0.0,
         "optimizer_actor": {
             "name": "Adam",
-            "alpha": [
-                1e-3,
-                3e-4,
-                1e-4,
-                3e-5,
-                1e-5
-            ],
+            "alpha": 0.001,
             "beta1": 0.9,
             "beta2": 0.999,
-            "eps": 1e-5
+            "eps": 1e-05
         },
         "optimizer_critic": {
             "name": "Adam",
-            "alpha": [
-                1e-3,
-                3e-4,
-                1e-4,
-                3e-5,
-                1e-5
-            ],
+            "alpha": 3e-05,
             "beta1": 0.9,
             "beta2": 0.999,
-            "eps": 1e-5
+            "eps": 1e-05
         },
         "representation": {
             "type": "LinearRTUPPO",
