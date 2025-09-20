@@ -7,6 +7,7 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import optax
+from jax.flatten_util import ravel_pytree
 from ml_instrumentation.Collector import Collector
 
 import flashbax as fbx
@@ -149,7 +150,7 @@ class DRQN(NNAgent):
             updates=updates,
             # buffer_state=buffer_state,
             target_params=target_params,
-        )
+        ), metrics
 
     # -------------
     # -- Updates --
@@ -162,10 +163,14 @@ class DRQN(NNAgent):
 
         new_params = {}
         new_optim = {}
+        weight_change = 0
         for name, p in state.params.items():
             updates, optim = optimizer.update(grad[name], state.optim[name], p)
             new_params[name] = optax.apply_updates(p, updates)
             new_optim[name] = optim
+            flat_updates, _ = ravel_pytree(updates)
+            weight_change += jnp.linalg.norm(flat_updates, ord=1)
+        metrics["weight_change"] = weight_change
 
         return replace(state, params=new_params, optim=new_optim), metrics
 
@@ -215,10 +220,16 @@ class DRQN(NNAgent):
         # weights = weights.ravel()
 
         batch_loss = jax.vmap(q_loss, in_axes=0)
-        losses, metrics = batch_loss(qs, a, r, g, qsp)
+        losses, batch_metrics = batch_loss(qs, a, r, g, qsp)
 
-        # chex.assert_equal_shape((weights, losses))
-        loss = jnp.mean(losses) # jnp.mean(weights * losses)
+        loss = jnp.mean(losses)
+
+        # aggregate metrics
+        metrics = {
+            "loss": loss,
+            "abs_td_error": jnp.mean(jnp.abs(batch_metrics["delta"])),
+            "squared_td_error": jnp.mean(jnp.square(batch_metrics["delta"])),
+        }
 
         return loss, metrics
 
@@ -236,6 +247,7 @@ class DRQN(NNAgent):
         )
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)
+        state = self._maybe_update(state)
         return state, a
 
     @partial(jax.jit, static_argnums=0)

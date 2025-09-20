@@ -27,6 +27,14 @@ class OptimizerHypers:
 
 
 @cxu.dataclass
+class Metrics:
+    weight_change: jax.Array
+    abs_td_error: jax.Array
+    squared_td_error: jax.Array
+    loss: jax.Array
+
+
+@cxu.dataclass
 class Hypers(BaseHypers):
     epsilon: jax.Array
     optimizer: OptimizerHypers
@@ -47,6 +55,7 @@ class AgentState(BaseAgentState):
     steps: int
     updates: int
     hypers: Hypers
+    metrics: Metrics
 
 
 @checkpointable(("buffer", "steps", "state", "updates"))
@@ -170,6 +179,12 @@ class NNAgent(BaseAgent):
             steps=0,
             updates=0,
             hypers=hypers,
+            metrics=Metrics(
+                weight_change=jnp.float32(0.0),
+                abs_td_error=jnp.float32(0.0),
+                squared_td_error=jnp.float32(0.0),
+                loss=jnp.float32(0.0),
+            ),
         )
 
     def get_feature_function(self, builder: NetworkBuilder):
@@ -186,17 +201,34 @@ class NNAgent(BaseAgent):
     def _values(self, state: AgentState, x: jax.Array) -> jax.Array: ...
 
     @abstractmethod
-    def _update(self, state: AgentState) -> AgentState: ...
+    def _update(self, state: AgentState) -> Tuple[AgentState, Dict[str, jax.Array]]: ...
 
     @partial(jax.jit, static_argnums=0)
-    def _maybe_update(self, state: AgentState) -> AgentState:
-        # only update every `update_freq` steps
-        # skip updates if the buffer isn't full yet
+    def _maybe_update(
+        self, state: AgentState
+    ) -> AgentState:
+        def do_update():
+            new_state, metrics = self._update(state)
+            # Update the latest metrics in the state
+            metrics = Metrics(
+                weight_change=metrics.get("weight_change", state.metrics.weight_change),
+                abs_td_error=metrics.get("abs_td_error", state.metrics.abs_td_error),
+                squared_td_error=metrics.get(
+                    "squared_td_error", state.metrics.squared_td_error
+                ),
+                loss=metrics.get("loss", state.metrics.loss),
+            )
+            new_state = replace(new_state, metrics=metrics)
+            return new_state
+
+        def no_update():
+            return state
+
         return jax.lax.cond(
             (state.steps % state.hypers.update_freq == 0)
             & self.buffer.can_sample(state.buffer_state),
-            lambda: self._update(state),
-            lambda: state,
+            do_update,
+            no_update,
         )
 
     @partial(jax.jit, static_argnums=0)
@@ -273,6 +305,7 @@ class NNAgent(BaseAgent):
         )
         state = replace(state, steps=state.steps + 1)
         state = self._decay_epsilon(state)
+        state = self._maybe_update(state)
         return state, a
 
     def step(self, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):

@@ -1,3 +1,4 @@
+import gc
 import importlib
 import sqlite3
 from collections.abc import Callable, Iterable, Sequence
@@ -15,6 +16,7 @@ from PyExpUtils.models.ExperimentDescription import (
 from PyExpUtils.results.indices import listIndices
 from PyExpUtils.results.tools import getHeader, getParamsAsDict
 
+from utils.metrics import calculate_biome_occupancy, calculate_ewm_reward
 from utils.ml_instrumentation.reader import get_run_ids
 
 Exp = TypeVar("Exp", bound=ExperimentDescription)
@@ -25,7 +27,7 @@ def read_metrics_from_data(
     metrics: Iterable[str] | None = None,
     run_ids: Iterable[int] | None = None,
     sample: int | None = 500,
-    sample_type: str = "every"
+    sample_type: str = "every",
 ):
     if run_ids is None:
         run_id_paths = {}
@@ -38,20 +40,31 @@ def read_metrics_from_data(
     for run_id, path in run_id_paths.items():
         if not path.exists():
             continue
-        data = np.load(path)
-        data_dict = {k: np.asarray(data[k]) for k in data.keys()}
+        with np.load(path) as data:
+            data_dict = {k: np.asarray(data[k]) for k in data.keys()}
+        del data
         datas[run_id] = pl.DataFrame(data_dict)
         datas[run_id] = datas[run_id].with_columns(
             pl.lit(run_id).alias("id"),
             pl.lit(np.arange(len(datas[run_id]))).alias("frame"),
         )
-        if "rewards" in datas[run_id].columns:
-            datas[run_id] = datas[run_id].with_columns(
-                pl.col("rewards").ewm_mean(alpha=1e-3).alias("ewm_reward"),
+        if "rewards" in datas[run_id].columns and (
+            metrics is None or "ewm_reward" in metrics or "mean_ewm_reward" in metrics
+        ):
+            datas[run_id] = calculate_ewm_reward(datas[run_id])
+
+        # Calculate biome occupancy if requested
+        if "pos" in datas[run_id].columns and (
+            metrics is None
+            or any(
+                m.startswith(
+                    ("Morel_occupancy", "Oyster_occupancy", "Neither_occupancy")
+                )
+                or m == "biome"
+                for m in metrics
             )
-            datas[run_id] = datas[run_id].with_columns(
-                pl.col("ewm_reward").mean().alias("mean_ewm_reward")
-            )
+        ):
+            datas[run_id] = calculate_biome_occupancy(datas[run_id])
         if sample is None:
             continue
         if sample_type == "every":
@@ -62,6 +75,8 @@ def read_metrics_from_data(
     if len(datas) == 0:
         return pl.DataFrame().lazy()
     df = pl.concat(datas.values())
+    del datas
+    gc.collect()
     return df.lazy()
 
 
@@ -70,7 +85,7 @@ def load_all_results_from_data(
     db_path: str | Path,
     metrics: Iterable[str] | None = None,
     ids: Iterable[int] | None = None,
-    sample: int = 500,
+    sample: int | None = 500,
     sample_type: str = "every",
 ):
     con = sqlite3.connect(db_path)
@@ -83,17 +98,19 @@ def load_all_results_from_data(
     df = read_metrics_from_data(data_path, metrics, ids, sample, sample_type)
 
     if "_metadata_" not in tables:
-        return df.collect()
+        return df
 
     meta = cx.read_sql(
         f"sqlite://{db_path}",
         "SELECT * FROM _metadata_",
         return_type="polars",
         partition_on="id",
-        partition_num=1000,
+        partition_num=1,
     )
     meta = meta.lazy()
-    return df.join(meta, how="left", on=["id"]).collect()
+    df = df.join(meta, how="left", on=["id"]).collect()
+    del meta
+    return df
 
 
 class Result(Generic[Exp]):
@@ -104,25 +121,38 @@ class Result(Generic[Exp]):
         self.exp = exp
         self.metrics = metrics
 
-    def load(self, sample: int = 500, sample_type: str = "every"):
+    def load(
+        self,
+        sample: int = 500,
+        sample_type: str = "every",
+    ):
         db_path = self.exp.buildSaveContext(0).resolve("results.db")
         data_path = self.exp.buildSaveContext(0).resolve("data")
 
         if not Path(db_path).exists():
             if not Path(data_path).exists():
                 return None
-            df = read_metrics_from_data(data_path, self.metrics, None, sample, sample_type).collect()
-            df = df.with_columns(
-                df["id"].alias("seed"),
+            df = read_metrics_from_data(
+                data_path, self.metrics, None, sample, sample_type
             )
-            return df
+            df = df.with_columns(
+                pl.col("id").alias("seed"),
+            )
+            return df.collect()
 
         run_ids = set()
         for param_id in range(self.exp.numPermutations()):
             params = getParamsAsDict(self.exp, param_id)
             run_ids.update(get_run_ids(db_path, params))
         run_ids = sorted(run_ids)
-        df = load_all_results_from_data(data_path, db_path, self.metrics, run_ids, sample, sample_type)
+        df = load_all_results_from_data(
+            data_path,
+            db_path,
+            self.metrics,
+            run_ids,
+            sample,
+            sample_type,
+        )
         return df
 
     def load_by_params(self, params: dict):
@@ -133,7 +163,12 @@ class Result(Generic[Exp]):
             return None
 
         run_ids = get_run_ids(db_path, params)
-        df = load_all_results_from_data(data_path, db_path, self.metrics, run_ids)
+        df = load_all_results_from_data(
+            data_path,
+            db_path,
+            self.metrics,
+            run_ids,
+        )
         return df
 
     @property

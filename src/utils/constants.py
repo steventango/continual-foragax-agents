@@ -1,7 +1,30 @@
+import tol_colors as tc
+
 LABEL_MAP = {
     "DQN_L2_Init": "DQN (L2 Init)",
     "DQN_LN": "DQN (LayerNorm)",
     "DQN_Reset_Head": "DQN (Head Reset)",
     "DQN_Hare_and_Tortoise": "DQN (Hare & Tortoise)",
     "DQN_Shrink_and_Perturb": "DQN (Shrink & Perturb)",
+}
+
+# Biome definitions for different environments
+BIOME_DEFINITIONS = {
+    "ForagaxTwoBiomeSmall-v2": {
+        "Morel": ((3, 3), (6, 6)),
+        "Oyster": ((11, 3), (14, 6)),
+    }
+}
+
+# Environment mapping
+ENV_MAP = {"ForagaxTwoBiomeSmall": "ForagaxTwoBiomeSmall-v2"}
+
+# Color scheme for plotting
+colorset = tc.colorsets["high_contrast"]
+
+# Biome colors for plotting
+BIOME_COLORS = {
+    "Morel": colorset.blue,
+    "Oyster": colorset.red,
+    "Neither": colorset.yellow,
 }

@@ -65,13 +65,16 @@ nvidia-cuda-mps-control -d"""
     max_xla_python_client_mem_fraction = 0.95 if jobs == 1 else 0.3
     return f"""#!/bin/bash
 
-#SBATCH --signal=B:SIGTERM@180
 {exclude_str}
 cd {cwd}
 tar -xf {venv_origin} -C {venv}
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NPROC=1
+export XLA_FLAGS="--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
 export XLA_PYTHON_CLIENT_MEM_FRACTION={max_xla_python_client_mem_fraction / jobs}
 {device_str}
 

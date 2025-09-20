@@ -5,80 +5,26 @@ sys.path.append(os.getcwd() + "/src")
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-import tol_colors as tc
+from matplotlib.patches import Rectangle
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 
 from experiment.ExperimentModel import ExperimentModel
+from utils.constants import BIOME_COLORS, BIOME_DEFINITIONS, ENV_MAP
 from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
 setFonts(20)
 
-colorset = tc.colorsets["high_contrast"]
-
-BIOME_COLORS = {
-    "Morel": colorset.blue,
-    "Oyster": colorset.red,
-    "Neither": colorset.yellow,
-}
-
-ENV_MAP = {
-    "ForagaxTwoBiomeSmall": "ForagaxTwoBiomeSmall-v2"
-}
-
-BIOME_DEFINITIONS = {
-    "ForagaxTwoBiomeSmall-v2": {
-        "Morel": ((3, 3), (6, 6)),
-        "Oyster": ((11, 3), (14, 6)),
-    }
-}
-
-def get_biome(pos, biomes):
-    x, y = pos
-    for name, ((x1, y1), (x2, y2)) in biomes.items():
-        if x1 <= x < x2 and y1 <= y < y2:
-            return name
-    return "Neither"
 
 def plot_biome_occupancy_on_ax(ax, df, biomes, alg, env, aperture):
     biome_names = list(biomes.keys()) + ["Neither"]
-    all_biome_data = []
 
-    for seed, group_df in df.group_by("seed"):
-        if "pos" not in group_df.columns:
-            continue
-
-        group_df = group_df.sort("frame")
-        pos_arrays = group_df["pos"].to_numpy()
-        if not len(pos_arrays):
-            continue
-
-        biome_visits = [get_biome(pos, biomes) for pos in pos_arrays]
-
-        biome_df = pl.DataFrame({
-            "frame": group_df["frame"],
-            "biome": biome_visits,
-            "seed": seed[0] if isinstance(seed, tuple) else seed,
-        })
-
-        for name in biome_names:
-            biome_df = biome_df.with_columns(
-                (pl.col("biome") == name).cast(pl.Float32).ewm_mean(alpha=1e-2, adjust=True).alias(f"{name}_occupancy")
-            )
-
-        all_biome_data.append(biome_df)
-
-    if not all_biome_data:
+    if df is None or df.height == 0:
         print(f"No biome data for {env}-{aperture} {alg}")
         return
 
-    full_df = pl.concat(all_biome_data)
-
-    # downsample for plotting
-    full_df = full_df.gather_every(max(1, full_df.height // 1000))
-
-    for seed_val, seed_df in full_df.group_by("seed"):
+    for _, seed_df in df.group_by("seed"):
         seed_df = seed_df.sort("frame")
         frames = seed_df["frame"]
         for biome_name in biome_names:
@@ -91,7 +37,7 @@ def plot_biome_occupancy_on_ax(ax, df, biomes, alg, env, aperture):
     # Aggregate and plot mean
     agg_cols = [f"{name}_occupancy" for name in biome_names]
     agg_df = (
-        full_df.group_by("frame")
+        df.group_by("frame")
         .agg([pl.mean(col).alias(f"{col}_mean") for col in agg_cols])
         .sort("frame")
     )
@@ -112,7 +58,16 @@ def plot_biome_occupancy_on_ax(ax, df, biomes, alg, env, aperture):
 
 
 if __name__ == "__main__":
-    results = ResultCollection(Model=ExperimentModel, metrics=["pos"])
+    results = ResultCollection(
+        Model=ExperimentModel,
+        metrics=[
+            "pos",
+            "biome",
+            "Morel_occupancy",
+            "Oyster_occupancy",
+            "Neither_occupancy",
+        ],
+    )
     dd = data_definition(
         hyper_cols=results.get_hyperparameter_columns(),
         seed_col="seed",
@@ -186,7 +141,7 @@ if __name__ == "__main__":
                 if i == 0:
                     ax.set_title(alg)
 
-                df = alg_result.load(sample=10_000, sample_type="random")
+                df = alg_result.load(sample=500)
                 if df is None or df.height == 0:
                     print(f"No data found for {env}-{aperture} {alg}")
                     continue
@@ -198,7 +153,7 @@ if __name__ == "__main__":
 
         handles, labels = [], []
         for name, color in BIOME_COLORS.items():
-            handles.append(plt.Rectangle((0, 0), 1, 1, color=color))
+            handles.append(Rectangle((0, 0), 1, 1, color=color))
             labels.append(name)
 
         fig.legend(

@@ -94,16 +94,7 @@ for idx in indices:
             #  - Identity() (save everything)
             #  - Window(n)  take a window average of size n
             #  - Subsample(n) save one of every n elements
-            config={
-                "ewm_reward": Pipe(
-                    MovingAverage(0.999),
-                    Subsample(max(exp.total_steps // 1000, 1)),
-                ),
-                "mean_ewm_reward": Last(
-                    MovingAverage(0.999),
-                    Mean(),
-                ),
-            },
+            config={},
             # by default, ignore keys that are not explicitly listed above
             default=Ignore(),
         ),
@@ -214,21 +205,60 @@ if args.video:
 start_step = None
 save_every = 1_000_000
 datas = {}
-datas["rewards"] = np.zeros((len(indices), n), dtype=np.float32)
+datas["rewards"] = np.empty((len(indices), n), dtype=np.float16)
+datas["weight_change"] = np.empty((len(indices), n), dtype=np.float16)
+datas["squared_td_error"] = np.empty((len(indices), n), dtype=np.float16)
+datas["abs_td_error"] = np.empty((len(indices), n), dtype=np.float16)
+datas["loss"] = np.empty((len(indices), n), dtype=np.float16)
+
+
+def get_agent_metrics(agent_state):
+    """Safely extract metrics from agent state, handling different agent types."""
+    weight_change = 0.0
+    squared_td_error = 0.0
+    abs_td_error = 0.0
+    loss = 0.0
+
+    if hasattr(agent_state, "metrics"):
+        metrics = agent_state.metrics
+        if hasattr(metrics, "weight_change"):
+            weight_change = metrics.weight_change
+        if hasattr(metrics, "squared_td_error"):
+            squared_td_error = metrics.squared_td_error
+        if hasattr(metrics, "abs_td_error"):
+            abs_td_error = metrics.abs_td_error
+        if hasattr(metrics, "loss"):
+            loss = metrics.loss
+
+    return weight_change, squared_td_error, abs_td_error, loss
 
 
 if isinstance(glues[0].environment, Foragax):
-    datas["pos"] = np.zeros((len(indices), n, 2), dtype=np.int32)
+    datas["pos"] = np.empty((len(indices), n, 2), dtype=np.int32)
     def get_data(carry, interaction):
+        weight_change, squared_td_error, abs_td_error, loss = get_agent_metrics(
+            carry.agent_state
+        )
         data = {
             "rewards": interaction.reward,
             "pos": carry.env_state.state.pos,
+            "weight_change": weight_change,
+            "squared_td_error": squared_td_error,
+            "abs_td_error": abs_td_error,
+            "loss": loss,
         }
         return data
 else:
     def get_data(carry, interaction):
+        weight_change, squared_td_error, abs_td_error, loss = get_agent_metrics(
+            carry.agent_state
+        )
         data = {
             "rewards": interaction.reward,
+            "weight_change": weight_change,
+            "squared_td_error": squared_td_error,
+            "abs_td_error": abs_td_error,
+            "loss": loss,
         }
         return data
 
@@ -239,7 +269,6 @@ for i, idx in enumerate(indices):
     glue_state_path = context.resolve(f"{idx}/glue_state.pkl.xz")
     data_path = context.resolve(f"{idx}/data.npz")
     if os.path.exists(step_path):
-        # load from checkpoint
         with open(step_path, "r") as f:
             start_step_idx = int(f.read())
             if start_step is None:
@@ -263,6 +292,8 @@ else:
 if start_step is None:
     glue_states, _ = v_start(glue_states)
     start_step = 0
+else:
+    logger.debug(f"Loaded checkpoints, resuming from step {start_step}")
 
 for current_step in range(start_step, n, save_every):
     steps_in_iter = min(save_every, n - current_step)
@@ -280,6 +311,7 @@ for current_step in range(start_step, n, save_every):
     # data_chunk is dict of (steps, batch, ...)
 
     # checkpointing
+    checkpoint_start_time = time.time()
     if len(glues) < 2:
         data_chunk = tree_map(lambda x: np.expand_dims(x, 1), data_chunk)
 
@@ -309,33 +341,19 @@ for current_step in range(start_step, n, save_every):
         step_path = context.resolve(f"{idx}/step.txt")
         with open(step_path, "w") as f:
             f.write(str(current_step + steps_in_iter))
-
-
-# rewards is (batch_size, steps)
-rewards = datas["rewards"]
+    checkpoint_time = time.time() - checkpoint_start_time
+    logger.debug(
+        f"Checkpointed at {current_step + steps_in_iter} in {checkpoint_time:.4f}s"
+    )
 
 # --------------------
 # -- Saving --
 # --------------------
-total_collect_time = 0
 total_numpy_time = 0
 total_db_time = 0
 num_indices = len(indices)
-rewards = np.asarray(rewards)
 for i, idx in enumerate(indices):
     collector = collectors[i]
-    chk = chks[i]
-
-    # process rewards for this run
-    run_rewards = rewards[i]
-
-    start_time = time.time()
-    for reward in run_rewards:
-        collector.next_frame()
-        collector.collect("ewm_reward", reward.item())
-        collector.collect("mean_ewm_reward", reward.item())
-    collector.reset()
-    total_collect_time += time.time() - start_time
 
     # ------------
     # -- Saving --
@@ -359,19 +377,15 @@ for i, idx in enumerate(indices):
     total_db_time += time.time() - start_time
 
     collector.close()
-    chk.delete()
 
 logger.debug("--- Saving Timings ---")
-logger.debug(
-    f"Total collect time: {total_collect_time:.4f}s | Average: {total_collect_time / num_indices:.4f}s"
-)
 logger.debug(
     f"Total numpy save time: {total_numpy_time:.4f}s | Average: {total_numpy_time / num_indices:.4f}s"
 )
 logger.debug(
     f"Total db save time: {total_db_time:.4f}s | Average: {total_db_time / num_indices:.4f}s"
 )
-total_save_time = total_collect_time + total_numpy_time + total_db_time
+total_save_time = total_numpy_time + total_db_time
 logger.debug(
     f"Total save time: {total_save_time:.4f}s | Average: {total_save_time / num_indices:.4f}s"
 )

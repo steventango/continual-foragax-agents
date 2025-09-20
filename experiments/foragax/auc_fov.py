@@ -3,7 +3,6 @@ import sys
 from collections import defaultdict
 
 from utils.constants import LABEL_MAP
-
 from utils.plotting import label_lines
 
 sys.path.append(os.getcwd() + "/src")
@@ -57,7 +56,7 @@ SPECIAL = {
 }
 
 if __name__ == "__main__":
-    results = ResultCollection(Model=ExperimentModel)
+    results = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
     dd = data_definition(
         hyper_cols=results.get_hyperparameter_columns(),
         seed_col="seed",

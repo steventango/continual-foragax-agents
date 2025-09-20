@@ -1,13 +1,12 @@
 import json
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 
 sys.path.append(os.getcwd() + "/src")
 import matplotlib.pyplot as plt
 import numpy as np
 import tol_colors as tc
-from utils.constants import LABEL_MAP
 from matplotlib.lines import Line2D
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
@@ -18,6 +17,7 @@ from rlevaluation.temporal import (
 )
 
 from experiment.ExperimentModel import ExperimentModel
+from utils.constants import LABEL_MAP
 from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
@@ -48,7 +48,7 @@ SINGLE = {
 
 
 if __name__ == "__main__":
-    results = ResultCollection(Model=ExperimentModel)
+    results = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
     results.paths = [path for path in results.paths if "hypers" not in path]
     dd = data_definition(
         hyper_cols=results.get_hyperparameter_columns(),

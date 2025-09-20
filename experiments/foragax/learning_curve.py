@@ -16,7 +16,7 @@ from rlevaluation.temporal import (
 
 from experiment.ExperimentModel import ExperimentModel
 from utils.constants import LABEL_MAP
-from utils.results import ResultCollection, read_metrics_from_data
+from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
 setFonts(20)
@@ -46,7 +46,7 @@ SINGLE = {
 
 
 if __name__ == "__main__":
-    results = ResultCollection(Model=ExperimentModel)
+    results = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
     dd = data_definition(
         hyper_cols=results.get_hyperparameter_columns(),
         seed_col="seed",
