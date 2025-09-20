@@ -95,10 +95,11 @@ if __name__ == "__main__":
 
         for aperture in apertures:
             sub_results = aperture_results.get(aperture, [])
+            if aperture != 3 and aperture != 15: continue
 
             for alg_result in sorted(sub_results, key=lambda x: x.filename):
                 alg = alg_result.filename
-                if "DRQN" in alg or "taper" in alg:
+                if not alg.startswith("DQN_Freeze") and alg != "DQN":
                     continue
 
                 print(f"Processing {env}-{aperture} {alg}")
