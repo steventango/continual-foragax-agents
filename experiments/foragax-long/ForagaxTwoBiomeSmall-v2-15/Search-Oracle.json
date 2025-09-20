@@ -1,0 +1,19 @@
+{
+    "agent": "Search-Oracle",
+    "problem": "Foragax",
+    "total_steps": 10000000,
+    "episode_cutoff": -1,
+    "metaParameters": {
+        "environment": {
+            "env_id": "ForagaxTwoBiomeSmall-v2",
+            "aperture_size": 15
+        },
+        "channel_priorities": {
+            "0": 2,
+            "1": 1
+        },
+        "experiment": {
+            "seed_offset": 0
+        }
+    }
+}
