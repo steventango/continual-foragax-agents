@@ -1,5 +1,5 @@
 {
-    "agent": "Search-Oracle",
+    "agent": "Search-Oyster",
     "problem": "Foragax",
     "total_steps": 100000,
     "episode_cutoff": -1,
