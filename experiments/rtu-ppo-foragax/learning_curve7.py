@@ -20,14 +20,14 @@ setDefaultConference("jmlr")
 setFonts(20)
 
 COLORS = {
-    "RealTimeActorCriticConv-3": "#1f77b4",        # Muted blue
-    "RealTimeActorCriticConvEmb-3": "#2ca02c",     # Muted green
-    "RealTimeActorCriticConvEmbNE-3": "#d62728",   # Muted red
-    "RealTimeActorCriticConvNE-3": "#9467bd",      # Muted purple
-    "RealTimeActorCriticConvPooling-3": "#ff7f0e", # Muted orange
-    "RealTimeActorCriticConvPoolingNE-3": "#8c564b", # Muted brown
-    "RealTimeActorCriticMLP-3": "#17becf",         # Muted teal
-    "RealTimeActorCriticMLPNE-3": "#e377c2",       # Muted pink
+    "RealTimeActorCriticConv-7": "#1f77b4",        # Muted blue
+    "RealTimeActorCriticConvEmb-7": "#2ca02c",     # Muted green
+    "RealTimeActorCriticConvEmbNE-7": "#d62728",   # Muted red
+    "RealTimeActorCriticConvNE-7": "#9467bd",      # Muted purple
+    "RealTimeActorCriticConvPooling-7": "#ff7f0e", # Muted orange
+    "RealTimeActorCriticConvPoolingNE-7": "#8c564b", # Muted brown
+    "RealTimeActorCriticMLP-7": "#17becf",         # Muted teal
+    "RealTimeActorCriticMLPNE-7": "#e377c2",       # Muted pink
     "Random": "#7f7f7f",                           # Gray
 }
 
