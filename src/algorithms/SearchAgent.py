@@ -42,6 +42,12 @@ class SearchAgent(BaseAgent):
         self.channel_priorities = {
             int(k): v for k, v in self.channel_priorities.items()
         }
+        max_channel = (
+            max(self.channel_priorities.keys()) if self.channel_priorities else 0
+        )
+        self.priorities_array = jnp.array(
+            [self.channel_priorities.get(i, 0) for i in range(max_channel + 1)]
+        )
         self.max_priority = max(self.channel_priorities.values())
         # priorities:
         # higher values = higher priority
@@ -60,9 +66,18 @@ class SearchAgent(BaseAgent):
         # Create priority map: higher values = higher priority
         priority_map = jnp.zeros((height, width))
 
+        is_negative = jnp.any(obs < 0)
+        obs = (obs != 0).astype(jnp.int32)
+
+        priorities = self.priorities_array[:num_channels]
+        flipped_priorities = priorities[::-1]
+        use_priorities = jax.lax.cond(
+            is_negative, lambda: flipped_priorities, lambda: priorities
+        )
+
         # For each channel (object type), add its priority to locations where that object exists
         for channel in range(num_channels):
-            channel_priority = self.channel_priorities.get(channel, 0)
+            channel_priority = use_priorities[channel]
             priority_map += obs[:, :, channel] * channel_priority
 
         # Find the best target using BFS
