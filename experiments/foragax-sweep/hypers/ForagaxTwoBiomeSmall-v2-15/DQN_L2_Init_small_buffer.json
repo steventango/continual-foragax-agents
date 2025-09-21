@@ -10,7 +10,7 @@
     "lambda_l2_init": 1e-05,
     "optimizer.alpha": 0.001,
     "optimizer.beta1": 0.9,
-    "optimizer.beta2": 0.999,
+    "optimizer.beta2": 0.9,
     "optimizer.eps": 0.01,
     "optimizer.name": "Adam",
     "representation.hidden": 64,
