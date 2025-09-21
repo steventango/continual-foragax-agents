@@ -18,7 +18,7 @@ from algorithms.tc.SoftmaxAC import SoftmaxAC
 from algorithms.DebugAgent import DebugAgent
 
 def getAgent(name) -> Type[BaseAgent]:
-    if name == "DQN_L2_Init":
+    if name.startswith("DQN_L2_Init"):
         return DQN_L2_Init
     if name == "DQN":
         return DQN
