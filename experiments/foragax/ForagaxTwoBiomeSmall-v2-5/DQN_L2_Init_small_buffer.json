@@ -17,12 +17,12 @@
             "seed_offset": 0
         },
         "gamma": 0.99,
-        "lambda_l2_init": 0.01,
+        "lambda_l2_init": 0.0001,
         "optimizer": {
             "name": "Adam",
             "alpha": 0.0001,
             "beta1": 0.9,
-            "beta2": 0.999,
+            "beta2": 0.9,
             "eps": 1e-08
         },
         "representation": {
