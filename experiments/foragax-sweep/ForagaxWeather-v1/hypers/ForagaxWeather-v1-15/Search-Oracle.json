@@ -1,0 +1,8 @@
+{
+    "channel_priorities.0": 2,
+    "channel_priorities.1": 1,
+    "environment.aperture_size": 15,
+    "environment.env_id": "ForagaxWeather-v1",
+    "environment.privileged": 1,
+    "experiment.seed_offset": 1000000
+}

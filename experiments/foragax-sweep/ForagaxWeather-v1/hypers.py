@@ -31,7 +31,7 @@ def main():
         make_global=True,
     )
     env_reports = {}
-    for env, sub_results in results.groupby_directory(level=2):
+    for env, sub_results in results.groupby_directory(level=3):
         alg_reports = {}
         for alg_result in sub_results:
             alg = alg_result.filename

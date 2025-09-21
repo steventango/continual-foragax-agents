@@ -66,7 +66,7 @@ if __name__ == "__main__":
     axs = axs.flatten()
     env = "unknown"
     for env_aperture, sub_results in sorted(
-        results.groupby_directory(level=2), key=lambda x: int(x[0].split("-")[-1])
+        results.groupby_directory(level=3), key=lambda x: int(x[0].rsplit("-", 1)[-1])
     ):
         env, aperture = env_aperture.rsplit("-", 1)
         aperture = int(aperture)
