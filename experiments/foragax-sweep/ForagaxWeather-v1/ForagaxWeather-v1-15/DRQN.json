@@ -1,0 +1,52 @@
+{
+    "agent": "DRQN",
+    "problem": "Foragax",
+    "total_steps": 100000,
+    "episode_cutoff": -1,
+    "metaParameters": {
+        "initial_epsilon": 1,
+        "final_epsilon": 0.05,
+        "epsilon_linear_decay": 0.8,
+        "target_refresh": [
+            1,
+            128
+        ],
+        "buffer_size": 10000,
+        "buffer_min_size": 4096,
+        "batch": 32,
+        "environment": {
+            "env_id": "ForagaxWeather-v1",
+            "aperture_size": 15
+        },
+        "experiment": {
+            "seed_offset": 1000000
+        },
+        "gamma": 0.99,
+        "optimizer": {
+            "name": "Adam",
+            "alpha": [
+                1e-3,
+                3e-3,
+                1e-4,
+                3e-5,
+                1e-5
+            ],
+            "beta1": 0.9,
+            "beta2": [
+                0.9,
+                0.999
+            ],
+            "eps": [
+                1e-2,
+                1e-8
+            ]
+        },
+        "representation": {
+            "type": "ForagerGRUNetReLU",
+            "hidden": 64
+        },
+        "sequence_length": 128,
+        "burn_in_steps": 16,
+        "update_freq": 4
+    }
+}
