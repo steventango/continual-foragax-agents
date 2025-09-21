@@ -24,13 +24,17 @@ setFonts(20)
 colorset = tc.colorsets["muted"]
 
 COLORS = {
-    3: colorset.rose,
-    5: colorset.indigo,
-    7: colorset.sand,
-    9: colorset.cyan,
-    11: colorset.teal,
-    13: colorset.olive,
-    15: colorset.purple,
+    # 3: colorset.rose,
+    # 5: colorset.indigo,
+    # 7: colorset.sand,
+    # 9: colorset.cyan,
+    # 11: colorset.teal,
+    # 13: colorset.olive,
+    # 15: colorset.purple,
+    100000: colorset.rose,
+    1000000: colorset.indigo,
+    5000000: colorset.sand,
+    -1: colorset.cyan,
     "Search-Oracle": colorset.wine,
     "Search-Nearest": colorset.green,
     "Search-Oyster": tc.colorsets["light"].pear,
@@ -56,10 +60,10 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    nalgs = 16
+    nalgs = 1
     ncols = int(np.ceil(np.sqrt(nalgs))) if nalgs > 3 else nalgs
     nrows = int(np.ceil(nalgs / ncols)) if nalgs > 3 else 1
-    fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained")
+    fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False)
     axs = axs.flatten()
     env = "unknown"
     for env_aperture, sub_results in sorted(
@@ -67,29 +71,43 @@ if __name__ == "__main__":
     ):
         env, aperture = env_aperture.rsplit("-", 1)
         aperture = int(aperture)
+        if aperture != 3 and aperture != 15:
+            continue
 
         for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename
+            if aperture == 3:
+                if alg not in {
+                    # "DQN",
+                    "DQN_small_buffer",
+                    # "DQN_L2_Init",
+                    # "DQN_L2_Init_small_buffer",
+                    # "DQN_Freeze_100k",
+                    "DQN_Freeze_100k_small_buffer",
+                    # "DQN_Freeze_1M",
+                    "DQN_Freeze_1M_small_buffer",
+                    # "DQN_Freeze_5M",
+                    "DQN_Freeze_5M_small_buffer",
+                    # "DQN_L2_Init_Freeze_100k",
+                    # "DQN_L2_Init_Freeze_100k_small_buffer",
+                    # "DQN_L2_Init_Freeze_1M",
+                    # "DQN_L2_Init_Freeze_1M_small_buffer",
+                    # "DQN_L2_Init_Freeze_5M",
+                    # "DQN_L2_Init_Freeze_5M_small_buffer",
+                }:
+                    continue
+            else:
+                if alg not in SINGLE:
+                    continue
             print(f"{env_aperture} {alg}")
-            if alg not in {
-                "DQN",
-                "DQN_small_buffer",
-                "DQN_L2_Init",
-                "DQN_L2_Init_small_buffer",
-                "DQN_Freeze_100k",
-                "DQN_Freeze_100k_small_buffer",
-                "DQN_Freeze_1M",
-                "DQN_Freeze_1M_small_buffer",
-                "DQN_Freeze_5M",
-                "DQN_Freeze_5M_small_buffer",
-                "DQN_L2_Init_Freeze_100k",
-                "DQN_L2_Init_Freeze_100k_small_buffer",
-                "DQN_L2_Init_Freeze_1M",
-                "DQN_L2_Init_Freeze_1M_small_buffer",
-                "DQN_L2_Init_Freeze_5M",
-                "DQN_L2_Init_Freeze_5M_small_buffer",
-            } | SINGLE:
-                continue
+
+            freeze_step = -1
+            if "Freeze_100k" in alg:
+                freeze_step = 100000
+            elif "Freeze_1M" in alg:
+                freeze_step = 1000000
+            elif "Freeze_5M" in alg:
+                freeze_step = 5000000
 
             df = alg_result.load()
             if df is None:
@@ -123,45 +141,45 @@ if __name__ == "__main__":
             if alg not in SINGLE:
                 alg_label = LABEL_MAP.get(alg, alg)
                 label = None
-                color = COLORS[aperture]
+                color = COLORS[freeze_step]
             else:
                 alg_label = alg
                 label = alg
                 color = COLORS[label]
 
             ax_idxs = []
-            if alg == "DQN":
+            # if alg == "DQN":
+            #     ax_idxs = [0]
+            # elif alg == "DQN_Freeze_100k":
+            #     ax_idxs = [0]
+            # elif alg == "DQN_Freeze_1M":
+            #     ax_idxs = [0]
+            # elif alg == "DQN_Freeze_5M":
+            #     ax_idxs = [0]
+            # elif alg == "DQN_L2_Init":
+            #     ax_idxs = [1]
+            # elif alg == "DQN_L2_Init_Freeze_100k":
+            #     ax_idxs = [1]
+            # elif alg == "DQN_L2_Init_Freeze_1M":
+            #     ax_idxs = [1]
+            # elif alg == "DQN_L2_Init_Freeze_5M":
+            #     ax_idxs = [1]
+            if alg == "DQN_small_buffer":
                 ax_idxs = [0]
-            elif alg == "DQN_Freeze_100k":
-                ax_idxs = [1]
-            elif alg == "DQN_Freeze_1M":
-                ax_idxs = [2]
-            elif alg == "DQN_Freeze_5M":
-                ax_idxs = [3]
-            elif alg == "DQN_L2_Init":
-                ax_idxs = [4]
-            elif alg == "DQN_L2_Init_Freeze_100k":
-                ax_idxs = [5]
-            elif alg == "DQN_L2_Init_Freeze_1M":
-                ax_idxs = [6]
-            elif alg == "DQN_L2_Init_Freeze_5M":
-                ax_idxs = [7]
-            elif alg == "DQN_small_buffer":
-                ax_idxs = [8]
             elif alg == "DQN_Freeze_100k_small_buffer":
-                ax_idxs = [9]
+                ax_idxs = [0]
             elif alg == "DQN_Freeze_1M_small_buffer":
-                ax_idxs = [10]
+                ax_idxs = [0]
             elif alg == "DQN_Freeze_5M_small_buffer":
-                ax_idxs = [11]
-            elif alg == "DQN_L2_Init_small_buffer":
-                ax_idxs = [12]
-            elif alg == "DQN_L2_Init_Freeze_100k_small_buffer":
-                ax_idxs = [13]
-            elif alg == "DQN_L2_Init_Freeze_1M_small_buffer":
-                ax_idxs = [14]
-            elif alg == "DQN_L2_Init_Freeze_5M_small_buffer":
-                ax_idxs = [15]
+                ax_idxs = [0]
+            # elif alg == "DQN_L2_Init_small_buffer":
+            #     ax_idxs = [3]
+            # elif alg == "DQN_L2_Init_Freeze_100k_small_buffer":
+            #     ax_idxs = [3]
+            # elif alg == "DQN_L2_Init_Freeze_1M_small_buffer":
+            #     ax_idxs = [3]
+            # elif alg == "DQN_L2_Init_Freeze_5M_small_buffer":
+            #     ax_idxs = [3]
             else:
                 ax_idxs = np.arange(len(axs))
 
@@ -199,9 +217,12 @@ if __name__ == "__main__":
             continue
 
     legend_elements = []
-    aperture_keys = sorted([k for k in COLORS.keys() if isinstance(k, int)])
-    for ap in aperture_keys:
-        legend_elements.append(Line2D([0], [0], color=COLORS[ap], lw=2, label=f"FOV {ap}"))
+    color_keys = sorted([k for k in COLORS.keys() if isinstance(k, int)])
+    for color_key in color_keys:
+        label = f"Frozen @ {color_key}"
+        if color_key == -1:
+            label = "Not Frozen"
+        legend_elements.append(Line2D([0], [0], color=COLORS[color_key], lw=2, label=label))
 
     for k in SINGLE:
         if k in COLORS:
@@ -215,6 +236,8 @@ if __name__ == "__main__":
         plot_name=env,
         save_type="pdf",
         f=fig,
-        width=ncols,
-        height_ratio=(nrows / ncols) * (2 / 3),
+        width=4/3,
+        height_ratio=1/2,
+        # width=ncols,
+        # height_ratio=(nrows / ncols) * (2 / 3),
     )
