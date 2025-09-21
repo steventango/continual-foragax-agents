@@ -9,6 +9,7 @@ from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 
 from experiment.ExperimentModel import ExperimentModel
+from utils.constants import BIOME_COLORS
 from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
@@ -23,9 +24,7 @@ METRICS_TO_PLOT = [
     "squared_td_error",
     "abs_td_error",
     "weight_change",
-    "Morel_occupancy",
-    "Oyster_occupancy",
-    "Neither_occupancy",
+    "occupancy_combined",
 ]
 
 ENV_MAP = {"ForagaxTwoBiomeSmall": "ForagaxTwoBiomeSmall-v2"}
@@ -44,20 +43,45 @@ def plot_metric_seed_grid(ax, df, metric, seed_val, alg, env, aperture):
 
     seed_df = seed_df.sort("frame")
 
-    if metric not in seed_df.columns:
-        ax.set_visible(False)
-        return
-
-    frames = seed_df["frame"]
-    values = seed_df[metric]
-
-    ax.plot(frames, values, linewidth=1.0, color=colorset.blue)
-    ax.spines[["top", "right"]].set_visible(False)
-    ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+    if metric == "occupancy_combined":
+        # Plot all three occupancy metrics on the same axis
+        for occ_metric, color_key in zip(
+            ["Morel_occupancy", "Oyster_occupancy", "Neither_occupancy"],
+            ["Morel", "Oyster", "Neither"],
+            strict=True,
+        ):
+            if occ_metric in seed_df.columns:
+                frames = seed_df["frame"]
+                values = seed_df[occ_metric]
+                ax.plot(
+                    frames,
+                    values,
+                    linewidth=1.0,
+                    color=BIOME_COLORS[color_key],
+                    label=color_key,
+                )
+            else:
+                print(f"Column {occ_metric} not found in DataFrame.")  # Debugging
+        ax.spines[["top", "right"]].set_visible(False)
+        ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+        ax.legend(fontsize=10, loc="upper right")
+    else:
+        if metric not in seed_df.columns:
+            ax.set_visible(False)
+            return
+        frames = seed_df["frame"]
+        values = seed_df[metric]
+        ax.plot(frames, values, linewidth=1.0, color=colorset.blue)
+        ax.spines[["top", "right"]].set_visible(False)
+        ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
 
 
 if __name__ == "__main__":
-    results = ResultCollection(Model=ExperimentModel, metrics=METRICS_TO_PLOT)
+    results = ResultCollection(
+        Model=ExperimentModel,
+        metrics=METRICS_TO_PLOT
+        + ["Morel_occupancy", "Oyster_occupancy", "Neither_occupancy"],
+    )
     dd = data_definition(
         hyper_cols=results.get_hyperparameter_columns(),
         seed_col="seed",
@@ -95,7 +119,6 @@ if __name__ == "__main__":
 
         for aperture in apertures:
             sub_results = aperture_results.get(aperture, [])
-            if aperture != 3 and aperture != 15: continue
 
             for alg_result in sorted(sub_results, key=lambda x: x.filename):
                 alg = alg_result.filename
@@ -117,12 +140,14 @@ if __name__ == "__main__":
                 if n_seeds == 0 or n_metrics == 0:
                     continue
 
-                # Create subplot grid: metrics x seeds
+                # Create subplot grid: metrics x seeds, sharey for rows, sharex for all columns
                 fig, axes = plt.subplots(
                     n_metrics,
                     n_seeds,
                     squeeze=False,
                     layout="constrained",
+                    sharey="row",
+                    sharex=True,
                 )
 
                 # Plot each metric x seed combination
