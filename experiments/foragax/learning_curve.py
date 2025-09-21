@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 
 sys.path.append(os.getcwd() + "/src")
@@ -24,13 +25,17 @@ setFonts(20)
 colorset = tc.colorsets["muted"]
 
 COLORS = {
-    3: colorset.rose,
-    5: colorset.indigo,
-    7: colorset.sand,
-    9: colorset.cyan,
-    11: colorset.teal,
-    13: colorset.olive,
-    15: colorset.purple,
+    # 3: colorset.rose,
+    # 5: colorset.indigo,
+    # 7: colorset.sand,
+    # 9: colorset.cyan,
+    # 11: colorset.teal,
+    # 13: colorset.olive,
+    # 15: colorset.purple,
+    100000: colorset.rose,
+    1000000: colorset.indigo,
+    5000000: colorset.sand,
+    -1: colorset.cyan,
     "Search-Oracle": colorset.wine,
     "Search-Nearest": colorset.green,
     "Search-Oyster": tc.colorsets["light"].pear,
@@ -56,11 +61,9 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    nalgs = 8
+    nalgs = 4
     ncols = int(np.ceil(np.sqrt(nalgs))) if nalgs > 3 else nalgs
     nrows = int(np.ceil(nalgs / ncols)) if nalgs > 3 else 1
-    fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained")
-    axs = axs.flatten()
     env = "unknown"
     for env_aperture, sub_results in sorted(
         results.groupby_directory(level=2), key=lambda x: int(x[0].split("-")[-1])
@@ -68,9 +71,35 @@ if __name__ == "__main__":
         env, aperture = env_aperture.rsplit("-", 1)
         aperture = int(aperture)
 
+        fig, axs = plt.subplots(
+            nrows, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
+        )
+        axs = axs.flatten()
+
+        fig.suptitle(f"Aperture {aperture}")
+
+        base_algs = [
+            "DQN",
+            "DQN_small_buffer",
+            "DQN_L2_Init",
+            "DQN_L2_Init_small_buffer",
+        ]
+
         for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename
+            if not (
+                re.sub(r"_Freeze_[0-9]+[kM]", "", alg) in base_algs or alg in SINGLE
+            ):
+                continue
             print(f"{env_aperture} {alg}")
+
+            freeze_step = -1
+            if "Freeze_100k" in alg:
+                freeze_step = 100000
+            elif "Freeze_1M" in alg:
+                freeze_step = 1000000
+            elif "Freeze_5M" in alg:
+                freeze_step = 5000000
 
             df = alg_result.load()
             if df is None:
@@ -104,30 +133,17 @@ if __name__ == "__main__":
             if alg not in SINGLE:
                 alg_label = LABEL_MAP.get(alg, alg)
                 label = None
-                color = COLORS[aperture]
+                color = COLORS[freeze_step]
             else:
                 alg_label = alg
                 label = alg
                 color = COLORS[label]
 
-            if alg == "DQN":
-                ax_idxs = [0]
-            elif alg == "DQN_L2_Init":
-                ax_idxs = [1]
-            elif alg == "DQN_LN":
-                ax_idxs = [2]
-            elif alg == "DQN_Reset_Head":
-                ax_idxs = [3]
-            elif alg == "DQN_Shrink_and_Perturb":
-                ax_idxs = [4]
-            elif alg == "DQN_Hare_and_Tortoise":
-                ax_idxs = [5]
-            elif alg == "PPO":
-                ax_idxs = [6]
-            elif alg == "PPO_CB":
-                ax_idxs = [7]
+            base = re.sub(r"_Freeze_[0-9]+[kM]", "", alg)
+            if alg not in SINGLE:
+                ax_idxs = [base_algs.index(base)]
             else:
-                ax_idxs = np.arange(len(axs))
+                ax_idxs = list(range(len(axs)))
 
             for i in ax_idxs:
                 ax = axs[i]
@@ -139,7 +155,7 @@ if __name__ == "__main__":
                     linewidth=1.0,
                 )
                 if alg not in SINGLE:
-                    ax.set_title(alg_label)
+                    ax.set_title(f"{base}")
                 if len(ys) >= 5:
                     ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
                 else:
@@ -157,28 +173,35 @@ if __name__ == "__main__":
                 ax.spines["top"].set_visible(False)
                 ax.spines["right"].set_visible(False)
 
-    for ax in axs:
-        if not ax.get_lines():
-            ax.set_visible(False)
-            continue
+        for ax in axs:
+            if not ax.get_lines():
+                ax.set_visible(False)
+                continue
 
-    legend_elements = []
-    aperture_keys = sorted([k for k in COLORS.keys() if isinstance(k, int)])
-    for ap in aperture_keys:
-        legend_elements.append(Line2D([0], [0], color=COLORS[ap], lw=2, label=f"FOV {ap}"))
+        legend_elements = []
+        color_keys = sorted([k for k in COLORS.keys() if isinstance(k, int)])
+        for color_key in color_keys:
+            label = f"Frozen @ {color_key}"
+            if color_key == -1:
+                label = "Not Frozen"
+            legend_elements.append(
+                Line2D([0], [0], color=COLORS[color_key], lw=2, label=label)
+            )
 
-    for k in SINGLE:
-        if k in COLORS:
-            legend_elements.append(Line2D([0], [0], color=COLORS[k], lw=2, label=k))
+        for k in SINGLE:
+            if k in COLORS:
+                legend_elements.append(Line2D([0], [0], color=COLORS[k], lw=2, label=k))
 
-    fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
+        fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
 
-    path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
-    save(
-        save_path=f"{path}/plots",
-        plot_name=env,
-        save_type="pdf",
-        f=fig,
-        width=ncols,
-        height_ratio=(nrows / ncols) * (2 / 3),
-    )
+        path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
+        save(
+            save_path=f"{path}/plots",
+            plot_name=f"{env}-{aperture}",
+            save_type="pdf",
+            f=fig,
+            # width=4 / 3,
+            # height_ratio=1 / 2,
+            width=ncols,
+            height_ratio=(nrows / ncols) * (2 / 3),
+        )

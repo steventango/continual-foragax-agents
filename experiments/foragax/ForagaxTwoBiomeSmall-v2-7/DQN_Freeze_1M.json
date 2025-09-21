@@ -1,0 +1,34 @@
+{
+    "agent": "DQN_Freeze_1M",
+    "problem": "Foragax",
+    "total_steps": 10000000,
+    "episode_cutoff": -1,
+    "metaParameters": {
+        "epsilon": 0.05,
+        "target_refresh": 1,
+        "buffer_size": 10000,
+        "buffer_min_size": 500,
+        "batch": 32,
+        "environment": {
+            "env_id": "ForagaxTwoBiomeSmall-v2",
+            "aperture_size": 7
+        },
+        "experiment": {
+            "seed_offset": 0
+        },
+        "gamma": 0.99,
+        "optimizer": {
+          "name": "Adam",
+          "alpha": 0.0001,
+          "beta1": 0.9,
+          "beta2": 0.999,
+          "eps": 0.01
+        },
+        "representation": {
+          "type": "Forager2Net",
+          "hidden": 64
+        },
+        "update_freq": 4,
+        "freeze_steps": 1000000
+    }
+}
