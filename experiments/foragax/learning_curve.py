@@ -71,6 +71,25 @@ if __name__ == "__main__":
         for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename
             print(f"{env_aperture} {alg}")
+            if alg not in {
+                "DQN",
+                "DQN_small_buffer",
+                "DQN_L2_Init",
+                "DQN_L2_Init_small_buffer",
+                "DQN_Freeze_100k",
+                "DQN_Freeze_100k_small_buffer",
+                "DQN_Freeze_1M",
+                "DQN_Freeze_1M_small_buffer",
+                "DQN_Freeze_5M",
+                "DQN_Freeze_5M_small_buffer",
+                "DQN_L2_Init_Freeze_100k",
+                "DQN_L2_Init_Freeze_100k_small_buffer",
+                "DQN_L2_Init_Freeze_1M",
+                "DQN_L2_Init_Freeze_1M_small_buffer",
+                "DQN_L2_Init_Freeze_5M",
+                "DQN_L2_Init_Freeze_5M_small_buffer",
+            } | SINGLE:
+                continue
 
             df = alg_result.load()
             if df is None:
@@ -110,34 +129,39 @@ if __name__ == "__main__":
                 label = alg
                 color = COLORS[label]
 
+            ax_idxs = []
             if alg == "DQN":
                 ax_idxs = [0]
-            elif alg == "DQN_L2_Init":
-                ax_idxs = [1]
-            elif alg == "DQN_LN":
-                ax_idxs = [2]
-            elif alg == "DQN_Reset_Head":
-                ax_idxs = [3]
-            elif alg == "DQN_Shrink_and_Perturb":
-                ax_idxs = [4]
-            elif alg == "DQN_Hare_and_Tortoise":
-                ax_idxs = [5]
-            elif alg == "PPO":
-                ax_idxs = [6]
-            elif alg == "PPO_CB":
-                ax_idxs = [7]
             elif alg == "DQN_Freeze_100k":
-                ax_idxs = [8]
+                ax_idxs = [1]
             elif alg == "DQN_Freeze_1M":
-                ax_idxs = [9]
+                ax_idxs = [2]
             elif alg == "DQN_Freeze_5M":
-                ax_idxs = [10]
+                ax_idxs = [3]
+            elif alg == "DQN_L2_Init":
+                ax_idxs = [4]
             elif alg == "DQN_L2_Init_Freeze_100k":
-                ax_idxs = [11]
+                ax_idxs = [5]
             elif alg == "DQN_L2_Init_Freeze_1M":
-                ax_idxs = [12]
+                ax_idxs = [6]
             elif alg == "DQN_L2_Init_Freeze_5M":
+                ax_idxs = [7]
+            elif alg == "DQN_small_buffer":
+                ax_idxs = [8]
+            elif alg == "DQN_Freeze_100k_small_buffer":
+                ax_idxs = [9]
+            elif alg == "DQN_Freeze_1M_small_buffer":
+                ax_idxs = [10]
+            elif alg == "DQN_Freeze_5M_small_buffer":
+                ax_idxs = [11]
+            elif alg == "DQN_L2_Init_small_buffer":
+                ax_idxs = [12]
+            elif alg == "DQN_L2_Init_Freeze_100k_small_buffer":
                 ax_idxs = [13]
+            elif alg == "DQN_L2_Init_Freeze_1M_small_buffer":
+                ax_idxs = [14]
+            elif alg == "DQN_L2_Init_Freeze_5M_small_buffer":
+                ax_idxs = [15]
             else:
                 ax_idxs = np.arange(len(axs))
 
