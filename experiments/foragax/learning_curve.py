@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 
 sys.path.append(os.getcwd() + "/src")
@@ -60,45 +61,36 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    nalgs = 1
+    nalgs = 4
     ncols = int(np.ceil(np.sqrt(nalgs))) if nalgs > 3 else nalgs
     nrows = int(np.ceil(nalgs / ncols)) if nalgs > 3 else 1
-    fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False)
-    axs = axs.flatten()
     env = "unknown"
     for env_aperture, sub_results in sorted(
         results.groupby_directory(level=2), key=lambda x: int(x[0].split("-")[-1])
     ):
         env, aperture = env_aperture.rsplit("-", 1)
         aperture = int(aperture)
-        if aperture != 3 and aperture != 15:
-            continue
+
+        fig, axs = plt.subplots(
+            nrows, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
+        )
+        axs = axs.flatten()
+
+        fig.suptitle(f"Aperture {aperture}")
+
+        base_algs = [
+            "DQN",
+            "DQN_small_buffer",
+            "DQN_L2_Init",
+            "DQN_L2_Init_small_buffer",
+        ]
 
         for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename
-            if aperture == 3:
-                if alg not in {
-                    # "DQN",
-                    "DQN_small_buffer",
-                    # "DQN_L2_Init",
-                    # "DQN_L2_Init_small_buffer",
-                    # "DQN_Freeze_100k",
-                    "DQN_Freeze_100k_small_buffer",
-                    # "DQN_Freeze_1M",
-                    "DQN_Freeze_1M_small_buffer",
-                    # "DQN_Freeze_5M",
-                    "DQN_Freeze_5M_small_buffer",
-                    # "DQN_L2_Init_Freeze_100k",
-                    # "DQN_L2_Init_Freeze_100k_small_buffer",
-                    # "DQN_L2_Init_Freeze_1M",
-                    # "DQN_L2_Init_Freeze_1M_small_buffer",
-                    # "DQN_L2_Init_Freeze_5M",
-                    # "DQN_L2_Init_Freeze_5M_small_buffer",
-                }:
-                    continue
-            else:
-                if alg not in SINGLE:
-                    continue
+            if not (
+                re.sub(r"_Freeze_[0-9]+[kM]", "", alg) in base_algs or alg in SINGLE
+            ):
+                continue
             print(f"{env_aperture} {alg}")
 
             freeze_step = -1
@@ -147,41 +139,11 @@ if __name__ == "__main__":
                 label = alg
                 color = COLORS[label]
 
-            ax_idxs = []
-            # if alg == "DQN":
-            #     ax_idxs = [0]
-            # elif alg == "DQN_Freeze_100k":
-            #     ax_idxs = [0]
-            # elif alg == "DQN_Freeze_1M":
-            #     ax_idxs = [0]
-            # elif alg == "DQN_Freeze_5M":
-            #     ax_idxs = [0]
-            # elif alg == "DQN_L2_Init":
-            #     ax_idxs = [1]
-            # elif alg == "DQN_L2_Init_Freeze_100k":
-            #     ax_idxs = [1]
-            # elif alg == "DQN_L2_Init_Freeze_1M":
-            #     ax_idxs = [1]
-            # elif alg == "DQN_L2_Init_Freeze_5M":
-            #     ax_idxs = [1]
-            if alg == "DQN_small_buffer":
-                ax_idxs = [0]
-            elif alg == "DQN_Freeze_100k_small_buffer":
-                ax_idxs = [0]
-            elif alg == "DQN_Freeze_1M_small_buffer":
-                ax_idxs = [0]
-            elif alg == "DQN_Freeze_5M_small_buffer":
-                ax_idxs = [0]
-            # elif alg == "DQN_L2_Init_small_buffer":
-            #     ax_idxs = [3]
-            # elif alg == "DQN_L2_Init_Freeze_100k_small_buffer":
-            #     ax_idxs = [3]
-            # elif alg == "DQN_L2_Init_Freeze_1M_small_buffer":
-            #     ax_idxs = [3]
-            # elif alg == "DQN_L2_Init_Freeze_5M_small_buffer":
-            #     ax_idxs = [3]
+            base = re.sub(r"_Freeze_[0-9]+[kM]", "", alg)
+            if alg not in SINGLE:
+                ax_idxs = [base_algs.index(base)]
             else:
-                ax_idxs = np.arange(len(axs))
+                ax_idxs = list(range(len(axs)))
 
             for i in ax_idxs:
                 ax = axs[i]
@@ -193,7 +155,7 @@ if __name__ == "__main__":
                     linewidth=1.0,
                 )
                 if alg not in SINGLE:
-                    ax.set_title(alg_label)
+                    ax.set_title(f"{base}")
                 if len(ys) >= 5:
                     ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
                 else:
@@ -211,33 +173,35 @@ if __name__ == "__main__":
                 ax.spines["top"].set_visible(False)
                 ax.spines["right"].set_visible(False)
 
-    for ax in axs:
-        if not ax.get_lines():
-            ax.set_visible(False)
-            continue
+        for ax in axs:
+            if not ax.get_lines():
+                ax.set_visible(False)
+                continue
 
-    legend_elements = []
-    color_keys = sorted([k for k in COLORS.keys() if isinstance(k, int)])
-    for color_key in color_keys:
-        label = f"Frozen @ {color_key}"
-        if color_key == -1:
-            label = "Not Frozen"
-        legend_elements.append(Line2D([0], [0], color=COLORS[color_key], lw=2, label=label))
+        legend_elements = []
+        color_keys = sorted([k for k in COLORS.keys() if isinstance(k, int)])
+        for color_key in color_keys:
+            label = f"Frozen @ {color_key}"
+            if color_key == -1:
+                label = "Not Frozen"
+            legend_elements.append(
+                Line2D([0], [0], color=COLORS[color_key], lw=2, label=label)
+            )
 
-    for k in SINGLE:
-        if k in COLORS:
-            legend_elements.append(Line2D([0], [0], color=COLORS[k], lw=2, label=k))
+        for k in SINGLE:
+            if k in COLORS:
+                legend_elements.append(Line2D([0], [0], color=COLORS[k], lw=2, label=k))
 
-    fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
+        fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
 
-    path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
-    save(
-        save_path=f"{path}/plots",
-        plot_name=env,
-        save_type="pdf",
-        f=fig,
-        width=4/3,
-        height_ratio=1/2,
-        # width=ncols,
-        # height_ratio=(nrows / ncols) * (2 / 3),
-    )
+        path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
+        save(
+            save_path=f"{path}/plots",
+            plot_name=f"{env}-{aperture}",
+            save_type="pdf",
+            f=fig,
+            # width=4 / 3,
+            # height_ratio=1 / 2,
+            width=ncols,
+            height_ratio=(nrows / ncols) * (2 / 3),
+        )
