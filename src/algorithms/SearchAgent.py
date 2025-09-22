@@ -49,10 +49,17 @@ class SearchAgent(BaseAgent):
             [self.channel_priorities.get(i, 0) for i in range(max_channel + 1)]
         )
         self.max_priority = max(self.channel_priorities.values())
+        self.mode = params.get("mode", "aperture")
         # priorities:
         # higher values = higher priority
         # zero = ignore
         # negative values = obstacles; avoid
+
+    def _get_world_position(self, obs: jax.Array) -> Tuple[jax.Array, jax.Array]:
+        """Get agent position from the last channel (world mode)."""
+        agent_channel = obs[:, :, -1]
+        agent_pos = jnp.argwhere(agent_channel > 0, size=1)[0]
+        return agent_pos[0], agent_pos[1]
 
     @partial(jax.jit, static_argnums=0)
     def act(
@@ -61,7 +68,11 @@ class SearchAgent(BaseAgent):
         obs: jax.Array,
     ) -> tuple[AgentState, jax.Array]:
         height, width, num_channels = obs.shape
-        center_y, center_x = height // 2, width // 2
+
+        if self.mode == "world":
+            center_y, center_x = self._get_world_position(obs)
+        else:
+            center_y, center_x = height // 2, width // 2
 
         # Create priority map: higher values = higher priority
         priority_map = jnp.zeros((height, width))
@@ -120,8 +131,8 @@ class SearchAgent(BaseAgent):
         self,
         key: jax.Array,
         priority_map: jax.Array,
-        start_y: int,
-        start_x: int,
+        start_y: jax.Array,
+        start_x: jax.Array,
         height: int,
         width: int,
     ) -> tuple[jax.Array, int]:
