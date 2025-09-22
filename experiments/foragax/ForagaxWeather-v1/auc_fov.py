@@ -76,7 +76,7 @@ if __name__ == "__main__":
     legend_handles = {}
 
     # group by aperture
-    for env, sub_results in results.groupby_directory(level=2):
+    for env, sub_results in results.groupby_directory(level=3):
         aperture = int(env.rsplit("-", 1)[-1])
         for alg_result in sub_results:
             alg = alg_result.filename
