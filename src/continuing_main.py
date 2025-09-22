@@ -154,13 +154,14 @@ n = exp.total_steps
 
 # render video of first env
 if args.video:
+    n = 1_000
     from gymnasium.utils.save_video import save_video
     first_glue = glues[0]
     first_idx = indices[0]
     first_state = first_glue._start(first_glue.state)[0]
 
-    video_length = 1_000
-    video_every = 100_000
+    video_length = 100
+    video_every = 100
 
     def video_step(state, _):
         frame = first_glue.environment.env.render(
@@ -188,12 +189,12 @@ if args.video:
         context = exp.buildSaveContext(first_idx, base=args.save_path)
         start_frame = video_every * (i + 1) - video_length
         end_frame = start_frame + video_length
-        video_path = context.resolve(f"videos/{first_idx}_{start_frame}_{end_frame}.mp4")
+        video_path = context.resolve(f"videos/{first_idx}")
         context.ensureExists(video_path, is_file=True)
         save_video(
             frames,
             video_path,
-            name_prefix="foragax",
+            name_prefix=f"{start_frame}_{end_frame}",
             fps=8,
         )
     exit(0)
