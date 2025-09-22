@@ -6,7 +6,7 @@
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxTwoBiome-v1",
-            "aperture_size": 15,
+            "aperture_size": 1,
             "observation_type": "world"
         },
         "channel_priorities": {
