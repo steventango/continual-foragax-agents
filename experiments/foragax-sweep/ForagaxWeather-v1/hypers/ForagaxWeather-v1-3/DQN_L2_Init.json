@@ -7,7 +7,7 @@
     "epsilon": 0.05,
     "experiment.seed_offset": 1000000,
     "gamma": 0.99,
-    "lambda_l2_init": 0.001,
+    "lambda_l2_init": 0.0001,
     "optimizer.alpha": 0.001,
     "optimizer.beta1": 0.9,
     "optimizer.beta2": 0.9,

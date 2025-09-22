@@ -14,6 +14,6 @@
     "optimizer.name": "Adam",
     "representation.hidden": 64,
     "representation.type": "Forager2LayerNormNet",
-    "target_refresh": 1,
+    "target_refresh": 128,
     "update_freq": 4
 }
