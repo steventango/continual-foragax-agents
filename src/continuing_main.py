@@ -154,13 +154,14 @@ n = exp.total_steps
 
 # render video of first env
 if args.video:
+    n = 1_000
     from gymnasium.utils.save_video import save_video
     first_glue = glues[0]
     first_idx = indices[0]
     first_state = first_glue._start(first_glue.state)[0]
 
-    video_length = 1_000
-    video_every = 100_000
+    video_length = 100
+    video_every = 100
 
     def video_step(state, _):
         frame = first_glue.environment.env.render(
@@ -188,12 +189,12 @@ if args.video:
         context = exp.buildSaveContext(first_idx, base=args.save_path)
         start_frame = video_every * (i + 1) - video_length
         end_frame = start_frame + video_length
-        video_path = context.resolve(f"videos/{first_idx}_{start_frame}_{end_frame}.mp4")
+        video_path = context.resolve(f"videos/{first_idx}")
         context.ensureExists(video_path, is_file=True)
         save_video(
             frames,
             video_path,
-            name_prefix="foragax",
+            name_prefix=f"{start_frame}_{end_frame}",
             fps=8,
         )
     exit(0)
@@ -212,12 +213,12 @@ datas["abs_td_error"] = np.empty((len(indices), n), dtype=np.float16)
 datas["loss"] = np.empty((len(indices), n), dtype=np.float16)
 
 
-def get_agent_metrics(agent_state):
+def get_agent_metrics(agent_state, batch_shape):
     """Safely extract metrics from agent state, handling different agent types."""
-    weight_change = 0.0
-    squared_td_error = 0.0
-    abs_td_error = 0.0
-    loss = 0.0
+    weight_change = jnp.zeros(batch_shape)
+    squared_td_error = jnp.zeros(batch_shape)
+    abs_td_error = jnp.zeros(batch_shape)
+    loss = jnp.zeros(batch_shape)
 
     if hasattr(agent_state, "metrics"):
         metrics = agent_state.metrics
@@ -237,7 +238,7 @@ if isinstance(glues[0].environment, Foragax):
     datas["pos"] = np.empty((len(indices), n, 2), dtype=np.int32)
     def get_data(carry, interaction):
         weight_change, squared_td_error, abs_td_error, loss = get_agent_metrics(
-            carry.agent_state
+            carry.agent_state, interaction.reward.shape
         )
         data = {
             "rewards": interaction.reward,
@@ -251,7 +252,7 @@ if isinstance(glues[0].environment, Foragax):
 else:
     def get_data(carry, interaction):
         weight_change, squared_td_error, abs_td_error, loss = get_agent_metrics(
-            carry.agent_state
+            carry.agent_state, interaction.reward.shape
         )
         data = {
             "rewards": interaction.reward,

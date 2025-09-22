@@ -1,0 +1,11 @@
+{
+    "channel_priorities.0": 1,
+    "channel_priorities.1": 0,
+    "channel_priorities.2": 0,
+    "channel_priorities.3": 0,
+    "environment.aperture_size": 1,
+    "environment.env_id": "ForagaxTwoBiome-v1",
+    "environment.observation_type": "world",
+    "experiment.seed_offset": 0,
+    "mode": "world"
+}

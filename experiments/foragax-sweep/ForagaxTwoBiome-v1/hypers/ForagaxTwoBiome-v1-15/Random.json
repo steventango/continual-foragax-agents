@@ -1,0 +1,5 @@
+{
+    "environment.aperture_size": 15,
+    "environment.env_id": "ForagaxTwoBiome-v1",
+    "experiment.seed_offset": 1000000
+}

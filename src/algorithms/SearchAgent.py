@@ -10,15 +10,6 @@ import utils.chex as cxu
 from algorithms.BaseAgent import BaseAgent
 from utils.queue import Queue, dequeue, enqueue
 
-DIRECTIONS = jnp.array(
-    [
-        [-1, 0],
-        [0, 1],
-        [1, 0],
-        [0, -1],
-    ]
-)
-
 
 @cxu.dataclass
 class AgentState:
@@ -42,11 +33,32 @@ class SearchAgent(BaseAgent):
         self.channel_priorities = {
             int(k): v for k, v in self.channel_priorities.items()
         }
+        max_channel = (
+            max(self.channel_priorities.keys()) if self.channel_priorities else 0
+        )
+        self.priorities_array = jnp.array(
+            [self.channel_priorities.get(i, 0) for i in range(max_channel + 1)]
+        )
         self.max_priority = max(self.channel_priorities.values())
+        self.mode = params.get("mode", "aperture")
         # priorities:
         # higher values = higher priority
         # zero = ignore
         # negative values = obstacles; avoid
+        self.directions = jnp.array(
+            [
+                [1, 0],
+                [0, 1],
+                [-1, 0],
+                [0, -1],
+            ]
+        )
+
+    def _get_world_position(self, obs: jax.Array) -> Tuple[jax.Array, jax.Array]:
+        """Get agent position from the last channel (world mode)."""
+        agent_channel = obs[:, :, -1]
+        agent_pos = jnp.argwhere(agent_channel > 0, size=1)[0]
+        return agent_pos[0], agent_pos[1]
 
     @partial(jax.jit, static_argnums=0)
     def act(
@@ -55,14 +67,27 @@ class SearchAgent(BaseAgent):
         obs: jax.Array,
     ) -> tuple[AgentState, jax.Array]:
         height, width, num_channels = obs.shape
-        center_y, center_x = height // 2, width // 2
+
+        if self.mode == "world":
+            center_y, center_x = self._get_world_position(obs)
+        else:
+            center_y, center_x = height // 2, width // 2
 
         # Create priority map: higher values = higher priority
         priority_map = jnp.zeros((height, width))
 
+        is_negative = jnp.any(obs < 0)
+        obs = (obs != 0).astype(jnp.int32)
+
+        priorities = self.priorities_array[:num_channels]
+        flipped_priorities = priorities[::-1]
+        use_priorities = jax.lax.cond(
+            is_negative, lambda: flipped_priorities, lambda: priorities
+        )
+
         # For each channel (object type), add its priority to locations where that object exists
         for channel in range(num_channels):
-            channel_priority = self.channel_priorities.get(channel, 0)
+            channel_priority = use_priorities[channel]
             priority_map += obs[:, :, channel] * channel_priority
 
         # Find the best target using BFS
@@ -93,10 +118,22 @@ class SearchAgent(BaseAgent):
         )
         state = replace(state, key=key)
 
-        # If no good action found, fall back to random
+        # If no good action found, fall back to random valid action
+        next_positions = (
+            jnp.array([center_y, center_x]) + self.directions
+        ) % jnp.array([height, width])
+        next_priorities = priority_map[next_positions[:, 0], next_positions[:, 1]]
+        valid_mask = next_priorities >= 0
+        probs = jnp.where(valid_mask, 1.0, 0.0)
         key, sample_key = jax.random.split(state.key)
         state = replace(state, key=key)
-        random_action = jax.random.choice(sample_key, self.actions)
+        random_action = jax.lax.cond(
+            jnp.sum(probs) > 0,
+            lambda: jax.random.choice(
+                sample_key, jnp.arange(4), p=probs / jnp.sum(probs)
+            ),
+            lambda: jax.random.choice(sample_key, jnp.arange(4)),
+        )
         action = jax.lax.select(best_action >= 0, best_action, random_action)
 
         return state, action
@@ -105,8 +142,8 @@ class SearchAgent(BaseAgent):
         self,
         key: jax.Array,
         priority_map: jax.Array,
-        start_y: int,
-        start_x: int,
+        start_y: jax.Array,
+        start_x: jax.Array,
         height: int,
         width: int,
     ) -> tuple[jax.Array, int]:
@@ -135,27 +172,24 @@ class SearchAgent(BaseAgent):
 
                 new_key, sample_key = jax.random.split(key)
                 shuffled_indices = jax.random.permutation(
-                    sample_key, jnp.arange(DIRECTIONS.shape[0])
+                    sample_key, jnp.arange(self.directions.shape[0])
                 )
 
                 def loop_body(i, loop_carry):
                     queue, visited, best_actions = loop_carry
                     direction_idx = shuffled_indices[i]
-                    neighbor = node + DIRECTIONS[direction_idx]
-                    ny, nx = neighbor
+                    neighbor = node + self.directions[direction_idx]
+                    wrapped_neighbor = neighbor % jnp.array([height, width])
+                    ny, nx = wrapped_neighbor
                     is_valid = (
-                        (0 <= ny)
-                        & (ny < height)
-                        & (0 <= nx)
-                        & (nx < width)
-                        & (priority_map[ny, nx] >= 0)  # not an obstacle
+                        (priority_map[ny, nx] >= 0)  # not an obstacle
                         & (~visited[ny, nx])  # not visited
                     )
 
                     def enqueue_fn(carry):
                         queue, visited, best_actions = carry
                         return (
-                            enqueue(queue, neighbor),
+                            enqueue(queue, wrapped_neighbor),
                             visited.at[ny, nx].set(True),
                             best_actions.at[ny, nx].set(direction_idx),
                         )
@@ -169,7 +203,11 @@ class SearchAgent(BaseAgent):
                     return queue, visited, best_actions
 
                 queue, visited, best_actions = jax.lax.fori_loop(
-                    0, DIRECTIONS.shape[0], loop_body, (queue, visited, best_actions), unroll=True
+                    0,
+                    self.directions.shape[0],
+                    loop_body,
+                    (queue, visited, best_actions),
+                    unroll=True,
                 )
                 return queue, visited, best_actions, jnp.array([-1, -1]), new_key
 
@@ -208,9 +246,11 @@ class SearchAgent(BaseAgent):
             current, _ = carry
             action = actions[current[0], current[1]]
             # Move to the parent node
-            prev = current - DIRECTIONS[action]
+            prev = current - self.directions[action]
+            # Wrap the previous position
+            prev_wrapped = prev % jnp.array([actions.shape[0], actions.shape[1]])
             # The action we want is the one that led from the parent to the current node
-            return prev, action
+            return prev_wrapped, action
 
         initial_carry = (target, -1)
 
