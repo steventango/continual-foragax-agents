@@ -28,6 +28,8 @@ def read_metrics_from_data(
     run_ids: Iterable[int] | None = None,
     sample: int | None = 500,
     sample_type: str = "every",
+    start: int | None = None,
+    end: int | None = None,
 ):
     if run_ids is None:
         run_id_paths = {}
@@ -65,6 +67,10 @@ def read_metrics_from_data(
             )
         ):
             datas[run_id] = calculate_biome_occupancy(datas[run_id])
+        if start is not None or end is not None:
+            start_idx = start if start is not None else 0
+            length = (end - start_idx) if end is not None else None
+            datas[run_id] = datas[run_id].slice(start_idx, length)
         if sample is None:
             continue
         if sample_type == "every":
@@ -87,6 +93,8 @@ def load_all_results_from_data(
     ids: Iterable[int] | None = None,
     sample: int | None = 500,
     sample_type: str = "every",
+    start: int | None = None,
+    end: int | None = None,
 ):
     con = sqlite3.connect(db_path)
     cur = con.cursor()
@@ -95,7 +103,9 @@ def load_all_results_from_data(
     if metrics is None:
         metrics = tables - {"_metadata_"}
 
-    df = read_metrics_from_data(data_path, metrics, ids, sample, sample_type)
+    df = read_metrics_from_data(
+        data_path, metrics, ids, sample, sample_type, start, end
+    )
 
     if "_metadata_" not in tables:
         return df
@@ -125,6 +135,8 @@ class Result(Generic[Exp]):
         self,
         sample: int = 500,
         sample_type: str = "every",
+        start: int | None = None,
+        end: int | None = None,
     ):
         db_path = self.exp.buildSaveContext(0).resolve("results.db")
         data_path = self.exp.buildSaveContext(0).resolve("data")
@@ -133,7 +145,7 @@ class Result(Generic[Exp]):
             if not Path(data_path).exists():
                 return None
             df = read_metrics_from_data(
-                data_path, self.metrics, None, sample, sample_type
+                data_path, self.metrics, None, sample, sample_type, start, end
             )
             df = df.with_columns(
                 pl.col("id").alias("seed"),
@@ -152,10 +164,14 @@ class Result(Generic[Exp]):
             run_ids,
             sample,
             sample_type,
+            start,
+            end,
         )
         return df
 
-    def load_by_params(self, params: dict):
+    def load_by_params(
+        self, params: dict, start: int | None = None, end: int | None = None
+    ):
         db_path = self.exp.buildSaveContext(0).resolve("results.db")
         data_path = self.exp.buildSaveContext(0).resolve("data")
 
@@ -168,6 +184,8 @@ class Result(Generic[Exp]):
             db_path,
             self.metrics,
             run_ids,
+            start=start,
+            end=end,
         )
         return df
 

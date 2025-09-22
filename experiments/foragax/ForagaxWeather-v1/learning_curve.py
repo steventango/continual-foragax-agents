@@ -75,7 +75,7 @@ if __name__ == "__main__":
         if env_aperture_temp.endswith("-15"):
             for alg_result in sub_results_temp:
                 if alg_result.filename in SINGLE:
-                    df = alg_result.load()
+                    df = alg_result.load(start=int(9e6))
                     if df is not None:
                         cols = set(dd.hyper_cols).intersection(df.columns)
                         hyper_vals = {col: df[col][0] for col in cols}
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             alg = alg_result.filename
             print(f"{env_aperture} {alg}")
 
-            df = alg_result.load()
+            df = alg_result.load(start=int(9e6))
             if df is None:
                 continue
 
