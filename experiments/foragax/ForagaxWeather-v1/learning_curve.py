@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 
@@ -33,7 +34,6 @@ COLORS = {
     15: colorset.purple,
     "Search-Oracle": colorset.wine,
     "Search-Nearest": colorset.green,
-    "Search-Oyster": tc.colorsets["light"].pear,
     "Random": "black",
 }
 
@@ -44,11 +44,15 @@ SINGLE = {
     "Search-Oyster",
 }
 
-NORMALIZE = False
 
 
 if __name__ == "__main__":
-    ylabel = "Normalized Reward" if NORMALIZE else "Average Reward"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--normalize", action="store_true", help="Normalize rewards")
+    args = parser.parse_args()
+
+    NORMALIZE = args.normalize
+    ylabel = "Normalized Reward" if args.normalize else "Average Reward"
 
     results = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
     dd = data_definition(
@@ -60,7 +64,38 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    nalgs = 8
+    # Pre-load Search-Oracle from aperture 15
+    oracle_ys = None
+    oracle_xs = None
+    for env_aperture_temp, sub_results_temp in sorted(
+        results.groupby_directory(level=3), key=lambda x: int(x[0].split("-")[-1])
+    ):
+        if env_aperture_temp.endswith("-15"):
+            for alg_result in sub_results_temp:
+                if alg_result.filename == "Search-Oracle":
+                    df = alg_result.load()
+                    if df is not None:
+                        cols = set(dd.hyper_cols).intersection(df.columns)
+                        hyper_vals = {col: df[col][0] for col in cols}
+
+                        xs, ys = extract_learning_curves(
+                            df,
+                            hyper_vals=hyper_vals,
+                            metric="ewm_reward",
+                        )
+
+                        xs = np.asarray(xs)
+                        ys = np.asarray(ys)
+                        mask = xs[0] > 1000
+                        xs = xs[:, mask]
+                        ys = ys[:, mask]
+
+                        oracle_xs = xs
+                        oracle_ys = ys
+                    break
+            break
+
+    nalgs = 3
     ncols = int(np.ceil(np.sqrt(nalgs))) if nalgs > 3 else nalgs
     nrows = int(np.ceil(nalgs / ncols)) if nalgs > 3 else 1
     fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained")
@@ -71,8 +106,6 @@ if __name__ == "__main__":
     ):
         env, aperture = env_aperture.rsplit("-", 1)
         aperture = int(aperture)
-        if aperture != 9:
-            continue
 
         # Collect all ys for this env_aperture
         alg_ys = {}
@@ -107,9 +140,14 @@ if __name__ == "__main__":
             alg_xs[alg] = xs
             alg_ys[alg] = ys
 
+        # Add pre-loaded Search-Oracle
+        if oracle_ys is not None:
+            alg_ys["Search-Oracle"] = oracle_ys
+            alg_xs["Search-Oracle"] = oracle_xs
+
         # Normalize if requested
-        if NORMALIZE and "Search-Oracle" in alg_ys:
-            baseline_ys = alg_ys["Search-Oracle"]
+        if args.normalize:
+            baseline_ys = oracle_ys
             for alg in alg_ys:
                 alg_ys[alg] = alg_ys[alg] / baseline_ys
 
@@ -179,11 +217,6 @@ if __name__ == "__main__":
 
                 ax.spines["top"].set_visible(False)
                 ax.spines["right"].set_visible(False)
-                if NORMALIZE:
-                    all_ys = np.concatenate(list(alg_ys.values()))
-                    lower = np.nanpercentile(all_ys, 1)
-                    upper = np.nanpercentile(all_ys, 99)
-                    ax.set_ylim(lower, upper)
 
     for ax in axs:
         if not ax.get_lines():
@@ -204,7 +237,7 @@ if __name__ == "__main__":
     path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
     save(
         save_path=f"{path}/plots",
-        plot_name=env,
+        plot_name=f"{env}_normalized" if NORMALIZE else env,
         save_type="pdf",
         f=fig,
         width=ncols,
