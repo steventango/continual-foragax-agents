@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+from collections import defaultdict
 
 sys.path.append(os.getcwd() + "/src")
 import matplotlib.pyplot as plt
@@ -64,15 +65,16 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    # Pre-load Search-Oracle from aperture 15
-    oracle_ys = None
-    oracle_xs = None
+    data = defaultdict(dict)
+
+    # Pre-load baselines from aperture 15
+    baseline_data = {}
     for env_aperture_temp, sub_results_temp in sorted(
         results.groupby_directory(level=3), key=lambda x: int(x[0].split("-")[-1])
     ):
         if env_aperture_temp.endswith("-15"):
             for alg_result in sub_results_temp:
-                if alg_result.filename == "Search-Oracle":
+                if alg_result.filename in SINGLE:
                     df = alg_result.load()
                     if df is not None:
                         cols = set(dd.hyper_cols).intersection(df.columns)
@@ -90,16 +92,9 @@ if __name__ == "__main__":
                         xs = xs[:, mask]
                         ys = ys[:, mask]
 
-                        oracle_xs = xs
-                        oracle_ys = ys
-                    break
+                        baseline_data[alg_result.filename] = (xs, ys)
             break
 
-    nalgs = 3
-    ncols = int(np.ceil(np.sqrt(nalgs))) if nalgs > 3 else nalgs
-    nrows = int(np.ceil(nalgs / ncols)) if nalgs > 3 else 1
-    fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained")
-    axs = axs.flatten()
     env = "unknown"
     for env_aperture, sub_results in sorted(
         results.groupby_directory(level=3), key=lambda x: int(x[0].split("-")[-1])
@@ -140,67 +135,48 @@ if __name__ == "__main__":
             alg_xs[alg] = xs
             alg_ys[alg] = ys
 
-        # Add pre-loaded Search-Oracle
-        if oracle_ys is not None:
-            alg_ys["Search-Oracle"] = oracle_ys
-            alg_xs["Search-Oracle"] = oracle_xs
+        # Add pre-loaded baselines
+        for baseline, (xs, ys) in baseline_data.items():
+            alg_ys[baseline] = ys
+            alg_xs[baseline] = xs
 
         # Normalize if requested
         if args.normalize:
-            baseline_ys = oracle_ys
-            for alg in alg_ys:
-                alg_ys[alg] = alg_ys[alg] / baseline_ys
+            if "Search-Oracle" in baseline_data:
+                baseline_ys = baseline_data["Search-Oracle"][1]
+                for alg in alg_ys:
+                    alg_ys[alg] = alg_ys[alg] / baseline_ys
 
-        # Now plot
-        for alg in alg_ys:
-            ys = alg_ys[alg]
-            xs = alg_xs[alg]
+        data[int(aperture)] = {alg: (alg_xs[alg], alg_ys[alg]) for alg in alg_ys}
 
-            res = curve_percentile_bootstrap_ci(
-                rng=np.random.default_rng(0),
-                y=ys,
-                statistic=Statistic.mean,
-                iterations=10000,
-            )
-            if alg not in SINGLE:
-                alg_label = LABEL_MAP.get(alg, alg)
-                label = None
+    unique_apertures = sorted(data.keys())
+    unique_algs = sorted(
+        set(alg for d in data.values() for alg in d.keys() if alg not in SINGLE)
+    )
+    nrows = len(unique_apertures)
+    ncols = len(unique_algs)
+    fig, axs = plt.subplots(
+        nrows, ncols, sharex=True, sharey=True, layout="constrained"
+    )
+
+    for i, aperture in enumerate(unique_apertures):
+        for j, alg in enumerate(unique_algs):
+            ax = axs[i, j]
+            if alg not in SINGLE and alg in data[aperture]:
+                xs, ys = data[aperture][alg]
+                res = curve_percentile_bootstrap_ci(
+                    rng=np.random.default_rng(0),
+                    y=ys,
+                    statistic=Statistic.mean,
+                    iterations=10000,
+                )
                 color = COLORS[aperture]
-            else:
-                alg_label = alg
-                label = alg
-                color = COLORS[label]
-
-            if alg == "DQN":
-                ax_idxs = [0]
-            elif alg == "DQN_L2_Init":
-                ax_idxs = [1]
-            elif alg == "DQN_LN":
-                ax_idxs = [2]
-            elif alg == "DQN_Reset_Head":
-                ax_idxs = [3]
-            elif alg == "DQN_Shrink_and_Perturb":
-                ax_idxs = [4]
-            elif alg == "DQN_Hare_and_Tortoise":
-                ax_idxs = [5]
-            elif alg == "PPO":
-                ax_idxs = [6]
-            elif alg == "PPO_CB":
-                ax_idxs = [7]
-            else:
-                ax_idxs = np.arange(len(axs))
-
-            for i in ax_idxs:
-                ax = axs[i]
                 ax.plot(
                     xs[0],
                     res.sample_stat,
-                    label=label,
                     color=color,
                     linewidth=1.0,
                 )
-                if alg not in SINGLE:
-                    ax.set_title(alg_label)
                 if len(ys) >= 5:
                     ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
                 else:
@@ -210,18 +186,54 @@ if __name__ == "__main__":
                 ax.ticklabel_format(
                     axis="x", style="sci", scilimits=(0, 0), useMathText=True
                 )
-                if i % ncols == 0:
-                    ax.set_ylabel(ylabel)
-                if i // ncols == nrows - 1:
-                    ax.set_xlabel("Time steps")
-
                 ax.spines["top"].set_visible(False)
                 ax.spines["right"].set_visible(False)
 
-    for ax in axs:
-        if not ax.get_lines():
-            ax.set_visible(False)
-            continue
+            # Plot baselines on all subplots
+            for baseline in SINGLE:
+                if baseline in data[aperture]:
+                    xs_b, ys_b = data[aperture][baseline]
+                    res_b = curve_percentile_bootstrap_ci(
+                        rng=np.random.default_rng(0),
+                        y=ys_b,
+                        statistic=Statistic.mean,
+                        iterations=10000,
+                    )
+                    color_b = COLORS[baseline]
+                    linestyle = "--" if baseline != alg else "-"
+                    ax.plot(
+                        xs_b[0],
+                        res_b.sample_stat,
+                        color=color_b,
+                        linewidth=1.0,
+                        linestyle=linestyle,
+                    )
+                    if len(ys_b) >= 5:
+                        ax.fill_between(
+                            xs_b[0], res_b.ci[0], res_b.ci[1], color=color_b, alpha=0.2
+                        )
+                    else:
+                        for y in ys_b:
+                            ax.plot(
+                                xs_b[0],
+                                y,
+                                color=color_b,
+                                linewidth=0.2,
+                                linestyle=linestyle,
+                            )
+
+                    ax.ticklabel_format(
+                        axis="x", style="sci", scilimits=(0, 0), useMathText=True
+                    )
+                    ax.spines["top"].set_visible(False)
+                    ax.spines["right"].set_visible(False)
+
+            if i == 0:
+                ax.set_title(LABEL_MAP.get(alg, alg))
+            if j == 0:
+                ax.set_ylabel(f"FOV {aperture}")
+            if i == nrows - 1:
+                ax.set_xlabel("Time steps")
 
     legend_elements = []
     aperture_keys = sorted([k for k in COLORS.keys() if isinstance(k, int)])
@@ -230,7 +242,9 @@ if __name__ == "__main__":
 
     for k in SINGLE:
         if k in COLORS:
-            legend_elements.append(Line2D([0], [0], color=COLORS[k], lw=2, label=k))
+            legend_elements.append(
+                Line2D([0], [0], color=COLORS[k], lw=2, linestyle="--", label=k)
+            )
 
     fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
 
