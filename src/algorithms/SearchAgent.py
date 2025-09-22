@@ -118,10 +118,22 @@ class SearchAgent(BaseAgent):
         )
         state = replace(state, key=key)
 
-        # If no good action found, fall back to random
+        # If no good action found, fall back to random valid action
+        next_positions = (
+            jnp.array([center_y, center_x]) + self.directions
+        ) % jnp.array([height, width])
+        next_priorities = priority_map[next_positions[:, 0], next_positions[:, 1]]
+        valid_mask = next_priorities >= 0
+        probs = jnp.where(valid_mask, 1.0, 0.0)
         key, sample_key = jax.random.split(state.key)
         state = replace(state, key=key)
-        random_action = jax.random.choice(sample_key, self.actions)
+        random_action = jax.lax.cond(
+            jnp.sum(probs) > 0,
+            lambda: jax.random.choice(
+                sample_key, jnp.arange(4), p=probs / jnp.sum(probs)
+            ),
+            lambda: jax.random.choice(sample_key, jnp.arange(4)),
+        )
         action = jax.lax.select(best_action >= 0, best_action, random_action)
 
         return state, action
