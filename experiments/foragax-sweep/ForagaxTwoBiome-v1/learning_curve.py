@@ -1,5 +1,7 @@
+import json
 import os
 import sys
+from pathlib import Path
 
 sys.path.append(os.getcwd() + "/src")
 import matplotlib.pyplot as plt
@@ -44,13 +46,10 @@ SINGLE = {
     "Search-Oyster",
 }
 
-NORMALIZE = False
-
 
 if __name__ == "__main__":
-    ylabel = "Normalized Reward" if NORMALIZE else "Average Reward"
-
     results = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
+    results.paths = [path for path in results.paths if "hypers" not in path]
     dd = data_definition(
         hyper_cols=results.get_hyperparameter_columns(),
         seed_col="seed",
@@ -60,30 +59,34 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    nalgs = 8
+    nalgs = 5
     ncols = int(np.ceil(np.sqrt(nalgs))) if nalgs > 3 else nalgs
     nrows = int(np.ceil(nalgs / ncols)) if nalgs > 3 else 1
     fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained")
     axs = axs.flatten()
     env = "unknown"
     for env_aperture, sub_results in sorted(
-        results.groupby_directory(level=3), key=lambda x: int(x[0].split("-")[-1])
+        results.groupby_directory(level=2), key=lambda x: int(x[0].split("-")[-1])
     ):
         env, aperture = env_aperture.rsplit("-", 1)
         aperture = int(aperture)
-        if aperture != 9:
-            continue
-
-        # Collect all ys for this env_aperture
-        alg_ys = {}
-        alg_xs = {}
         for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename
             print(f"{env_aperture} {alg}")
 
-            df = alg_result.load()
+            exp_path = Path(alg_result.exp_path)
+            best_configuration_path = (
+                exp_path.parent.parent / "hypers" / exp_path.parent.name / exp_path.name
+            )
+            if not best_configuration_path.exists():
+                continue
+            with open(best_configuration_path) as f:
+                best_configuration = json.load(f)
+
+            df = alg_result.load_by_params(best_configuration)
             if df is None:
                 continue
+            df = df.sort("id", "frame")
 
             cols = set(dd.hyper_cols).intersection(df.columns)
             hyper_vals = {col: df[col][0] for col in cols}
@@ -103,20 +106,6 @@ if __name__ == "__main__":
             ys = ys[:, mask]
             print(ys.shape)
             assert np.all(np.isclose(xs[0], xs))
-
-            alg_xs[alg] = xs
-            alg_ys[alg] = ys
-
-        # Normalize if requested
-        if NORMALIZE and "Search-Oracle" in alg_ys:
-            baseline_ys = alg_ys["Search-Oracle"]
-            for alg in alg_ys:
-                alg_ys[alg] = alg_ys[alg] / baseline_ys
-
-        # Now plot
-        for alg in alg_ys:
-            ys = alg_ys[alg]
-            xs = alg_xs[alg]
 
             res = curve_percentile_bootstrap_ci(
                 rng=np.random.default_rng(0),
@@ -139,16 +128,10 @@ if __name__ == "__main__":
                 ax_idxs = [1]
             elif alg == "DQN_LN":
                 ax_idxs = [2]
-            elif alg == "DQN_Reset_Head":
+            elif alg == "DQN_small_buffer":
                 ax_idxs = [3]
-            elif alg == "DQN_Shrink_and_Perturb":
+            elif alg == "DQN_L2_Init_small_buffer":
                 ax_idxs = [4]
-            elif alg == "DQN_Hare_and_Tortoise":
-                ax_idxs = [5]
-            elif alg == "PPO":
-                ax_idxs = [6]
-            elif alg == "PPO_CB":
-                ax_idxs = [7]
             else:
                 ax_idxs = np.arange(len(axs))
 
@@ -173,17 +156,12 @@ if __name__ == "__main__":
                     axis="x", style="sci", scilimits=(0, 0), useMathText=True
                 )
                 if i % ncols == 0:
-                    ax.set_ylabel(ylabel)
+                    ax.set_ylabel("Average Reward")
                 if i // ncols == nrows - 1:
                     ax.set_xlabel("Time steps")
 
                 ax.spines["top"].set_visible(False)
                 ax.spines["right"].set_visible(False)
-                if NORMALIZE:
-                    all_ys = np.concatenate(list(alg_ys.values()))
-                    lower = np.nanpercentile(all_ys, 1)
-                    upper = np.nanpercentile(all_ys, 99)
-                    ax.set_ylim(lower, upper)
 
     for ax in axs:
         if not ax.get_lines():
