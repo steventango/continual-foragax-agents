@@ -1,7 +1,11 @@
 import os
 import sys
 
-sys.path.append(os.getcwd() + "/src")
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[2]
+SRC_PATH = ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,12 +27,18 @@ COLORS = {
     # "DRQN-3": "#00ffff",
     # "DRQN-5": "#3ddcff",
     # "DRQN-7": "#57abff",
-    "DQN-5": "#00ffff",
-    "ATAADRQN-5": "#3ddcff",
-    "AADRQN-5":  "#57abff",  # Turquoise
-    "DRQN-5":  "#8b8cff",  # Light sea green
-    "DQN-taper-15": "#b260ff",  # Teal
-    "DQN-15": "#d72dff",  # Deep teal
+    # "DQN-5": "#00ffff",
+    "ATAADRQN-3": "#3ddcff",
+    "AADRQN-3":  "#57abff",  # Turquoise
+    "DRQN-3":  "#8b8cff",  # Light sea green
+    "ATAADRQN-7": "#1f77b4",        # Muted blue
+    "AADRQN-7": "#2ca02c",     # Muted green
+    "DRQN-7": "#d62728",   # Muted red
+    "ATAADRQN-11": "#9467bd",      # Muted purple
+    "AADRQN-11": "#ff7f0e", # Muted orange
+    "DRQN-11": "#8c564b", # Muted brown
+    # "DQN-taper-15": "#b260ff",  # Teal
+    # "DQN-15": "#d72dff",  # Deep teal
     # "ATAADRQN-long-15": "#00ffff",
     # "ATAADRQN-15": "#008080",  # Teal
     # "AADRQN-long-15": "#e6ac00",  # Deep goldenrod
@@ -55,6 +65,8 @@ if __name__ == "__main__":
     )
 
     fig, ax = plt.subplots(1, 1)
+    
+    ax.axhline(y=1.2, label="Oracle", color="black")  # Muted purple
 
     env = "unknown"
     for env_aperture, sub_results in sorted(
