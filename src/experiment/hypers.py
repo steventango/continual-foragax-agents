@@ -18,6 +18,8 @@ def update_best_config(alg: str, report: HyperSelectionResult, exp_path: Path):
             config = json.load(f)
     else:
         config = sweep_config.copy()
+        config["total_steps"] = int(1e7)
+        config["metaParameters"]["experiment"]["seed_offset"] = 0
 
     for config_param, best_config in report.best_configuration.items():
         if pd.isnull(best_config):
@@ -36,6 +38,7 @@ def update_best_config(alg: str, report: HyperSelectionResult, exp_path: Path):
             best_config = float(best_config)
         curr[parts[-1]] = best_config
 
+    path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         json.dump(config, f, indent=4)
 
