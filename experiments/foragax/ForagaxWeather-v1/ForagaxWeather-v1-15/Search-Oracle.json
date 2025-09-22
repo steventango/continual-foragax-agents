@@ -6,7 +6,8 @@
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxWeather-v1",
-            "aperture_size": 15
+            "aperture_size": 15,
+            "privileged": true
         },
         "channel_priorities": {
             "0": 2,
