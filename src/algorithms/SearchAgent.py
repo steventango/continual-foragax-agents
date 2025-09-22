@@ -10,15 +10,6 @@ import utils.chex as cxu
 from algorithms.BaseAgent import BaseAgent
 from utils.queue import Queue, dequeue, enqueue
 
-DIRECTIONS = jnp.array(
-    [
-        [-1, 0],
-        [0, 1],
-        [1, 0],
-        [0, -1],
-    ]
-)
-
 
 @cxu.dataclass
 class AgentState:
@@ -54,6 +45,14 @@ class SearchAgent(BaseAgent):
         # higher values = higher priority
         # zero = ignore
         # negative values = obstacles; avoid
+        self.directions = jnp.array(
+            [
+                [1, 0],
+                [0, 1],
+                [-1, 0],
+                [0, -1],
+            ]
+        )
 
     def _get_world_position(self, obs: jax.Array) -> Tuple[jax.Array, jax.Array]:
         """Get agent position from the last channel (world mode)."""
@@ -161,14 +160,13 @@ class SearchAgent(BaseAgent):
 
                 new_key, sample_key = jax.random.split(key)
                 shuffled_indices = jax.random.permutation(
-                    sample_key, jnp.arange(DIRECTIONS.shape[0])
+                    sample_key, jnp.arange(self.directions.shape[0])
                 )
 
                 def loop_body(i, loop_carry):
                     queue, visited, best_actions = loop_carry
                     direction_idx = shuffled_indices[i]
-                    neighbor = node + DIRECTIONS[direction_idx]
-                    ny, nx = neighbor
+                    neighbor = node + self.directions[direction_idx]
                     is_valid = (
                         (0 <= ny)
                         & (ny < height)
@@ -195,7 +193,11 @@ class SearchAgent(BaseAgent):
                     return queue, visited, best_actions
 
                 queue, visited, best_actions = jax.lax.fori_loop(
-                    0, DIRECTIONS.shape[0], loop_body, (queue, visited, best_actions), unroll=True
+                    0,
+                    self.directions.shape[0],
+                    loop_body,
+                    (queue, visited, best_actions),
+                    unroll=True,
                 )
                 return queue, visited, best_actions, jnp.array([-1, -1]), new_key
 
@@ -234,7 +236,7 @@ class SearchAgent(BaseAgent):
             current, _ = carry
             action = actions[current[0], current[1]]
             # Move to the parent node
-            prev = current - DIRECTIONS[action]
+            prev = current - self.directions[action]
             # The action we want is the one that led from the parent to the current node
             return prev, action
 
