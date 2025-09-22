@@ -167,19 +167,17 @@ class SearchAgent(BaseAgent):
                     queue, visited, best_actions = loop_carry
                     direction_idx = shuffled_indices[i]
                     neighbor = node + self.directions[direction_idx]
+                    wrapped_neighbor = neighbor % jnp.array([height, width])
+                    ny, nx = wrapped_neighbor
                     is_valid = (
-                        (0 <= ny)
-                        & (ny < height)
-                        & (0 <= nx)
-                        & (nx < width)
-                        & (priority_map[ny, nx] >= 0)  # not an obstacle
+                        (priority_map[ny, nx] >= 0)  # not an obstacle
                         & (~visited[ny, nx])  # not visited
                     )
 
                     def enqueue_fn(carry):
                         queue, visited, best_actions = carry
                         return (
-                            enqueue(queue, neighbor),
+                            enqueue(queue, wrapped_neighbor),
                             visited.at[ny, nx].set(True),
                             best_actions.at[ny, nx].set(direction_idx),
                         )
@@ -237,8 +235,10 @@ class SearchAgent(BaseAgent):
             action = actions[current[0], current[1]]
             # Move to the parent node
             prev = current - self.directions[action]
+            # Wrap the previous position
+            prev_wrapped = prev % jnp.array([actions.shape[0], actions.shape[1]])
             # The action we want is the one that led from the parent to the current node
-            return prev, action
+            return prev_wrapped, action
 
         initial_carry = (target, -1)
 
