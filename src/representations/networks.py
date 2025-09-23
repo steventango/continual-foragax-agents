@@ -166,6 +166,7 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 jax.nn.relu,
                 hk.Flatten(name="phi"),
             ]
+            layers += reluLayers([hidden, hidden], name="phi")
 
         elif name == "Forager2LayerNormNet":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
@@ -175,8 +176,8 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 jax.nn.relu,
                 hk.Flatten(name="phi"),
             ]
-            layers += reluLayers([hidden], name="phi")
-            
+            layers += reluLayers([hidden, hidden], name="phi", layer_norm=True)
+
         elif name == 'ForagerGRUNetReLU':
             # It uses initializer different from above
             net = ForagerGRUNetReLU(hidden=hidden, learn_initial_h=params.get('learn_initial_h', True), name='ForagerGRUNetReLU')
