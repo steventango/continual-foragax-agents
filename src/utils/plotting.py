@@ -1,3 +1,5 @@
+from typing import List, cast
+
 import matplotlib.pyplot as plt
 import numpy as np
 import tol_colors as tc
@@ -457,11 +459,11 @@ def label_line(
 def select_colors(n_colors: int):
     """Select a color palette based on the number of colors needed."""
     if n_colors <= 4:
-        color_list = tc.colorsets["high_contrast"][:n_colors]
+        color_list = list(tc.colorsets["high_contrast"][:n_colors])
     elif n_colors <= 6:
-        color_list = tc.colorsets["medium_contrast"][1 : n_colors + 1]
+        color_list = list(tc.colorsets["medium_contrast"][1 : n_colors + 1])
     elif n_colors <= 9:
-        color_list = tc.colorsets["muted"][:n_colors]
+        color_list = list(tc.colorsets["muted"][:n_colors])
     else:
-        color_list = tc.rainbow_discrete(n_colors).colors
+        color_list = cast(List, tc.rainbow_discrete(n_colors).colors)
     return color_list
