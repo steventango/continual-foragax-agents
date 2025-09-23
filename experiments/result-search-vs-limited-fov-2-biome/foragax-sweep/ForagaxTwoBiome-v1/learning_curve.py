@@ -6,7 +6,6 @@ from pathlib import Path
 sys.path.append(os.getcwd() + "/src")
 import matplotlib.pyplot as plt
 import numpy as np
-import tol_colors as tc
 from matplotlib.lines import Line2D
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
@@ -18,38 +17,38 @@ from rlevaluation.temporal import (
 
 from experiment.ExperimentModel import ExperimentModel
 from utils.constants import LABEL_MAP
+from utils.plotting import select_colors
 from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
 setFonts(20)
 
-colorset = tc.colorsets["medium_contrast"]
-
-COLORS = {
-    7: colorset[1],
-    "Search-Brown-Avoid-Green": colorset[2],
-    "Search-Brown": colorset[3],
-    "Search-Morel-Avoid-Green": colorset[4],
-    "Search-Morel": colorset[5],
-    "Search-Oracle": colorset[6],
-    "Search-Nearest": tc.colorsets["vibrant"].teal,
-    "Search-Oyster": tc.colorsets["vibrant"].orange,
-    "Random": colorset[7],
-}
-
-SINGLE = {
-    "Random",
-    "Search-Brown-Avoid-Green",
-    "Search-Brown",
-    "Search-Morel-Avoid-Green",
-    "Search-Morel",
-    "Search-Nearest",
-    "Search-Oracle",
-    "Search-Oyster",
-}
-
-
 if __name__ == "__main__":
+    # Collect all items that need colors
+    all_color_keys = set()
+
+    # Pre-scan to collect all algorithms and apertures that need colors
+    results_temp = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
+    results_temp.paths = [path for path in results_temp.paths if "hypers" not in path]
+
+    for _, sub_results in results_temp.groupby_directory(level=4):
+        for alg_result in sub_results:
+            alg = alg_result.filename
+            if "_B" in alg:
+                alg_base = alg.split("_B")[0]
+                all_color_keys.add(alg_base)
+            else:
+                all_color_keys.add(alg)
+
+    n_colors = len(all_color_keys)
+    color_list = select_colors(n_colors)
+
+    sorted_keys = sorted([k for k in all_color_keys if isinstance(k, str)])
+
+    COLORS = dict(zip(sorted_keys, color_list, strict=True))
+
+    SINGLE = {k for k in all_color_keys if isinstance(k, str)}
+
     results = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
     results.paths = [path for path in results.paths if "hypers" not in path]
     dd = data_definition(
@@ -208,10 +207,6 @@ if __name__ == "__main__":
             continue
 
     legend_elements = []
-    aperture_keys = sorted([k for k in COLORS.keys() if isinstance(k, int)])
-    for ap in aperture_keys:
-        legend_elements.append(Line2D([0], [0], color=COLORS[ap], lw=2, label=f"FOV {ap}"))
-
     for alg in SINGLE:
         if alg in COLORS:
             alg_label = LABEL_MAP.get(alg, alg)
