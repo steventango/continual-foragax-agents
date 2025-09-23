@@ -9,4 +9,4 @@ python scripts/slurm.py --cluster clusters/vulcan-cpu-4h.json --runs 30 --entry 
 python scripts/slurm.py --cluster clusters/vulcan-cpu-4h.json --runs 30 --entry src/continuing_main.py --force -e experiments/result-search-vs-limited-fov-2-biome/foragax/ForagaxTwoBiome-v1/Baselines/Search-Morel.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-1h.json --runs 30 --entry src/continuing_main.py --force -e experiments/result-search-vs-limited-fov-2-biome/foragax/ForagaxTwoBiome-v1/Baselines/Search-Nearest.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-4h.json --runs 30 --entry src/continuing_main.py --force -e experiments/result-search-vs-limited-fov-2-biome/foragax/ForagaxTwoBiome-v1/Baselines/Search-Oracle.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu-1g.json --runs 30 --entry src/continuing_main.py --force -e experiments/result-search-vs-limited-fov-2-biome/foragax/ForagaxTwoBiome-v1/Baselines/Search-Oyster.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-1h.json --runs 30 --entry src/continuing_main.py --force -e experiments/result-search-vs-limited-fov-2-biome/foragax/ForagaxTwoBiome-v1/Baselines/Search-Oyster.json
