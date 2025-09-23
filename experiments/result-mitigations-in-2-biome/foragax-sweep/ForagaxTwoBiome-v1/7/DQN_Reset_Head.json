@@ -1,7 +1,7 @@
 {
-    "agent": "DQN",
+    "agent": "DQN_Reset_Head",
     "problem": "Foragax",
-    "total_steps": 10000000,
+    "total_steps": 100000,
     "episode_cutoff": -1,
     "metaParameters": {
         "epsilon": 0.05,
@@ -49,6 +49,8 @@
         "update_freq": [
             1,
             4
-        ]
+        ],
+        "reset_steps": 10000,
+        "reset_head_only": true
     }
 }

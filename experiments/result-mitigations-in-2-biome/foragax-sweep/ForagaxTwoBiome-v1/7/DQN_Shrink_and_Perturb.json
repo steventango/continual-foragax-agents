@@ -1,7 +1,7 @@
 {
-    "agent": "DQN",
+    "agent": "DQN_Shrink_and_Perturb",
     "problem": "Foragax",
-    "total_steps": 10000000,
+    "total_steps": 100000,
     "episode_cutoff": -1,
     "metaParameters": {
         "epsilon": 0.05,
@@ -49,6 +49,15 @@
         "update_freq": [
             1,
             4
+        ],
+        "sp_steps": 10000,
+        "shrink_factor": [
+            0.8,
+            0.9
+        ],
+        "noise_scale": [
+            0.01,
+            0.001
         ]
     }
 }
