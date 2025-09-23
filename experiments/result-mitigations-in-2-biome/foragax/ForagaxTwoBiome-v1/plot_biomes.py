@@ -56,7 +56,7 @@ if __name__ == "__main__":
     )
 
     env_groups = {}
-    for env_aperture, sub_results in results.groupby_directory(level=3):
+    for env_aperture, sub_results in results.groupby_directory(level=4):
         env, aperture = env_aperture.rsplit("-", 1)
         env = ENV_MAP.get(env, env)
         aperture = int(aperture)
