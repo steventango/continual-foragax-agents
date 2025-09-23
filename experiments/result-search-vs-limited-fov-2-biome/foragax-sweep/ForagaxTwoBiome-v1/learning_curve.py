@@ -23,24 +23,18 @@ from utils.results import ResultCollection
 setDefaultConference("jmlr")
 setFonts(20)
 
-colorset = tc.colorsets["muted"]
+colorset = tc.colorsets["medium_contrast"]
 
 COLORS = {
-    3: colorset.rose,
-    5: colorset.indigo,
-    7: colorset.sand,
-    9: colorset.cyan,
-    11: colorset.teal,
-    13: colorset.olive,
-    15: colorset.purple,
-    "Search-Brown-Avoid-Green": tc.colorsets["light"].mint,
-    "Search-Brown": tc.colorsets["light"].orange,
-    "Search-Morel-Avoid-Green": tc.colorsets["light"].pink,
-    "Search-Morel": tc.colorsets["light"].pale_grey,
-    "Search-Oracle": colorset.wine,
-    "Search-Nearest": colorset.green,
-    "Search-Oyster": tc.colorsets["light"].pear,
-    "Random": "black",
+    7: colorset[1],
+    "Search-Brown-Avoid-Green": colorset[2],
+    "Search-Brown": colorset[3],
+    "Search-Morel-Avoid-Green": colorset[4],
+    "Search-Morel": colorset[5],
+    "Search-Oracle": colorset[6],
+    "Search-Nearest": tc.colorsets["vibrant"].teal,
+    "Search-Oyster": tc.colorsets["vibrant"].orange,
+    "Random": colorset[7],
 }
 
 SINGLE = {
@@ -67,25 +61,55 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    nalgs = 5
-    ncols = int(np.ceil(np.sqrt(nalgs))) if nalgs > 3 else nalgs
-    nrows = int(np.ceil(nalgs / ncols)) if nalgs > 3 else 1
-    fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained")
-    axs = axs.flatten()
-    env = "unknown"
-    for env_aperture, sub_results in sorted(
-        results.groupby_directory(level=4), key=lambda x: int(x[0].rsplit("-", 1)[-1])
+    # Collect unique algorithm bases and buffer sizes
+    unique_alg_bases = set()
+    unique_buffers = set()
+    for aperture_or_baseline, sub_results in sorted(
+        results.groupby_directory(level=4),
+        key=lambda x: (
+            0 if x[0].isdigit() else 1,
+            int(x[0].rsplit("-", 1)[-1]) if x[0].isdigit() else 0,
+        ),
     ):
-        env, aperture = env_aperture.rsplit("-", 1)
-        aperture = int(aperture)
+        if aperture_or_baseline.isdigit():
+            for alg_result in sub_results:
+                alg = alg_result.filename
+                if "_B" in alg:
+                    parts = alg.split("_B")
+                    alg_base = parts[0]
+                    buffer = int(parts[1])
+                    unique_alg_bases.add(alg_base)
+                    unique_buffers.add(buffer)
+    unique_alg_bases = sorted(unique_alg_bases)
+    unique_buffers = sorted(unique_buffers)
+
+    ncols = len(unique_alg_bases)
+    nrows = len(unique_buffers)
+    fig, axs = plt.subplots(
+        nrows, ncols, sharex=True, sharey="all", layout="constrained"
+    )
+    env = "unknown"
+    for aperture_or_baseline, sub_results in sorted(
+        results.groupby_directory(level=4),
+        key=lambda x: (
+            0 if x[0].isdigit() else 1,
+            int(x[0].rsplit("-", 1)[-1]) if x[0].isdigit() else 0,
+        ),
+    ):
+        aperture = None
+        if aperture_or_baseline.isdigit():
+            aperture = int(aperture_or_baseline)
+
         for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename
-            print(f"{env_aperture} {alg}")
+            print(f"{aperture_or_baseline} {alg}")
 
             exp_path = Path(alg_result.exp_path)
+            env = exp_path.parent.parent
             best_configuration_path = (
-                exp_path.parent.parent / "hypers" / exp_path.parent.name / exp_path.name
+                env / "hypers" / exp_path.parent.name / exp_path.name
             )
+            env = env.name
             if not best_configuration_path.exists():
                 continue
             with open(best_configuration_path) as f:
@@ -97,12 +121,12 @@ if __name__ == "__main__":
             df = df.sort("id", "frame")
 
             cols = set(dd.hyper_cols).intersection(df.columns)
-            hyper_vals = {col: df[col][0] for col in cols}
+            hyper_vals = {col: df[col][0] for col in cols}  # type: ignore
 
             exp = alg_result.exp
 
             xs, ys = extract_learning_curves(
-                df,
+                df,  # type: ignore
                 hyper_vals=hyper_vals,
                 metric="ewm_reward",
             )
@@ -121,57 +145,66 @@ if __name__ == "__main__":
                 statistic=Statistic.mean,
                 iterations=10000,
             )
-            if alg not in SINGLE:
-                alg_label = LABEL_MAP.get(alg, alg)
-                label = None
+            ax = axs[0]
+            if aperture:
+                alg_base = alg.split("_B")[0]
+                buffer = int(alg.split("_B")[1])
+                row = unique_buffers.index(buffer)
+                col = unique_alg_bases.index(alg_base)
+                ax = axs[row, col]
+                alg_label = LABEL_MAP.get(alg_base, alg_base)
                 color = COLORS[aperture]
             else:
                 alg_label = alg
-                label = alg
-                color = COLORS[label]
+                color = COLORS[alg]
 
-            if alg == "DQN":
-                ax_idxs = [0]
-            elif alg == "DQN_L2_Init":
-                ax_idxs = [1]
-            elif alg == "DQN_LN":
-                ax_idxs = [2]
-            elif alg == "DQN_small_buffer":
-                ax_idxs = [3]
-            elif alg == "DQN_L2_Init_small_buffer":
-                ax_idxs = [4]
-            else:
-                ax_idxs = np.arange(len(axs))
-
-            for i in ax_idxs:
-                ax = axs[i]
+            # Plot
+            if aperture:
+                # Plot on specific ax
                 ax.plot(
                     xs[0],
                     res.sample_stat,
-                    label=label,
                     color=color,
                     linewidth=1.0,
                 )
-                if alg not in SINGLE:
-                    ax.set_title(alg_label)
                 if len(ys) >= 5:
                     ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
                 else:
                     for y in ys:
                         ax.plot(xs[0], y, color=color, linewidth=0.2)
+            else:
+                # Plot on all axs
+                for ax in axs.flatten():
+                    ax.plot(
+                        xs[0],
+                        res.sample_stat,
+                        color=color,
+                        linewidth=1.0,
+                    )
+                    if len(ys) >= 5:
+                        ax.fill_between(
+                            xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2
+                        )
+                    else:
+                        for y in ys:
+                            ax.plot(xs[0], y, color=color, linewidth=0.2)
 
-                ax.ticklabel_format(
-                    axis="x", style="sci", scilimits=(0, 0), useMathText=True
-                )
-                if i % ncols == 0:
-                    ax.set_ylabel("Average Reward")
-                if i // ncols == nrows - 1:
-                    ax.set_xlabel("Time steps")
+    # Set titles and formatting
+    for i, ax in enumerate(axs.flatten()):
+        alg_base = unique_alg_bases[i % ncols]
+        alg_label = LABEL_MAP.get(alg_base, alg_base)
+        title = f"{alg_label}\n(Buffer Size {unique_buffers[i // ncols]})"
+        ax.set_title(title)
+        ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+        if i % ncols == 0:
+            ax.set_ylabel("Average Reward")
+        if i // ncols == nrows - 1:
+            ax.set_xlabel("Time steps")
 
-                ax.spines["top"].set_visible(False)
-                ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
-    for ax in axs:
+    for ax in axs.flatten():
         if not ax.get_lines():
             ax.set_visible(False)
             continue

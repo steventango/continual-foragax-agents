@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 sys.path.append(os.getcwd() + "/src")
@@ -23,26 +24,6 @@ from utils.results import ResultCollection
 setDefaultConference("jmlr")
 setFonts(20)
 
-colorset = tc.colorsets["muted"]
-
-COLORS = {
-    3: colorset.rose,
-    5: colorset.indigo,
-    7: colorset.sand,
-    9: colorset.cyan,
-    11: colorset.teal,
-    13: colorset.olive,
-    15: colorset.purple,
-    "Search-Brown-Avoid-Green": tc.colorsets["light"].mint,
-    "Search-Brown": tc.colorsets["light"].orange,
-    "Search-Morel-Avoid-Green": tc.colorsets["light"].pink,
-    "Search-Morel": tc.colorsets["light"].pale_grey,
-    "Search-Oracle": colorset.wine,
-    "Search-Nearest": colorset.green,
-    "Search-Oyster": tc.colorsets["light"].pear,
-    "Random": "black",
-}
-
 SINGLE = {
     "Random",
     "Search-Brown-Avoid-Green",
@@ -53,6 +34,19 @@ SINGLE = {
     "Search-Oracle",
     "Search-Oyster",
 }
+
+
+def select_colors(n_colors: int):
+    """Select a color palette based on the number of colors needed."""
+    if n_colors <= 4:
+        color_list = tc.colorsets["high_contrast"][:n_colors]
+    elif n_colors <= 6:
+        color_list = tc.colorsets["medium_contrast"][1 : n_colors + 1]
+    elif n_colors <= 9:
+        color_list = tc.colorsets["muted"][:n_colors]
+    else:
+        color_list = tc.rainbow_discrete(n_colors).colors
+    return color_list
 
 
 if __name__ == "__main__":
@@ -67,25 +61,60 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    nalgs = 5
-    ncols = int(np.ceil(np.sqrt(nalgs))) if nalgs > 3 else nalgs
-    nrows = int(np.ceil(nalgs / ncols)) if nalgs > 3 else 1
-    fig, axs = plt.subplots(nrows, ncols, sharex=True, sharey="all", layout="constrained")
+    # Collect unique algorithm bases and buffer sizes
+    unique_alg_bases = set()
+    unique_buffers = set()
+    for aperture_or_baseline, sub_results in sorted(
+        results.groupby_directory(level=4),
+        key=lambda x: (
+            0 if x[0].isdigit() else 1,
+            int(x[0].rsplit("-", 1)[-1]) if x[0].isdigit() else 0,
+        ),
+    ):
+        if aperture_or_baseline.isdigit():
+            for alg_result in sub_results:
+                alg = alg_result.filename
+                if "_B" in alg:
+                    parts = alg.split("_B")
+                    alg_base = parts[0]
+                    buffer = int(parts[1])
+                    unique_alg_bases.add(alg_base)
+                    unique_buffers.add(buffer)
+    unique_alg_bases = sorted(unique_alg_bases)
+    unique_buffers = sorted(unique_buffers)
+
+    ncols = len(unique_buffers)
+    nrows = 1
+    fig, axs = plt.subplots(
+        nrows, ncols, sharex=True, sharey="all", layout="constrained"
+    )
     axs = axs.flatten()
     env = "unknown"
-    for env_aperture, sub_results in sorted(
-        results.groupby_directory(level=4), key=lambda x: int(x[0].rsplit("-", 1)[-1])
+
+    # Collect data for plotting
+    buffer_data = defaultdict(list)
+
+    for aperture_or_baseline, sub_results in sorted(
+        results.groupby_directory(level=4),
+        key=lambda x: (
+            0 if x[0].isdigit() else 1,
+            int(x[0].rsplit("-", 1)[-1]) if x[0].isdigit() else 0,
+        ),
     ):
-        env, aperture = env_aperture.rsplit("-", 1)
-        aperture = int(aperture)
+        aperture = None
+        if aperture_or_baseline.isdigit():
+            aperture = int(aperture_or_baseline)
+
         for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename
-            print(f"{env_aperture} {alg}")
+            print(f"{aperture_or_baseline} {alg}")
 
             exp_path = Path(alg_result.exp_path)
+            env = exp_path.parent.parent
             best_configuration_path = (
-                exp_path.parent.parent / "hypers" / exp_path.parent.name / exp_path.name
+                env / "hypers" / exp_path.parent.name / exp_path.name
             )
+            env = env.name
             if not best_configuration_path.exists():
                 continue
             with open(best_configuration_path) as f:
@@ -97,12 +126,12 @@ if __name__ == "__main__":
             df = df.sort("id", "frame")
 
             cols = set(dd.hyper_cols).intersection(df.columns)
-            hyper_vals = {col: df[col][0] for col in cols}
+            hyper_vals = {col: df[col][0] for col in cols}  # type: ignore
 
             exp = alg_result.exp
 
             xs, ys = extract_learning_curves(
-                df,
+                df,  # type: ignore
                 hyper_vals=hyper_vals,
                 metric="ewm_reward",
             )
@@ -121,69 +150,69 @@ if __name__ == "__main__":
                 statistic=Statistic.mean,
                 iterations=10000,
             )
-            if alg not in SINGLE:
-                alg_label = LABEL_MAP.get(alg, alg)
-                label = None
-                color = COLORS[aperture]
+
+            if aperture:
+                alg_base = alg.split("_B")[0]
+                buffer = int(alg.split("_B")[1])
+                alg_label = LABEL_MAP.get(alg_base, alg_base)
+                buffer_data[buffer].append([alg_label, xs, ys, res, None])
             else:
                 alg_label = alg
-                label = alg
-                color = COLORS[label]
+                for buf in unique_buffers:
+                    buffer_data[buf].append([alg_label, xs, ys, res, None])
 
-            if alg == "DQN":
-                ax_idxs = [0]
-            elif alg == "DQN_L2_Init":
-                ax_idxs = [1]
-            elif alg == "DQN_LN":
-                ax_idxs = [2]
-            elif alg == "DQN_small_buffer":
-                ax_idxs = [3]
-            elif alg == "DQN_L2_Init_small_buffer":
-                ax_idxs = [4]
+    # Assign colors based on number of algorithms
+    all_algorithms = set()
+    for buffer in unique_buffers:
+        for item in buffer_data[buffer]:
+            all_algorithms.add(item[0])
+    n_colors = len(all_algorithms)
+    color_list = select_colors(n_colors)
+
+    color_map = dict(zip(sorted(all_algorithms), color_list, strict=True))  # type: ignore
+
+    # Update colors in buffer_data
+    for buffer in unique_buffers:
+        for item in buffer_data[buffer]:
+            item[4] = color_map[item[0]]
+
+    # Plot the data
+    for buffer in unique_buffers:
+        col = unique_buffers.index(buffer)
+        ax = axs[col]
+        for alg_label, xs, ys, res, color in buffer_data[buffer]:
+            ax.plot(
+                xs[0],
+                res.sample_stat,
+                color=color,
+                linewidth=1.0,
+                label=alg_label,
+            )
+            if len(ys) >= 5:
+                ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
             else:
-                ax_idxs = np.arange(len(axs))
+                for y in ys:
+                    ax.plot(xs[0], y, color=color, linewidth=0.2)
+        ax.set_title(f"Buffer Size {buffer}")
 
-            for i in ax_idxs:
-                ax = axs[i]
-                ax.plot(
-                    xs[0],
-                    res.sample_stat,
-                    label=label,
-                    color=color,
-                    linewidth=1.0,
-                )
-                if alg not in SINGLE:
-                    ax.set_title(alg_label)
-                if len(ys) >= 5:
-                    ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
-                else:
-                    for y in ys:
-                        ax.plot(xs[0], y, color=color, linewidth=0.2)
-
-                ax.ticklabel_format(
-                    axis="x", style="sci", scilimits=(0, 0), useMathText=True
-                )
-                if i % ncols == 0:
-                    ax.set_ylabel("Average Reward")
-                if i // ncols == nrows - 1:
-                    ax.set_xlabel("Time steps")
-
-                ax.spines["top"].set_visible(False)
-                ax.spines["right"].set_visible(False)
-
+    # Set formatting
     for ax in axs:
-        if not ax.get_lines():
-            ax.set_visible(False)
-            continue
+        ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+        ax.set_ylabel("Average Reward")
+        ax.set_xlabel("Time steps")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
-    legend_elements = []
-    aperture_keys = sorted([k for k in COLORS.keys() if isinstance(k, int)])
-    for ap in aperture_keys:
-        legend_elements.append(Line2D([0], [0], color=COLORS[ap], lw=2, label=f"FOV {ap}"))
+    # Create unified legend
+    legend_items = {}
+    for buffer in unique_buffers:
+        for alg_label, _, _, _, color in buffer_data[buffer]:
+            legend_items[alg_label] = color
 
-    for k in SINGLE:
-        if k in COLORS:
-            legend_elements.append(Line2D([0], [0], color=COLORS[k], lw=2, label=k))
+    legend_elements = [
+        Line2D([0], [0], color=color, lw=2, label=label)
+        for label, color in legend_items.items()
+    ]
 
     fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
 
