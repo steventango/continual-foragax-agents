@@ -5,7 +5,7 @@
     "time": "0:45:00",
     "gpus": 1,
     "cores": 1,
-    "mem_per_core": "8G",
+    "mem_per_core": "16G",
     "sequential": 1,
     "tasks_per_core": 32,
     "tasks_per_vmap": 32
