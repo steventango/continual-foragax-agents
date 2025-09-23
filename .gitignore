@@ -26,3 +26,5 @@ test.json
 build
 build/
 **.egg-info/
+
+venv.tar.xz
