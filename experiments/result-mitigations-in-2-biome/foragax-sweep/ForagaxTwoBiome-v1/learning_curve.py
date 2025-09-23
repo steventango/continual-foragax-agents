@@ -221,6 +221,6 @@ if __name__ == "__main__":
                 plot_name=f"{env}_aperture_{ap}_buffer_{buf}",
                 save_type="pdf",
                 f=fig,
-                width=1,
-                height_ratio=2 / 3,
+                width=4 / 3,
+                height_ratio=1 / 2,
             )
