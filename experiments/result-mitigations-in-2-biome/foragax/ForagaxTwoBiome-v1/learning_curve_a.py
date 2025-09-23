@@ -128,6 +128,7 @@ if __name__ == "__main__":
                 statistic=Statistic.mean,
                 iterations=10000,
             )
+            print(f"{np.mean(res.sample_stat):.3f}")
 
             if aperture:
                 alg_base = alg.split("_B")[0]
@@ -135,7 +136,7 @@ if __name__ == "__main__":
                 alg_label = LABEL_MAP.get(alg_base, alg_base)
                 buffer_data[buffer].append([alg_label, xs, ys, res, None])
             else:
-                alg_label = alg
+                alg_label = LABEL_MAP.get(alg, alg)
                 for buf in unique_buffers:
                     buffer_data[buf].append([alg_label, xs, ys, res, None])
 
