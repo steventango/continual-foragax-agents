@@ -1,6 +1,10 @@
 #!/bin/bash
 #SBATCH --time=00:30:00
 #SBATCH --account=aip-amw8
+#SBATCH --output=../slurm-%j.out
+#SBATCH --job-name=hypers_result-mitigations-in-2-biome_foragax-sweep_ForagaxTwoBiome-v1
+
+module load arrow/19
 
 tar -xf venv.tar.xz -C $SLURM_TMPDIR
 
