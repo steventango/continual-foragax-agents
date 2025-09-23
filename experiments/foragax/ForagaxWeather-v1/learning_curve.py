@@ -50,6 +50,13 @@ SINGLE = {
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--normalize", action="store_true", help="Normalize rewards")
+    parser.add_argument(
+        "--apertures",
+        nargs="+",
+        type=int,
+        default=[9],
+        help="List of apertures to plot",
+    )
     args = parser.parse_args()
 
     NORMALIZE = args.normalize
@@ -108,6 +115,8 @@ if __name__ == "__main__":
         for alg_result in sorted(sub_results, key=lambda x: x.filename):
             alg = alg_result.filename
             print(f"{env_aperture} {alg}")
+            if alg not in SINGLE and aperture not in args.apertures:
+                continue
 
             df = alg_result.load(start=int(9e6))
             if df is None:
@@ -150,13 +159,15 @@ if __name__ == "__main__":
         data[int(aperture)] = {alg: (alg_xs[alg], alg_ys[alg]) for alg in alg_ys}
 
     unique_apertures = sorted(data.keys())
+    if args.apertures:
+        unique_apertures = [a for a in unique_apertures if a in args.apertures]
     unique_algs = sorted(
         set(alg for d in data.values() for alg in d.keys() if alg not in SINGLE)
     )
     nrows = len(unique_apertures)
     ncols = len(unique_algs)
     fig, axs = plt.subplots(
-        nrows, ncols, sharex=True, sharey=True, layout="constrained"
+        nrows, ncols, sharex=True, sharey=True, layout="constrained", squeeze=False
     )
 
     for i, aperture in enumerate(unique_apertures):
@@ -236,7 +247,9 @@ if __name__ == "__main__":
                 ax.set_xlabel("Time steps")
 
     legend_elements = []
-    aperture_keys = sorted([k for k in COLORS.keys() if isinstance(k, int)])
+    aperture_keys = sorted(
+        [k for k in COLORS.keys() if isinstance(k, int) and k in unique_apertures]
+    )
     for ap in aperture_keys:
         legend_elements.append(Line2D([0], [0], color=COLORS[ap], lw=2, label=f"FOV {ap}"))
 

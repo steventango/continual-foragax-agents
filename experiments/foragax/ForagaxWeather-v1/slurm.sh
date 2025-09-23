@@ -26,3 +26,7 @@ python scripts/slurm.py --cluster clusters/vulcan-cpu-15m.json --runs 30 --entry
 python scripts/slurm.py --cluster clusters/vulcan-cpu-45m.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxWeather-v1/ForagaxWeather-v1-15/Search-Nearest.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-5h.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxWeather-v1/ForagaxWeather-v1-15/Search-Oracle.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-2h.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxWeather-v1/ForagaxWeather-v1-15/Search-Oyster.json
+
+python scripts/slurm.py --cluster clusters/vulcan-cpu-4h.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxWeather-v1/ForagaxWeather-v1-9/DQN_tracking.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-4h.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxWeather-v1/ForagaxWeather-v1-9/DQN_LN_tracking.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-4h.json --runs 30 --entry src/continuing_main.py --force -e experiments/foragax/ForagaxWeather-v1/ForagaxWeather-v1-9/DQN_L2_Init_tracking.json

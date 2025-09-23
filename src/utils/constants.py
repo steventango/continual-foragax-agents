@@ -13,7 +13,11 @@ BIOME_DEFINITIONS = {
     "ForagaxTwoBiomeSmall-v2": {
         "Morel": ((3, 3), (6, 6)),
         "Oyster": ((11, 3), (14, 6)),
-    }
+    },
+    "ForagaxTwoBiome-v1": {
+        "Morel": ((3, 0), (5, 15)),
+        "Oyster": ((10, 0), (12, 15)),
+    },
 }
 
 # Environment mapping
