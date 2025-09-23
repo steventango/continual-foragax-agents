@@ -31,6 +31,6 @@
         "update_freq": 1,
         "sp_steps": 10000,
         "shrink_factor": 0.8,
-        "noise_scale": 0.01
+        "noise_scale": 0.001
     }
 }
