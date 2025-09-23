@@ -39,12 +39,12 @@ def calculate_ewm_reward(df):
     return df
 
 
-def calculate_biome_occupancy(df, ewm_alpha=1e-2):
-    """Calculate biome occupancy over time using exponential moving average.
+def calculate_biome_occupancy(df, window_size=30):
+    """Calculate biome occupancy over time using windowed average.
 
     Args:
         df: Polars DataFrame with 'pos' column
-        ewm_alpha: Alpha parameter for exponential moving average (default: 1e-2)
+        window_size: Window size for rolling average (default: 30)
 
     Returns:
         Polars DataFrame with biome occupancy columns added
@@ -53,7 +53,7 @@ def calculate_biome_occupancy(df, ewm_alpha=1e-2):
         return df
 
     # Use the global biome definitions
-    biome_definitions = BIOME_DEFINITIONS.get("ForagaxTwoBiomeSmall-v2")
+    biome_definitions = BIOME_DEFINITIONS.get("ForagaxTwoBiome-v1")
     if biome_definitions is None:
         return df
 
@@ -73,12 +73,12 @@ def calculate_biome_occupancy(df, ewm_alpha=1e-2):
 
     df = df.with_columns(biome_expr.alias("biome"))
 
-    # Calculate occupancy for each biome using EMA
+    # Calculate occupancy for each biome using windowed average
     for name in biome_names:
         df = df.with_columns(
             (pl.col("biome") == name)
             .cast(pl.Float32)
-            .ewm_mean(alpha=ewm_alpha, adjust=True)
+            .rolling_mean(window_size=window_size)
             .alias(f"{name}_occupancy")
         )
         df = df.with_columns(

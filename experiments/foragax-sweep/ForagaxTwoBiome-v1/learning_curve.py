@@ -33,6 +33,10 @@ COLORS = {
     11: colorset.teal,
     13: colorset.olive,
     15: colorset.purple,
+    "Search-Brown-Avoid-Green": tc.colorsets["light"].mint,
+    "Search-Brown": tc.colorsets["light"].orange,
+    "Search-Morel-Avoid-Green": tc.colorsets["light"].pink,
+    "Search-Morel": tc.colorsets["light"].pale_grey,
     "Search-Oracle": colorset.wine,
     "Search-Nearest": colorset.green,
     "Search-Oyster": tc.colorsets["light"].pear,
@@ -41,6 +45,10 @@ COLORS = {
 
 SINGLE = {
     "Random",
+    "Search-Brown-Avoid-Green",
+    "Search-Brown",
+    "Search-Morel-Avoid-Green",
+    "Search-Morel",
     "Search-Nearest",
     "Search-Oracle",
     "Search-Oyster",
