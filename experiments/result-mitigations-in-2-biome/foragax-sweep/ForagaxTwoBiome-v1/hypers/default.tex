@@ -1,9 +1,9 @@
 \begin{tabular}{lllllllllllllllllll}
- & \bfseries DQN_LN_B100000 & \bfseries DQN_B100000 & \bfseries DQN_Reset_Head_B100000 & \bfseries DQN_LN_B10000 & \bfseries DQN_B1000 & \bfseries DQN_Hare_and_Tortoise_B10000 & \bfseries DQN_B10000 & \bfseries DQN_Shrink_and_Perturb_B1000 & \bfseries DQN_Shrink_and_Perturb_B10000 & \bfseries DQN_L2_Init_B100000 & \bfseries DQN_Hare_and_Tortoise_B1000 & \bfseries DQN_Reset_Head_B1000 & \bfseries DQN_L2_Init_B10000 & \bfseries DQN_Shrink_and_Perturb_B100000 & \bfseries DQN_Hare_and_Tortoise_B100000 & \bfseries DQN_L2_Init_B1000 & \bfseries DQN_LN_B1000 & \bfseries DQN_Reset_Head_B10000 \\
+ & \bfseries DQN_Shrink_and_Perturb_B100000 & \bfseries DQN_Reset_Head_B100000 & \bfseries DQN_Shrink_and_Perturb_B1000 & \bfseries DQN_LN_B10000 & \bfseries DQN_Hare_and_Tortoise_B100000 & \bfseries DQN_Reset_Head_B10000 & \bfseries DQN_LN_B100000 & \bfseries DQN_B1000 & \bfseries DQN_Reset_Head_B1000 & \bfseries DQN_L2_Init_B1000 & \bfseries DQN_LN_B1000 & \bfseries DQN_B10000 & \bfseries DQN_B100000 & \bfseries DQN_Hare_and_Tortoise_B10000 & \bfseries DQN_Hare_and_Tortoise_B1000 & \bfseries DQN_Shrink_and_Perturb_B10000 & \bfseries DQN_L2_Init_B100000 & \bfseries DQN_L2_Init_B10000 \\
 Hyperparameter &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  \\
 Minibatch size & 32 & 32 & 32 & 32 & 32 & 32 & 32 & 32 & 32 & 32 & 32 & 32 & 32 & 32 & 32 & 32 & 32 & 32 \\
-Replay memory size & 100000 & 100000 & 100000 & 10000 & 1000 & 10000 & 10000 & 1000 & 10000 & 100000 & 1000 & 1000 & 10000 & 100000 & 100000 & 1000 & 1000 & 10000 \\
-Minimum replay history & 5000 & 5000 & 5000 & 500 & 50 & 500 & 500 & 50 & 500 & 5000 & 50 & 50 & 500 & 5000 & 5000 & 50 & 50 & 500 \\
+Replay memory size & 100000 & 100000 & 1000 & 10000 & 100000 & 10000 & 100000 & 1000 & 1000 & 1000 & 1000 & 10000 & 100000 & 10000 & 1000 & 10000 & 100000 & 10000 \\
+Minimum replay history & 5000 & 5000 & 50 & 500 & 5000 & 500 & 5000 & 50 & 50 & 50 & 50 & 500 & 5000 & 500 & 50 & 500 & 5000 & 500 \\
 Buffer sampling strategy &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  \\
 $\epsilon$-greedy $\epsilon$ & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 \\
 $\epsilon$-greedy final $\epsilon$ &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  \\
@@ -15,6 +15,6 @@ Adam $\beta_1$ & 0.9 & 0.9 & 0.9 & 0.9 & 0.9 & 0.9 & 0.9 & 0.9 & 0.9 & 0.9 & 0.9
 Adam $\beta_2$ &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  \\
 Adam $\epsilon$ &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  \\
 Optimizer & Adam & Adam & Adam & Adam & Adam & Adam & Adam & Adam & Adam & Adam & Adam & Adam & Adam & Adam & Adam & Adam & Adam & Adam \\
-Target network update frequency &  &  &  &  &  & 1 &  &  &  &  & 1 &  &  &  & 1 &  &  &  \\
+Target network update frequency &  &  &  &  & 1 &  &  &  &  &  &  &  &  & 1 & 1 &  &  &  \\
 Update frequency &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  &  \\
 \end{tabular}
