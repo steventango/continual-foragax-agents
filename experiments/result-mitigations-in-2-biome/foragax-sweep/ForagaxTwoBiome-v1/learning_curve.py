@@ -7,7 +7,6 @@ from pathlib import Path
 sys.path.append(os.getcwd() + "/src")
 import matplotlib.pyplot as plt
 import numpy as np
-import tol_colors as tc
 from matplotlib.lines import Line2D
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
@@ -19,6 +18,7 @@ from rlevaluation.temporal import (
 
 from experiment.ExperimentModel import ExperimentModel
 from utils.constants import LABEL_MAP
+from utils.plotting import select_colors
 from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
@@ -34,19 +34,6 @@ SINGLE = {
     "Search-Oracle",
     "Search-Oyster",
 }
-
-
-def select_colors(n_colors: int):
-    """Select a color palette based on the number of colors needed."""
-    if n_colors <= 4:
-        color_list = tc.colorsets["high_contrast"][:n_colors]
-    elif n_colors <= 6:
-        color_list = tc.colorsets["medium_contrast"][1 : n_colors + 1]
-    elif n_colors <= 9:
-        color_list = tc.colorsets["muted"][:n_colors]
-    else:
-        color_list = tc.rainbow_discrete(n_colors).colors
-    return color_list
 
 
 if __name__ == "__main__":
