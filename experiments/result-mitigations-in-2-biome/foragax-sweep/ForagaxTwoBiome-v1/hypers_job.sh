@@ -1,8 +1,9 @@
 #!/bin/bash
-#SBATCH --time=00:30:00
 #SBATCH --account=aip-amw8
-#SBATCH --output=../slurm-%j.out
 #SBATCH --job-name=hypers_result-mitigations-in-2-biome_foragax-sweep_ForagaxTwoBiome-v1
+#SBATCH --mem-per-cpu=8000M
+#SBATCH --output=../slurm-%j.out
+#SBATCH --time=00:30:00
 
 module load arrow/19
 
