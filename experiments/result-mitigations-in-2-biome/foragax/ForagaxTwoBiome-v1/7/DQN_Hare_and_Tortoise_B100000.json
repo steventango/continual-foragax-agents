@@ -39,6 +39,7 @@
             "type": "Forager2Net",
             "hidden": 64
         },
+        "target_refresh": 1,
         "tau": [
             0.05,
             0.005
