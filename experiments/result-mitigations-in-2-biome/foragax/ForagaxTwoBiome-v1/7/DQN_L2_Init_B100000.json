@@ -5,10 +5,7 @@
     "episode_cutoff": -1,
     "metaParameters": {
         "epsilon": 0.05,
-        "target_refresh": [
-            1,
-            128
-        ],
+        "target_refresh": 128,
         "buffer_size": 100000,
         "buffer_min_size": 5000,
         "batch": 32,
@@ -20,37 +17,18 @@
             "seed_offset": 0
         },
         "gamma": 0.99,
-        "lambda_l2_init": [
-            0.01,
-            0.001,
-            0.0001,
-            1e-05
-        ],
+        "lambda_l2_init": 1e-05,
         "optimizer": {
             "name": "Adam",
-            "alpha": [
-                0.0003,
-                0.0001,
-                3e-05,
-                1e-05
-            ],
+            "alpha": 0.0003,
             "beta1": 0.9,
-            "beta2": [
-                0.9,
-                0.999
-            ],
-            "eps": [
-                0.01,
-                1e-08
-            ]
+            "beta2": 0.999,
+            "eps": 1e-08
         },
         "representation": {
             "type": "Forager2Net",
             "hidden": 64
         },
-        "update_freq": [
-            1,
-            4
-        ]
+        "update_freq": 1
     }
 }
