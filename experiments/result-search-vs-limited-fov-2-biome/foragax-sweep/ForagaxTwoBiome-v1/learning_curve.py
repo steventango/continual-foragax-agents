@@ -152,10 +152,8 @@ if __name__ == "__main__":
                 row = unique_buffers.index(buffer)
                 col = unique_alg_bases.index(alg_base)
                 ax = axs[row, col]
-                alg_label = LABEL_MAP.get(alg_base, alg_base)
                 color = COLORS[aperture]
             else:
-                alg_label = alg
                 color = COLORS[alg]
 
             # Plot
@@ -214,9 +212,10 @@ if __name__ == "__main__":
     for ap in aperture_keys:
         legend_elements.append(Line2D([0], [0], color=COLORS[ap], lw=2, label=f"FOV {ap}"))
 
-    for k in SINGLE:
-        if k in COLORS:
-            legend_elements.append(Line2D([0], [0], color=COLORS[k], lw=2, label=k))
+    for alg in SINGLE:
+        if alg in COLORS:
+            alg_label = LABEL_MAP.get(alg, alg)
+            legend_elements.append(Line2D([0], [0], color=COLORS[alg], lw=2, label=alg_label))
 
     fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
 

@@ -6,6 +6,13 @@ LABEL_MAP = {
     "DQN_Reset_Head": "DQN (Head Reset)",
     "DQN_Hare_and_Tortoise": "DQN (Hare & Tortoise)",
     "DQN_Shrink_and_Perturb": "DQN (Shrink & Perturb)",
+    "Search-Brown": "Search (Brown)",
+    "Search-Brown-Avoid-Green": "Search (Brown, Avoid Green)",
+    "Search-Morel": "Search (Morel)",
+    "Search-Morel-Avoid-Green": "Search (Morel, Avoid Green)",
+    "Search-Nearest": "Search (Nearest)",
+    "Search-Oracle": "Search (Oracle)",
+    "Search-Oyster": "Search (Oyster)",
 }
 
 # Biome definitions for different environments
