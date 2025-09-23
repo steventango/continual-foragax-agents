@@ -1,7 +1,7 @@
 {
-    "agent": "DQN_Reset_Head",
+    "agent": "DQN_B100000",
     "problem": "Foragax",
-    "total_steps": 100000,
+    "total_steps": 10000000,
     "episode_cutoff": -1,
     "metaParameters": {
         "epsilon": 0.05,
@@ -9,12 +9,8 @@
             1,
             128
         ],
-        "buffer_size": [
-            1000,
-            10000,
-            100000
-        ],
-        "buffer_min_size": 0.05,
+        "buffer_size": 100000,
+        "buffer_min_size": 5000,
         "batch": 32,
         "environment": {
             "env_id": "ForagaxTwoBiome-v1",
@@ -49,8 +45,6 @@
         "update_freq": [
             1,
             4
-        ],
-        "reset_steps": 10000,
-        "reset_head_only": true
+        ]
     }
 }
