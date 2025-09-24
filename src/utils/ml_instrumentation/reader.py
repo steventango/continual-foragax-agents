@@ -15,7 +15,7 @@ def get_run_ids(db_path: str | Path, params: dict[str, Any], data_path: str | Pa
     query = f'SELECT id FROM _metadata_ WHERE {constraints}'
     try:
         return cx.read_sql(f'sqlite://{db_path}', query, return_type='polars')['id'].to_list()
-    except Exception :
+    except BaseException:
         traceback.print_exc()
         print("Error occurred while fetching run IDs from DB")
 
