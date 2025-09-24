@@ -5,8 +5,6 @@
 #SBATCH --output=../slurm-%j.out
 #SBATCH --time=00:30:00
 
-module load arrow/19
-
 tar -xf venv.tar.xz -C $SLURM_TMPDIR
 
 export MPLBACKEND=TKAgg
