@@ -2,7 +2,7 @@ from functools import partial
 
 import jax
 from foragax.env import EnvState as ForagaxEnvState
-from environments.registry import make
+from foragax.registry import make
 
 import utils.chex as cxu
 from utils.rlglue import BaseEnvironment
