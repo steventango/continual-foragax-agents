@@ -1,7 +1,7 @@
 {
     "agent": "DQN_L2_Init_B100000",
     "problem": "Foragax",
-    "total_steps": 100000,
+    "total_steps": 1000000,
     "episode_cutoff": -1,
     "metaParameters": {
         "epsilon": 0.05,
