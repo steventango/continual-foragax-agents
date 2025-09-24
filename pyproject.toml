@@ -19,8 +19,6 @@ classifiers = [
 ]
 dependencies = [
     # custom minatar with jit compiled environments
-    'MinAtar @ git+https://github.com/andnp/MinAtar',
-    'foragerenv @ git+https://github.com/andnp/forager',
     "gymnasium[box2d,other]>=1.0.0",
     'optuna',
     'pillow',
@@ -33,7 +31,6 @@ dependencies = [
     'PyFixedReps-andnp>=4.1.2',
     'PyExpUtils-andnp~=8.0',
     'pyrlenvs-andnp~=2.0',
-    'tile-coder-rs @ git+https://github.com/andnp/tile-coder-rs.git',
     'ReplayTables-andnp~=8.0',
     'RlGlue-andnp~=2.0',
     'RlEvaluation~=1.0',

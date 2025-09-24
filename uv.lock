@@ -520,15 +520,6 @@ wheels = [
 ]
 
 [[package]]
-name = "foragerenv"
-version = "0.0.0"
-source = { git = "https://github.com/andnp/forager#91d3815deb116faf8363a0e4e072afe152db073e" }
-dependencies = [
-    { name = "numba" },
-    { name = "numpy" },
-]
-
-[[package]]
 name = "fsspec"
 version = "2025.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1096,14 +1087,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729, upload-time = "2022-08-14T12:40:10.846Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979, upload-time = "2022-08-14T12:40:09.779Z" },
-]
-
-[[package]]
-name = "minatar"
-version = "1.0.10"
-source = { git = "https://github.com/andnp/MinAtar#16a10e47a78c9e96c28b62db3c338053e5e3a794" }
-dependencies = [
-    { name = "numpy" },
 ]
 
 [[package]]
@@ -2020,13 +2003,11 @@ dependencies = [
     { name = "continual-foragax" },
     { name = "dm-haiku" },
     { name = "flashbax" },
-    { name = "foragerenv" },
     { name = "gymnasium", extra = ["box2d", "other"] },
     { name = "jax" },
     { name = "jax-tqdm" },
     { name = "jinja2" },
     { name = "matplotlib" },
-    { name = "minatar" },
     { name = "ml-instrument" },
     { name = "numba" },
     { name = "numpy" },
@@ -2040,7 +2021,6 @@ dependencies = [
     { name = "replaytables-andnp" },
     { name = "rlevaluation" },
     { name = "rlglue-andnp" },
-    { name = "tile-coder-rs" },
     { name = "tol-colors" },
 ]
 
@@ -2062,13 +2042,11 @@ requires-dist = [
     { name = "continual-foragax", specifier = ">=0.14" },
     { name = "dm-haiku", specifier = ">=0.0.4" },
     { name = "flashbax", specifier = ">=0.1.3" },
-    { name = "foragerenv", git = "https://github.com/andnp/forager" },
     { name = "gymnasium", extras = ["box2d", "other"], specifier = ">=1.0.0" },
     { name = "jax", specifier = ">=0.2.14" },
     { name = "jax-tqdm", specifier = ">=0.4.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "matplotlib" },
-    { name = "minatar", git = "https://github.com/andnp/MinAtar" },
     { name = "ml-instrument", specifier = ">=0.3.1" },
     { name = "numba", specifier = ">=0.55.0" },
     { name = "numpy", specifier = ">=2.0.0" },
@@ -2082,7 +2060,6 @@ requires-dist = [
     { name = "replaytables-andnp", specifier = "~=8.0" },
     { name = "rlevaluation", specifier = "~=1.0" },
     { name = "rlglue-andnp", specifier = "~=2.0" },
-    { name = "tile-coder-rs", git = "https://github.com/andnp/tile-coder-rs.git" },
     { name = "tol-colors", specifier = ">=2.1.0" },
 ]
 
@@ -2406,11 +2383,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/ca/6c/3d75c196ac07ac874
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4f/bd/de8d508070629b6d84a30d01d57e4a65c69aa7f5abe7560b8fad3b50ea59/termcolor-3.1.0-py3-none-any.whl", hash = "sha256:591dd26b5c2ce03b9e43f391264626557873ce1d379019786f99b0c2bee140aa", size = 7684, upload-time = "2025-04-30T11:37:52.382Z" },
 ]
-
-[[package]]
-name = "tile-coder-rs"
-version = "0.4.0"
-source = { git = "https://github.com/andnp/tile-coder-rs.git#a480f1db337cdad43d60eee145cabda7dc5bc7e6" }
 
 [[package]]
 name = "tol-colors"
