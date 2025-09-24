@@ -41,6 +41,7 @@ class SearchAgent(BaseAgent):
         )
         self.max_priority = max(self.channel_priorities.values())
         self.mode = params.get("mode", "aperture")
+        self.nowrap = params.get("nowrap", False)
         # priorities:
         # higher values = higher priority
         # zero = ignore
@@ -119,10 +120,18 @@ class SearchAgent(BaseAgent):
         state = replace(state, key=key)
 
         # If no good action found, fall back to random valid action
-        next_positions = (
-            jnp.array([center_y, center_x]) + self.directions
-        ) % jnp.array([height, width])
+        next_positions = jnp.array([center_y, center_x]) + self.directions
+        if not self.nowrap:
+            next_positions = next_positions % jnp.array([height, width])
         next_priorities = priority_map[next_positions[:, 0], next_positions[:, 1]]
+        if self.nowrap:
+            in_bounds = (
+                (next_positions[:, 0] >= 0)
+                & (next_positions[:, 0] < height)
+                & (next_positions[:, 1] >= 0)
+                & (next_positions[:, 1] < width)
+            )
+            next_priorities = jnp.where(in_bounds, next_priorities, -1)
         valid_mask = next_priorities >= 0
         probs = jnp.where(valid_mask, 1.0, 0.0)
         key, sample_key = jax.random.split(state.key)
@@ -179,17 +188,24 @@ class SearchAgent(BaseAgent):
                     queue, visited, best_actions = loop_carry
                     direction_idx = shuffled_indices[i]
                     neighbor = node + self.directions[direction_idx]
-                    wrapped_neighbor = neighbor % jnp.array([height, width])
-                    ny, nx = wrapped_neighbor
-                    is_valid = (
-                        (priority_map[ny, nx] >= 0)  # not an obstacle
-                        & (~visited[ny, nx])  # not visited
-                    )
+                    if self.nowrap:
+                        ny, nx = neighbor
+                        in_bounds = (ny >= 0) & (ny < height) & (nx >= 0) & (nx < width)
+                        is_valid = (
+                            in_bounds & (priority_map[ny, nx] >= 0) & (~visited[ny, nx])
+                        )
+                    else:
+                        neighbor = neighbor % jnp.array([height, width])
+                        ny, nx = neighbor
+                        is_valid = (
+                            (priority_map[ny, nx] >= 0)  # not an obstacle
+                            & (~visited[ny, nx])  # not visited
+                        )
 
                     def enqueue_fn(carry):
                         queue, visited, best_actions = carry
                         return (
-                            enqueue(queue, wrapped_neighbor),
+                            enqueue(queue, neighbor),
                             visited.at[ny, nx].set(True),
                             best_actions.at[ny, nx].set(direction_idx),
                         )
@@ -248,7 +264,10 @@ class SearchAgent(BaseAgent):
             # Move to the parent node
             prev = current - self.directions[action]
             # Wrap the previous position
-            prev_wrapped = prev % jnp.array([actions.shape[0], actions.shape[1]])
+            if self.nowrap:
+                prev_wrapped = prev
+            else:
+                prev_wrapped = prev % jnp.array([actions.shape[0], actions.shape[1]])
             # The action we want is the one that led from the parent to the current node
             return prev_wrapped, action
 
