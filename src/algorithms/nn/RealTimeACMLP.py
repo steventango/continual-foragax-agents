@@ -10,7 +10,7 @@ from algorithms.nn.rtus.rtus import *
 
 
 class RealTimeActorCriticMLP(nn.Module):
-    action_dim: Sequence[int]
+    action_dim: int
     d_hidden: int = 192
     hidden_size: int = 64
     activation: str = "tanh"
@@ -19,8 +19,8 @@ class RealTimeActorCriticMLP(nn.Module):
     @nn.compact
     def __call__(self, hidden, obs):
         '''
-        hidden: (batch_size, d_hidden)
-        obs: (seq_len, batch_size, obs_dim)
+        hidden: ((batch_size, d_hidden), (batch_size, d_hidden))
+        obs: ((batch_size, obs_dim), (batch_size, action_dim), (batch_size, 1))
         '''
         if self.activation == "relu":
             activation = nn.relu
@@ -42,23 +42,23 @@ class RealTimeActorCriticMLP(nn.Module):
         
         actor_embedding = nn.Dense(obs_hidden_size, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="actor_dense1")(obs)
         actor_embedding = activation(actor_embedding)
-        actor_embedding = jnp.append(actor_embedding, jnp.append(last_action_encoded, last_reward, axis=1), axis=1)
+        actor_embedding = jnp.concatenate((actor_embedding, last_action_encoded, last_reward), axis=-1)
         actor_embedding_skip = actor_embedding
         
         critic_embedding = nn.Dense(obs_hidden_size, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="critic_dense1")(obs)
         critic_embedding = activation(critic_embedding)
-        critic_embedding = jnp.append(critic_embedding, jnp.append(last_action_encoded, last_reward, axis=1), axis=1)
+        critic_embedding = jnp.concatenate((critic_embedding, last_action_encoded, last_reward), axis=-1)
         critic_embedding_skip = critic_embedding
         
         actor_hidden, actor_embedding = seq_model(self.d_hidden,params_type='exp_exp', name="actor_rtu")(actor_hidden, actor_embedding)
         critic_hidden, critic_embedding = seq_model(self.d_hidden,params_type='exp_exp', name="critic_rtu")(critic_hidden, critic_embedding)
-        actor_embedding = jnp.append(actor_embedding, actor_embedding_skip, axis=1)
-        critic_embedding = jnp.append(critic_embedding, critic_embedding_skip, axis=1)
+        actor_embedding = jnp.concatenate((actor_embedding, actor_embedding_skip), axis=-1)
+        critic_embedding = jnp.concatenate((critic_embedding, critic_embedding_skip), axis=-1)
         
         actor_mean = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="actor_dense2")(actor_embedding)
         actor_mean = activation(actor_mean)
         actor_mean = nn.Dense(self.action_dim, kernel_init=orthogonal(0.01), bias_init=constant(0.0), name="actor_mean")(actor_mean)
-        #actor_mean: (seq_len, batch_size, action_dim)
+        #actor_mean: (batch_size, action_dim)
         if self.cont:
             actor_logtstd = self.param("log_std", nn.initializers.zeros, (self.action_dim,))
             pi = distrax.MultivariateNormalDiag(actor_mean, jnp.exp(actor_logtstd))
@@ -68,7 +68,7 @@ class RealTimeActorCriticMLP(nn.Module):
         critic = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="critic_dense2")(critic_embedding)
         critic = activation(critic)
         critic = nn.Dense(1, kernel_init=orthogonal(1.0), bias_init=constant(0.0), name="critic_value")(critic)
-        #critic: (seq_len, batch_size, 1)
+        #critic: (batch_size, 1)
         hidden = (actor_hidden, critic_hidden)
         return hidden, pi, jnp.squeeze(critic, axis=-1)
     

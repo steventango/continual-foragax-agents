@@ -64,6 +64,7 @@ class TrainConfig:
     clip_eps: float
     vf_coef: float
     entropy_coef: float
+    freeze_after_steps: int = -1
     
 class GymnaxEnvState(struct.PyTreeNode):
     env_step: Callable = struct.field(pytree_node=False)
@@ -360,6 +361,10 @@ def experiment(rng, config: TrainConfig):
     )
     
     ### Experiment 
+    def _zero_loss_info(config: TrainConfig):
+        zeros = jnp.zeros((config.epochs, config.num_mini_batch), dtype=jnp.float32)
+        return (zeros, (zeros, zeros, zeros))
+
     env_step_state = (train_state, gymnax_state, log_env_state, obs, 0, 0, rng, init_hstate)
 
     @scan_tqdm(config.num_updates)
@@ -385,10 +390,22 @@ def experiment(rng, config: TrainConfig):
         # Calculate GAE
         advantages, targets = calculate_gae(traj_batch, last_val, config.gamma, config.gae_lambda)
 
-        # Update step
+        # Conditionally perform the update based on how many env steps have elapsed.
+        # If freeze_after_steps <= 0, updates are always performed.
+        # Otherwise, once log_env_state.timestep exceeds freeze_after_steps, we stop updating.
         rng, update_rng = jax.random.split(rng)
         update_state = (train_state, init_hstate, traj_batch, hstate_batch, advantages, targets, update_rng, config)
-        (train_state, rng), loss_info = update_step(update_state)
+
+        def skip_update(update_state):
+            train_state, init_hstate, traj_batch, hstate_batch, advantages, targets, rng, config = update_state
+            return (train_state, rng), _zero_loss_info(config)
+
+        should_update = jnp.logical_or(config.freeze_after_steps <= 0,
+                                       log_env_state.timestep <= config.freeze_after_steps)
+        (train_state, rng), loss_info = jax.lax.cond(should_update,
+                                                     update_step,
+                                                     skip_update,
+                                                     update_state)
 
         # Rebuild env_step_state for next iteration
         env_step_state = (train_state, gymnax_state, log_env_state, last_obs, last_action, last_reward, rng, last_hstate)
@@ -398,7 +415,7 @@ def experiment(rng, config: TrainConfig):
         pos = traj_batch.info["pos"]
 
         # Optional lightweight debug
-        return (env_step_state, train_state, rng), (rewards, pos)
+        return (env_step_state, train_state, rng), (rewards, pos, loss_info)
 
     # Run training loop with lax.scan (collect per-iteration rewards)
     last_carry, info = jax.lax.scan(
@@ -406,9 +423,15 @@ def experiment(rng, config: TrainConfig):
         PBar(id=config.id, carry=(env_step_state, train_state, rng)),
         xs=jnp.arange(int(config.num_updates))
     )
-    rewards, pos = info
+    rewards, pos, loss_info = info
+    rewards = rewards.reshape((-1))
+    pos = pos.reshape((-1, pos.shape[-1]))
+    total_loss = jnp.mean(loss_info[0], axis=(-1, -2))
+    value_loss = jnp.mean(loss_info[1][0], axis=(-1, -2))
+    policy_loss = jnp.mean(loss_info[1][1], axis=(-1, -2))
+    entropy = jnp.mean(loss_info[1][2], axis=(-1, -2))
     env_step_state, train_state, rng = last_carry.carry
-    return rewards, pos
+    return rewards, pos, (total_loss, (value_loss, policy_loss, entropy))
     
 def main():
     parser = argparse.ArgumentParser()
@@ -499,22 +522,23 @@ def main():
             hidden_size=int(hypers['representation']['hidden']),
             rollout_steps=int(hypers['rollout_steps']),
             epochs=int(hypers['epochs']),
-            num_mini_batch=int(hypers.get('num_mini_batch', hypers.get('num_minibatch', 1))),
-            gradient_clipping=bool(hypers.get('gradient_clipping', False)),
-            max_grad_norm=float(hypers.get('max_grad_norm', 0.0)),
+            num_mini_batch=int(hypers['num_mini_batch']),
+            gradient_clipping=bool(hypers['gradient_clipping']),
+            max_grad_norm=float(hypers['max_grad_norm']),
             alpha_pi=float(hypers['optimizer_actor']['alpha']),
             alpha_vf=float(hypers['optimizer_critic']['alpha']),
-            adam_eps_pi=float(hypers['optimizer_actor'].get('eps', 1e-5)),
-            adam_eps_vf=float(hypers['optimizer_critic'].get('eps', 1e-5)),
+            adam_eps_pi=float(hypers['optimizer_actor']['eps']),
+            adam_eps_vf=float(hypers['optimizer_critic']['eps']),
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
             env_id=hypers["environment"]["env_id"],
-            gamma=float(hypers.get('gamma', 0.99)),
-            gae_lambda=float(hypers.get('gae_lambda', 0.95)),
-            clip_eps=float(hypers.get('clip_eps', 0.2)),
-            vf_coef=float(hypers.get('vf_coef', 0.5)),
-            entropy_coef=float(hypers.get('entropy_coef', 0.01)),
+            gamma=float(hypers['gamma']),
+            gae_lambda=float(hypers['gae_lambda']),
+            clip_eps=float(hypers['clip_eps']),
+            vf_coef=float(hypers['vf_coef']),
+            entropy_coef=float(hypers['entropy_coef']),
             id=idx,
+            freeze_after_steps=int(hypers.get('freeze_after_steps', -1)),
         )
         configs.append(config)
 
@@ -523,9 +547,7 @@ def main():
     rngs = jnp.stack(rngs)
     configs = tree_map(lambda *xs: jnp.stack(xs), *configs)
     results = batch_experiment(rngs, configs)
-    rewards, pos = results
-    rewards = rewards.reshape((rewards.shape[0], -1))
-    pos = pos.reshape((pos.shape[0], -1, pos.shape[-1]))
+    rewards, pos, (total_loss, (value_loss, policy_loss, entropy)) = results
 
     # --------------------
     # -- Saving --
@@ -541,12 +563,16 @@ def main():
         # process rewards for this run
         run_rewards = rewards[i]
         run_pos = pos[i]
+        run_total_loss = total_loss[i]
+        run_value_loss = value_loss[i]
+        run_policy_loss = policy_loss[i]
+        run_entropy = entropy[i]
 
         start_time = time.time()
-        for reward in run_rewards:
-            collector.next_frame()
-            collector.collect("ewm_reward", reward.item())
-            collector.collect("mean_ewm_reward", reward.item())
+        # for reward in run_rewards:
+        #     collector.next_frame()
+        #     collector.collect("ewm_reward", reward.item())
+        #     collector.collect("mean_ewm_reward", reward.item())
         logger.debug(f"Mean rewards {run_rewards.mean()}")
         collector.reset()
         total_collect_time += time.time() - start_time
@@ -560,7 +586,7 @@ def main():
         context.ensureExists(data_path, is_file=True)
 
         start_time = time.time()
-        np.savez_compressed(data_path, rewards=run_rewards, pos=run_pos)
+        np.savez_compressed(data_path, rewards=run_rewards, pos=run_pos, total_loss=run_total_loss, value_loss=run_value_loss, policy_loss=run_policy_loss, entropy=run_entropy)
         total_numpy_time += time.time() - start_time
 
         meta = getParamsAsDict(exp, idx)
