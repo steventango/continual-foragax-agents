@@ -210,14 +210,14 @@ wheels = [
 
 [[package]]
 name = "continual-foragax"
-version = "0.12.0"
+version = "0.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "gymnax" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b9/87/97d27cfb1dc286ecdef621a3e387ee33803e17f96559ff5d1c83b7bd6640/continual_foragax-0.12.0.tar.gz", hash = "sha256:0bb4291a33ae5e55a4d11c46f1c1974e271e10f6f1020d6ef0a408776188efe7", size = 7698709, upload-time = "2025-09-24T18:19:14.949Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/78/8d/7920cc9c51daf9fbeb5c3a00120c1777759dc5e41a3dd223b0dd74b765e1/continual_foragax-0.13.0.tar.gz", hash = "sha256:c1f3b37cfbb9e82f97a8bbe365cc47fb6388dee31efed4596ced5c8cd9aa45cf", size = 7698915, upload-time = "2025-09-24T21:33:53.664Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5e/d5/00a6532853b547582530d8e7e2fb2f8d95092e633ffbe92e41ac7d3741eb/continual_foragax-0.12.0-py3-none-any.whl", hash = "sha256:8d21e43d6b4f113ccddcaebaeec15cc26c2167a07e53f68bdc83249cfe18f5a0", size = 8232375, upload-time = "2025-09-24T18:19:12.407Z" },
+    { url = "https://files.pythonhosted.org/packages/26/88/485c70515deef83783aea5cb5d670b0e68c5c8de364cff39d5de0ffbdf07/continual_foragax-0.13.0-py3-none-any.whl", hash = "sha256:07fe8b9e2574714adbb7a86bf81235a04f05635e1b1d027bf1a32fbfb0c12e78", size = 8232520, upload-time = "2025-09-24T21:33:51.779Z" },
 ]
 
 [[package]]
@@ -2059,7 +2059,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "chex", specifier = ">=0.1.5" },
-    { name = "continual-foragax", specifier = ">=0.12" },
+    { name = "continual-foragax", specifier = ">=0.13" },
     { name = "dm-haiku", specifier = ">=0.0.4" },
     { name = "flashbax", specifier = ">=0.1.3" },
     { name = "foragerenv", git = "https://github.com/andnp/forager" },
