@@ -102,16 +102,9 @@ if __name__ == "__main__":
 
             exp_path = Path(alg_result.exp_path)
             env = exp_path.parent.parent
-            best_configuration_path = (
-                env / "hypers" / exp_path.parent.name / exp_path.name
-            )
             env = env.name
-            if not best_configuration_path.exists():
-                continue
-            with open(best_configuration_path) as f:
-                best_configuration = json.load(f)
 
-            df = alg_result.load_by_params(best_configuration)
+            df = alg_result.load()
             if df is None:
                 continue
             df = df.sort("id", "frame")
