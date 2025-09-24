@@ -1,0 +1,7 @@
+python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-6h.json --runs 5 --entry src/continuing_main.py --force -e experiments/result-search-vs-limited-fov-2-biome/foragax-sweep/ForagaxTwoBiome-v1/7/DQN_B1000.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-6h.json --runs 5 --entry src/continuing_main.py --force -e experiments/result-search-vs-limited-fov-2-biome/foragax-sweep/ForagaxTwoBiome-v1/7/DQN_B10000.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-6h.json --runs 5 --entry src/continuing_main.py --force -e experiments/result-search-vs-limited-fov-2-biome/foragax-sweep/ForagaxTwoBiome-v1/7/DQN_B100000.json
+
+python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-6h.json --runs 5 --entry src/continuing_main.py --force -e experiments/result-search-vs-limited-fov-2-biome/foragax-sweep/ForagaxTwoBiome-v1/9/DQN_B1000.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-6h.json --runs 5 --entry src/continuing_main.py --force -e experiments/result-search-vs-limited-fov-2-biome/foragax-sweep/ForagaxTwoBiome-v1/9/DQN_B10000.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-6h.json --runs 5 --entry src/continuing_main.py --force -e experiments/result-search-vs-limited-fov-2-biome/foragax-sweep/ForagaxTwoBiome-v1/9/DQN_B100000.json
