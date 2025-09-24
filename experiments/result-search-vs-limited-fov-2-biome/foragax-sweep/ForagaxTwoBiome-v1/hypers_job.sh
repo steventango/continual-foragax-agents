@@ -1,9 +1,10 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
 #SBATCH --job-name=hypers_result-search-vs-limited-fov-2-biome_foragax-sweep_ForagaxTwoBiome-v1
-#SBATCH --mem-per-cpu=12G
+#SBATCH --mem-per-cpu=8G
+#SBATCH --ntasks=16
 #SBATCH --output=../slurm-%j.out
-#SBATCH --time=00:15:00
+#SBATCH --time=01:00:00
 
 module load arrow/19
 
