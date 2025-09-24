@@ -6,6 +6,8 @@
 #SBATCH --output=../slurm-%j.out
 #SBATCH --time=00:30:00
 
+module load arrow/19
+
 tar -xf venv.tar.xz -C $SLURM_TMPDIR
 
 export MPLBACKEND=TKAgg
@@ -17,4 +19,4 @@ export XLA_FLAGS="--xla_cpu_multi_thread_eigen=false intra_op_parallelism_thread
 export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
 export JAX_PLATFORMS=cpu
 
-$SLURM_TMPDIR/.venv/bin/python experiments/result-mitigations-in-2-biome/foragax/ForagaxTwoBiome-v1/learning_curve_a_job.sh
+$SLURM_TMPDIR/.venv/bin/python experiments/result-mitigations-in-2-biome/foragax/ForagaxTwoBiome-v1/learning_curve_a.py
