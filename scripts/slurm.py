@@ -67,9 +67,7 @@ nvidia-cuda-mps-control -d"""
 
 {exclude_str}
 cd {cwd}
-rm -Rf {venv}/.venv
 tar -xf {venv_origin} -C {venv}
-pip freeze
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
