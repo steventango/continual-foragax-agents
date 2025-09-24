@@ -1,5 +1,5 @@
 {
-    "agent": "DQN_world_B1000",
+    "agent": "DQN_world_B10000",
     "problem": "Foragax",
     "total_steps": 10000000,
     "episode_cutoff": -1,
@@ -11,7 +11,8 @@
         "batch": 32,
         "environment": {
             "env_id": "ForagaxTwoBiome-v1",
-            "aperture_size": 15
+            "aperture_size": 15,
+            "observation_type": "world"
         },
         "experiment": {
             "seed_offset": 0
