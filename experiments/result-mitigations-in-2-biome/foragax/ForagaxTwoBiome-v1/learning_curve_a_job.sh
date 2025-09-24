@@ -2,6 +2,7 @@
 #SBATCH --account=aip-amw8
 #SBATCH --job-name=learning_curve_a_result-mitigations-in-2-biome_foragax_ForagaxTwoBiome-v1
 #SBATCH --mem-per-cpu=128G
+#SBATCH --exclude=rack08-11
 #SBATCH --output=../slurm-%j.out
 #SBATCH --time=00:30:00
 
