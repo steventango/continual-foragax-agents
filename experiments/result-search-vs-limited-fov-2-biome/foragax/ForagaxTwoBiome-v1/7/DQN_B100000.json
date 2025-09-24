@@ -19,7 +19,7 @@
         "gamma": 0.99,
         "optimizer": {
             "name": "Adam",
-            "alpha": 0.001,
+            "alpha": 3e-05,
             "beta1": 0.9,
             "beta2": 0.9,
             "eps": 1e-08
@@ -28,6 +28,6 @@
             "type": "Forager2Net",
             "hidden": 64
         },
-        "update_freq": 4
+        "update_freq": 1
     }
 }
