@@ -1,3 +1,4 @@
+# rsync -azP --exclude '*/sweep/*' vulcan:/home/stang5/scratch/continual-foragax-agents/results .
 rsync -azP vulcan:/home/stang5/scratch/continual-foragax-agents/results .
 # TODO: change the lop paths to be identical to ours so it is easier to sync
 # move to top level data/results/...

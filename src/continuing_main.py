@@ -2,13 +2,13 @@ import os
 import sys
 
 sys.path.append(os.getcwd())
-
 import argparse
 import logging
 import lzma
 import pickle
 import socket
 import time
+import traceback
 
 import jax
 import jax.numpy as jnp
@@ -17,16 +17,13 @@ from jax.tree_util import tree_map
 from jax_tqdm.scan_pbar import scan_tqdm
 from ml_instrumentation.Collector import Collector
 from ml_instrumentation.metadata import attach_metadata
-from ml_instrumentation.Sampler import Ignore, MovingAverage, Subsample
-from ml_instrumentation.utils import Pipe
+from ml_instrumentation.Sampler import Ignore
 from PyExpUtils.results.tools import getParamsAsDict
 
 from environments.Foragax import Foragax
 from experiment import ExperimentModel
 from problems.registry import getProblem
 from utils.checkpoint import Checkpoint
-from utils.ml_instrumentation.Sampler import Mean
-from utils.ml_instrumentation.utils import Last
 from utils.preempt import TimeoutHandler
 from utils.rlglue import RlGlue
 
@@ -271,18 +268,30 @@ for i, idx in enumerate(indices):
     data_path = context.resolve(f"{idx}/data.npz")
     if os.path.exists(step_path):
         with open(step_path, "r") as f:
-            start_step_idx = int(f.read())
-            if start_step is None:
-                start_step = start_step_idx
-            else:
-                assert start_step == start_step_idx
+            try:
+                start_step_idx = int(f.read())
+                if start_step is None:
+                    start_step = start_step_idx
+                else:
+                    assert start_step == start_step_idx
 
-        with lzma.open(glue_state_path, "rb") as f:
-            glues[i].state = pickle.load(f)
+                with lzma.open(glue_state_path, "rb") as f:
+                    glues[i].state = pickle.load(f)
 
-        with np.load(data_path) as data_idx:
-            for key in data_idx.keys():
-                datas[key][i, : len(data_idx[key])] = data_idx[key]
+                with np.load(data_path) as data_idx:
+                    for key in data_idx.keys():
+                        datas[key][i, : len(data_idx[key])] = data_idx[key]
+            except Exception:
+                traceback.print_exc()
+                logger.warning(f"Failed to load checkpoint for index {idx}, starting fresh")
+                start_step = None
+                save_every = 1_000_000
+                datas = {}
+                datas["rewards"] = np.empty((len(indices), n), dtype=np.float16)
+                datas["weight_change"] = np.empty((len(indices), n), dtype=np.float16)
+                datas["squared_td_error"] = np.empty((len(indices), n), dtype=np.float16)
+                datas["abs_td_error"] = np.empty((len(indices), n), dtype=np.float16)
+                datas["loss"] = np.empty((len(indices), n), dtype=np.float16)
 
 if len(glues) > 1:
     # combine states

@@ -1,0 +1,3 @@
+python scripts/slurm.py --cluster clusters/vulcan-cpu-2h.json --runs 30 --entry src/continuing_main.py --force -e experiments/result-baselines-vs-recurrent-in-2-biome/foragax/ForagaxTwoBiome-v1/15/DQN_B1000.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-2h.json --runs 30 --entry src/continuing_main.py --force -e experiments/result-baselines-vs-recurrent-in-2-biome/foragax/ForagaxTwoBiome-v1/15/DQN_B10000.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-2h.json --runs 30 --entry src/continuing_main.py --force -e experiments/result-baselines-vs-recurrent-in-2-biome/foragax/ForagaxTwoBiome-v1/15/DQN_B100000.json

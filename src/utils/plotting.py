@@ -1,5 +1,8 @@
+from typing import List, cast
+
 import matplotlib.pyplot as plt
 import numpy as np
+import tol_colors as tc
 from matplotlib.transforms import Bbox
 
 
@@ -451,3 +454,16 @@ def label_line(
     text_kwargs.update(kwargs)
 
     ax.annotate(label, xy=(x, y), **text_kwargs)
+
+
+def select_colors(n_colors: int):
+    """Select a color palette based on the number of colors needed."""
+    if n_colors <= 4:
+        color_list = list(tc.colorsets["high_contrast"][:n_colors])
+    elif n_colors <= 6:
+        color_list = list(tc.colorsets["medium_contrast"][1 : n_colors + 1])
+    elif n_colors <= 9:
+        color_list = list(tc.colorsets["muted"][:n_colors])
+    else:
+        color_list = cast(List, tc.rainbow_discrete(n_colors).colors)
+    return color_list

@@ -154,8 +154,8 @@ def generate_hyper_sweep_table(env_reports: dict[str, dict[str, Any]], path: Pat
 
     for col in df_selected.columns:
         # remove common prefix
-        parts = col.split("-")
-        *env, aperture, alg = parts[0], parts[1], parts[2], "-".join(parts[3:])
+        parts = col.split("-", 1)
+        aperture, alg = parts[0], parts[-1]
         new_columns[col] = f"{alg}-{aperture}"
 
     # Rename columns

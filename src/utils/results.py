@@ -80,7 +80,7 @@ def read_metrics_from_data(
 
     if len(datas) == 0:
         return pl.DataFrame().lazy()
-    df = pl.concat(datas.values())
+    df = pl.concat(datas.values(), how="diagonal")
     del datas
     gc.collect()
     return df.lazy()
@@ -155,7 +155,7 @@ class Result(Generic[Exp]):
         run_ids = set()
         for param_id in range(self.exp.numPermutations()):
             params = getParamsAsDict(self.exp, param_id)
-            run_ids.update(get_run_ids(db_path, params))
+            run_ids.update(get_run_ids(db_path, params, data_path))
         run_ids = sorted(run_ids)
         df = load_all_results_from_data(
             data_path,
@@ -246,6 +246,7 @@ def detect_missing_indices(exp: ExperimentDescription, runs: int, base: str = ".
     context = exp.buildSaveContext(0, base=base)
     header = getHeader(exp)
     path = context.resolve("results.db")
+    data_path = context.resolve("data")
 
     if not context.exists("results.db"):
         yield from listIndices(exp, runs)
@@ -253,7 +254,7 @@ def detect_missing_indices(exp: ExperimentDescription, runs: int, base: str = ".
 
     n_params = exp.numPermutations()
     for param_id in range(n_params):
-        run_ids = set(get_run_ids(path, getParamsAsDict(exp, param_id, header=header)))
+        run_ids = set(get_run_ids(path, getParamsAsDict(exp, param_id, header=header), data_path))
 
         for seed in range(runs):
             run_id = seed * n_params + param_id

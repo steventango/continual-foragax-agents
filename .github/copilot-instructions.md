@@ -35,20 +35,26 @@ Experiments are defined as JSON files in `experiments/` with this pattern:
 ## Critical Workflows
 
 ### Local Development
+You must use the provided virtual environment `.venv` and activate it before running any scripts.
+
 ```bash
 # Test single experiment
+source .venv/bin/activate
 python src/main.py -e experiments/example/MountainCar/EQRC.json -i 0
 
 # Run continual learning experiment
+source .venv/bin/activate
 python src/continuing_main.py -e experiments/foragax/ForagaxTwoBiome-v1/DQN.json -i 0
 
 # Analyze results
+source .venv/bin/activate
 python experiments/example/learning_curve.py
 ```
 
 ### Cluster Execution (Compute Canada)
 ```bash
 # Schedule jobs
+source .venv/bin/activate
 python scripts/slurm.py --clusters clusters/cedar.json --runs 5 -e experiments/foragax/*.json
 
 # Check missing results and reschedule
