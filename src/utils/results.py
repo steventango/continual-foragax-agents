@@ -80,7 +80,7 @@ def read_metrics_from_data(
 
     if len(datas) == 0:
         return pl.DataFrame().lazy()
-    df = pl.concat(datas.values())
+    df = pl.concat(datas.values(), how="diagonal")
     del datas
     gc.collect()
     return df.lazy()
