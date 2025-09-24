@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
-#SBATCH --job-name=learning_curve_a_result-mitigations-in-2-biome_foragax_ForagaxTwoBiome-v2
+#SBATCH --job-name=learning_curve_a_E27-mitigations_foragax_ForagaxTwoBiome-v2
 #SBATCH --mem-per-cpu=128G
 #SBATCH --exclude=rack08-11
 #SBATCH --output=../slurm-%j.out
@@ -19,4 +19,4 @@ export XLA_FLAGS="--xla_cpu_multi_thread_eigen=false intra_op_parallelism_thread
 export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
 export JAX_PLATFORMS=cpu
 
-$SLURM_TMPDIR/.venv/bin/python experiments/result-mitigations-in-2-biome/foragax/ForagaxTwoBiome-v2/learning_curve_a.py
+$SLURM_TMPDIR/.venv/bin/python experiments/E27-mitigations/foragax/ForagaxTwoBiome-v2/learning_curve_a.py

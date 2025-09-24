@@ -1,3 +1,3 @@
-mkdir -p results/result-mitigations-in-2-biome/foragax/ForagaxTwoBiome-v2/Baselines
-ln -s ../../../../result-search-vs-limited-fov-2-biome/foragax/ForagaxTwoBiome-v2/Baselines/Search-Oracle results/result-mitigations-in-2-biome/foragax/ForagaxTwoBiome-v2/Baselines/Search-Oracle
-ln -s ../../../../result-search-vs-limited-fov-2-biome/foragax/ForagaxTwoBiome-v2/Baselines/Search-Brown-Avoid-Green results/result-mitigations-in-2-biome/foragax/ForagaxTwoBiome-v2/Baselines/Search-Brown-Avoid-Green
+mkdir -p results/E27-mitigations/foragax/ForagaxTwoBiome-v2/Baselines
+ln -s ../../../../E26-search-limited-fov/foragax/ForagaxTwoBiome-v2/Baselines/Search-Oracle results/E27-mitigations/foragax/ForagaxTwoBiome-v2/Baselines/Search-Oracle
+ln -s ../../../../E26-search-limited-fov/foragax/ForagaxTwoBiome-v2/Baselines/Search-Brown-Avoid-Green results/E27-mitigations/foragax/ForagaxTwoBiome-v2/Baselines/Search-Brown-Avoid-Green
