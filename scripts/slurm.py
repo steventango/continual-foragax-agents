@@ -70,6 +70,8 @@ cd {cwd}
 tar -xf {venv_origin} -C {venv}
 .venv/bin/pip cache purge
 .venv/bin/pip install -U continual-foragax
+.venv/bin/pip install -U continual-foragax
+.venv/bin/pip install -U continual-foragax
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
