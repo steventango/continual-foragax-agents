@@ -44,7 +44,7 @@ ANNUAL_ALLOCATION = 724
 cwd = os.getcwd()
 project_name = os.path.basename(cwd)
 
-venv_origin = f"{cwd}/venv.tar.xz"
+venv_origin = ".venv"
 venv = "$SLURM_TMPDIR"
 
 
@@ -67,11 +67,7 @@ nvidia-cuda-mps-control -d"""
 
 {exclude_str}
 cd {cwd}
-tar -xf {venv_origin} -C {venv}
-.venv/bin/pip cache purge
-.venv/bin/pip install -U continual-foragax
-.venv/bin/pip install -U continual-foragax
-.venv/bin/pip install -U continual-foragax
+cp -R {venv_origin} {venv}
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
