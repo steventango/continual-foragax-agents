@@ -1,6 +1,6 @@
-python scripts/slurm.py --cluster clusters/vulcan-cpu-12h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E26-search-limited-fov/foragax/ForagaxTwoBiome-v2/9/DQN_B1000.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu-12h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E26-search-limited-fov/foragax/ForagaxTwoBiome-v2/9/DQN_B10000.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu-12h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E26-search-limited-fov/foragax/ForagaxTwoBiome-v2/9/DQN_B100000.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-8h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E26-search-limited-fov/foragax/ForagaxTwoBiome-v2/9/DQN_B1000.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-8h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E26-search-limited-fov/foragax/ForagaxTwoBiome-v2/9/DQN_B10000.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-8h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E26-search-limited-fov/foragax/ForagaxTwoBiome-v2/9/DQN_B100000.json
 
 python scripts/slurm.py --cluster clusters/vulcan-cpu-1h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E26-search-limited-fov/foragax/ForagaxTwoBiome-v2/9/DQN_B1000_frozen.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-1h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E26-search-limited-fov/foragax/ForagaxTwoBiome-v2/9/DQN_B10000_frozen.json
