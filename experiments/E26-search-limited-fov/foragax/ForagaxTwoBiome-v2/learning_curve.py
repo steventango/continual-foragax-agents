@@ -67,8 +67,10 @@ def main(experiment_path: Path):
         make_global=True,
     )
 
+    num_seeds = all_df.select(pl.col(dd.seed_col).max()).item() + 1
+
     ncols = len(main_algs)
-    nrows = 1
+    nrows = 1 + num_seeds
     fig, axs = plt.subplots(
         nrows, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
     )
@@ -101,10 +103,9 @@ def main(experiment_path: Path):
 
         # Plot
         if aperture is not None:
-            row = 0
             col = main_algs.index(alg_base)
-            ax = axs[row, col]
-            # Plot on specific ax
+            # Plot mean on row 0
+            ax = axs[0, col]
             ax.plot(
                 xs[0],
                 res.sample_stat,
@@ -114,11 +115,12 @@ def main(experiment_path: Path):
             )
             if len(ys) >= 5:
                 ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
-            else:
-                for y in ys:
-                    ax.plot(xs[0], y, color=color, linewidth=0.2, linestyle=linestyle)
+            # Plot each seed on subsequent rows
+            for i in range(len(ys)):
+                ax = axs[1 + i, col]
+                ax.plot(xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle)
         else:
-            # Plot on all axs
+            # Plot mean on all axs
             for ax in axs.flatten():
                 ax.plot(
                     xs[0],
@@ -129,26 +131,26 @@ def main(experiment_path: Path):
                 )
                 if len(ys) >= 5:
                     ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
-                else:
-                    for y in ys:
-                        ax.plot(
-                            xs[0], y, color=color, linewidth=0.2, linestyle=linestyle
-                        )
 
     # Set titles and formatting
-    for i, ax in enumerate(axs.flatten()):
-        alg_base = main_algs[i % ncols]
+    for col in range(ncols):
+        ax = axs[0, col]
+        alg_base = main_algs[col]
         alg_label = LABEL_MAP.get(alg_base, alg_base)
-        title = f"{alg_label}"
-        ax.set_title(title)
-        ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
-        if i % ncols == 0:
-            ax.set_ylabel("Average Reward")
-        if i // ncols == nrows - 1:
-            ax.set_xlabel("Time steps")
+        ax.set_title(f"{alg_label}")
 
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
+    for i in range(nrows):
+        for j in range(ncols):
+            ax = axs[i, j]
+            ax.ticklabel_format(
+                axis="x", style="sci", scilimits=(0, 0), useMathText=True
+            )
+            if j == 0:
+                ax.set_ylabel("Average Reward")
+            if i == nrows - 1:
+                ax.set_xlabel("Time steps")
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
 
     for ax in axs.flatten():
         if not ax.get_lines():
