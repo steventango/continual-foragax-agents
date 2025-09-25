@@ -39,7 +39,7 @@ def main(experiment_path: Path):
                 pl.lit(env).alias("env"),
                 pl.lit(group).alias("group"),
                 pl.lit(alg).alias("alg"),
-                pl.lit(aperture).alias("aperture"),
+                pl.lit(aperture).cast(pl.Int32).alias("aperture"),
             )
             print(df)
             dfs.append(df)
