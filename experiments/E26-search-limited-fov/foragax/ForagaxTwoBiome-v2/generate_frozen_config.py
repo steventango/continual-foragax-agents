@@ -15,6 +15,8 @@ def generate_frozen_configs():
         with open(config_file, 'r') as f:
             config = json.load(f)
 
+        config["agent"] += "_frozen"
+
         # Add freeze_steps to metaParameters
         if "metaParameters" not in config:
             config["metaParameters"] = {}

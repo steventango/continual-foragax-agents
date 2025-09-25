@@ -1,5 +1,5 @@
 {
-    "agent": "DQN_B10000",
+    "agent": "DQN_B10000_frozen",
     "problem": "Foragax",
     "total_steps": 10000000,
     "episode_cutoff": -1,
