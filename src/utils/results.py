@@ -51,13 +51,14 @@ def read_metrics_from_data(
             pl.lit(np.arange(len(datas[run_id]))).alias("frame"),
         )
         if "rewards" in datas[run_id].columns and (
-            metrics is None or "ewm_reward" in metrics or "mean_ewm_reward" in metrics
+            metrics is None or not metrics or "ewm_reward" in metrics or "mean_ewm_reward" in metrics
         ):
             datas[run_id] = calculate_ewm_reward(datas[run_id])
 
         # Calculate biome occupancy if requested
         if "pos" in datas[run_id].columns and (
             metrics is None
+            or not metrics
             or any(
                 m.startswith(
                     ("Morel_occupancy", "Oyster_occupancy", "Neither_occupancy")
@@ -157,15 +158,6 @@ class Result(Generic[Exp]):
             params = getParamsAsDict(self.exp, param_id)
             run_ids.update(get_run_ids(db_path, params, data_path))
         run_ids = sorted(run_ids)
-        # if not run_ids:
-        #     # Fall back to loading from data directly
-        #     df = read_metrics_from_data(
-        #         data_path, self.metrics, None, sample, sample_type, start, end
-        #     )
-        #     df = df.with_columns(
-        #         pl.col("id").alias("seed"),
-        #     )
-        #     return df.collect()
         df = load_all_results_from_data(
             data_path,
             db_path,
