@@ -35,13 +35,12 @@ if __name__ == "__main__":
     results_temp = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
     results_temp.paths = [path for path in results_temp.paths if "hypers" not in path]
 
-    for _, sub_results in results_temp.groupby_directory(level=4):
-        for alg_result in sub_results:
-            alg = alg_result.filename
-            if "_B" in alg:
-                alg_base = alg.split("_B")[0]
-                all_color_keys.add(alg_base)
-            else:
+    for aperture_or_baseline, sub_results in results_temp.groupby_directory(level=4):
+        if aperture_or_baseline.isdigit():
+            all_color_keys.add(aperture_or_baseline)
+        else:
+            for alg_result in sub_results:
+                alg = alg_result.filename
                 all_color_keys.add(alg)
 
     n_colors = len(all_color_keys)
@@ -91,6 +90,7 @@ if __name__ == "__main__":
     fig, axs = plt.subplots(
         nrows, ncols, sharex=True, sharey="all", layout="constrained"
     )
+    axs = np.array(axs).reshape(nrows, ncols)
     env = "unknown"
     for aperture_or_baseline, sub_results in sorted(
         results.groupby_directory(level=4),
@@ -155,7 +155,7 @@ if __name__ == "__main__":
                 row = unique_buffers.index(buffer)
                 col = unique_alg_bases.index(alg_base)
                 ax = axs[row, col]
-                color = COLORS[aperture]
+                color = COLORS[str(aperture)]
             else:
                 color = COLORS[alg]
 
