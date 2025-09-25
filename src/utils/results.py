@@ -51,13 +51,14 @@ def read_metrics_from_data(
             pl.lit(np.arange(len(datas[run_id]))).alias("frame"),
         )
         if "rewards" in datas[run_id].columns and (
-            metrics is None or "ewm_reward" in metrics or "mean_ewm_reward" in metrics
+            metrics is None or not metrics or "ewm_reward" in metrics or "mean_ewm_reward" in metrics
         ):
             datas[run_id] = calculate_ewm_reward(datas[run_id])
 
         # Calculate biome occupancy if requested
         if "pos" in datas[run_id].columns and (
             metrics is None
+            or not metrics
             or any(
                 m.startswith(
                     ("Morel_occupancy", "Oyster_occupancy", "Neither_occupancy")
@@ -213,7 +214,7 @@ class ResultCollection(Generic[Exp]):
 
         project = Path.cwd()
         paths = self.path.glob("**/*.json")
-        paths = map(lambda p: p.relative_to(project), paths)
+        paths = map(lambda p: p.absolute().relative_to(project), paths)
         paths = map(str, paths)
         self.paths = list(paths)
 

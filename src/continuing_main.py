@@ -333,24 +333,44 @@ for current_step in range(start_step, n, save_every):
         if n < save_every:
             continue
         context = exp.buildSaveContext(idx, base=args.checkpoint_path)
-        glue_state_path = context.resolve(f"{idx}/glue_state.pkl.xz")
-        context.ensureExists(glue_state_path, is_file=True)
+
+        # Write to temporary files first for atomic checkpointing
+        glue_state_path_tmp = context.resolve(f"{idx}/glue_state.pkl.xz.tmp")
+        data_path_tmp = context.resolve(f"{idx}/data.npz.tmp")
+        step_path_tmp = context.resolve(f"{idx}/step.txt.tmp")
+
+        # Ensure directories exist
+        context.ensureExists(glue_state_path_tmp, is_file=True)
+        context.ensureExists(data_path_tmp, is_file=True)
+        context.ensureExists(step_path_tmp, is_file=True)
+
+        # Prepare checkpoint data
         if len(glues) > 1:
             glue_state_idx = tree_map(lambda x: x[i], glue_states)
         else:
             glue_state_idx = glue_states
-        with lzma.open(glue_state_path, "wb") as f:
-            pickle.dump(glue_state_idx, f)
 
         data_to_save = tree_map(
             lambda d: d[i, : current_step + steps_in_iter], datas
         )
-        data_path = context.resolve(f"{idx}/data.npz")
-        np.savez_compressed(data_path, **data_to_save)
 
-        step_path = context.resolve(f"{idx}/step.txt")
-        with open(step_path, "w") as f:
+        # Write temporary files
+        with lzma.open(glue_state_path_tmp, "wb") as f:
+            pickle.dump(glue_state_idx, f)
+
+        np.savez_compressed(data_path_tmp, **data_to_save)
+
+        with open(step_path_tmp, "w") as f:
             f.write(str(current_step + steps_in_iter))
+
+        # Atomically rename temporary files to final names
+        final_glue_state_path = context.resolve(f"{idx}/glue_state.pkl.xz")
+        final_data_path = context.resolve(f"{idx}/data.npz")
+        final_step_path = context.resolve(f"{idx}/step.txt")
+
+        os.rename(glue_state_path_tmp, final_glue_state_path)
+        os.rename(data_path_tmp, final_data_path)
+        os.rename(step_path_tmp, final_step_path)
     checkpoint_time = time.time() - checkpoint_start_time
     logger.debug(
         f"Checkpointed at {current_step + steps_in_iter} in {checkpoint_time:.4f}s"

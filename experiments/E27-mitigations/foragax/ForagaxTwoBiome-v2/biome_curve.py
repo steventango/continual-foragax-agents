@@ -2,6 +2,10 @@ import os
 import sys
 
 sys.path.append(os.getcwd() + "/src")
+
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import polars as pl
 from matplotlib.patches import Rectangle

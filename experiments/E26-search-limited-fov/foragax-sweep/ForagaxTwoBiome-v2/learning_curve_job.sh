@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
-#SBATCH --job-name=hypers_E26-search-limited-fov_foragax-sweep_ForagaxTwoBiome-v2
-#SBATCH --mem-per-cpu=128G
+#SBATCH --job-name=learning_curve_E26-search-limited-fov_foragax-sweep_ForagaxTwoBiome-v2
+#SBATCH --mem-per-cpu=4G
 #SBATCH --ntasks=1
 #SBATCH --output=../slurm-%j.out
-#SBATCH --time=01:00:00
+#SBATCH --time=00:15:00
 
 tar -xf venv.tar.xz -C $SLURM_TMPDIR
 
