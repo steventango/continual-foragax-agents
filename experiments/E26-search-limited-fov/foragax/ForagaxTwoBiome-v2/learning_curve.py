@@ -35,7 +35,9 @@ if __name__ == "__main__":
     results_temp = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
     results_temp.paths = [path for path in results_temp.paths if "hypers" not in path]
 
-    for _, sub_results in results_temp.groupby_directory(level=4):
+    for aperture_or_baseline, sub_results in results_temp.groupby_directory(level=4):
+        if aperture_or_baseline.isdigit():
+            all_color_keys.add(aperture_or_baseline)
         for alg_result in sub_results:
             alg = alg_result.filename
             if "_B" in alg:
@@ -80,7 +82,7 @@ if __name__ == "__main__":
                 if "_B" in alg:
                     parts = alg.split("_B")
                     alg_base = parts[0]
-                    buffer = int(parts[1])
+                    buffer = int(parts[1].split("_")[0])
                     unique_alg_bases.add(alg_base)
                     unique_buffers.add(buffer)
     unique_alg_bases = sorted(unique_alg_bases)
@@ -155,7 +157,7 @@ if __name__ == "__main__":
                 row = unique_buffers.index(buffer)
                 col = unique_alg_bases.index(alg_base)
                 ax = axs[row, col]
-                color = COLORS[aperture]
+                color = COLORS[aperture_or_baseline]
             else:
                 color = COLORS[alg]
 
