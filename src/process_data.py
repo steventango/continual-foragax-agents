@@ -63,7 +63,7 @@ if __name__ == "__main__":
         "--path",
         type=str,
         help="Path to the experiment directory",
-        default="experiments/E26-search-limited-fov/foragax/ForagaxTwoBiome-v2",
+        default="experiments/E39-baselines/foragax/ForagaxTwoBiome-v3",
     )
     args = parser.parse_args()
     path = Path(args.path)

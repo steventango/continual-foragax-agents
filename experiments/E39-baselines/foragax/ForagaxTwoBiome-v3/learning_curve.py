@@ -67,7 +67,7 @@ def main(experiment_path: Path):
         make_global=True,
     )
 
-    ncols = len(main_algs)
+    ncols = max(len(main_algs), 1)
     nrows = 1
     fig, axs = plt.subplots(
         nrows, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
@@ -137,10 +137,12 @@ def main(experiment_path: Path):
 
     # Set titles and formatting
     for i, ax in enumerate(axs.flatten()):
-        alg_base = main_algs[i % ncols]
-        alg_label = LABEL_MAP.get(alg_base, alg_base)
-        title = f"{alg_label}"
-        ax.set_title(title)
+        if i < len(main_algs):
+            alg_base = main_algs[i % ncols]
+            alg_label = LABEL_MAP.get(alg_base, alg_base)
+            title = f"{alg_label}"
+            ax.set_title(title)
+
         ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
         if i % ncols == 0:
             ax.set_ylabel("Average Reward")
@@ -211,7 +213,7 @@ if __name__ == "__main__":
         "--path",
         type=str,
         help="Path to the experiment directory",
-        default="experiments/E26-search-limited-fov/foragax/ForagaxTwoBiome-v2",
+        default="experiments/E39-baselines/foragax/ForagaxTwoBiome-v3",
     )
     args = parser.parse_args()
 
