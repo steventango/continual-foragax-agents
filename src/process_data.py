@@ -60,7 +60,7 @@ if __name__ == "__main__":
         description="Process experiment data and save to parquet"
     )
     parser.add_argument(
-        "--path",
+        "path",
         type=str,
         help="Path to the experiment directory",
         default="experiments/E39-baselines/foragax/ForagaxTwoBiome-v3",
