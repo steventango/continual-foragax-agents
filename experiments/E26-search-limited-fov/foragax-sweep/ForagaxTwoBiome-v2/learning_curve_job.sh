@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
-#SBATCH --job-name=hypers_E26-search-limited-fov_foragax-sweep_ForagaxTwoBiome-v2
+#SBATCH --job-name=learning_curve_E26-search-limited-fov_foragax-sweep_ForagaxTwoBiome-v2
 #SBATCH --mem-per-cpu=128G
 #SBATCH --ntasks=1
 #SBATCH --output=../slurm-%j.out
