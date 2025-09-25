@@ -39,10 +39,6 @@ def main(experiment_path: Path):
     # Derive additional columns
     all_df = all_df.with_columns(
         pl.col("alg").str.split("_").list.get(0).alias("alg_base"),
-        pl.when(pl.col("alg").str.contains(r"_B(\d+)"))
-        .then(pl.col("alg").str.extract(r"_B(\d+)", 1).cast(pl.Int64))
-        .otherwise(None)
-        .alias("buffer"),
         pl.col("alg").str.contains("frozen").alias("frozen"),
     )
 
@@ -51,7 +47,6 @@ def main(experiment_path: Path):
     main_algs = sorted(
         all_df.filter(pl.col("aperture").is_not_null())["alg_base"].unique()
     )
-    unique_buffers = sorted(all_df["buffer"].drop_nulls().unique())
     env = all_df["env"][0]
 
     # Collect all color keys
@@ -72,17 +67,16 @@ def main(experiment_path: Path):
         make_global=True,
     )
 
-    ncols = len(main_algs)
-    nrows = len(unique_buffers)
+    ncols = max(len(main_algs), 1)
+    nrows = 1
     fig, axs = plt.subplots(
         nrows, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
     )
 
-    for group_key, df in all_df.group_by(["alg_base", "buffer", "aperture", "alg"]):
+    for group_key, df in all_df.group_by(["alg_base", "aperture", "alg"]):
         alg_base = group_key[0]
-        buffer = group_key[1]
-        aperture = group_key[2]
-        alg = group_key[3]
+        aperture = group_key[1]
+        alg = group_key[2]
         print(alg)
 
         df = df.sort(dd.seed_col).group_by(dd.seed_col).agg(dd.time_col, metric)
@@ -107,7 +101,7 @@ def main(experiment_path: Path):
 
         # Plot
         if aperture is not None:
-            row = unique_buffers.index(buffer)
+            row = 0
             col = main_algs.index(alg_base)
             ax = axs[row, col]
             # Plot on specific ax
@@ -143,10 +137,12 @@ def main(experiment_path: Path):
 
     # Set titles and formatting
     for i, ax in enumerate(axs.flatten()):
-        alg_base = main_algs[i % ncols]
-        alg_label = LABEL_MAP.get(alg_base, alg_base)
-        title = f"{alg_label}\n(Buffer Size {unique_buffers[i // ncols]})"
-        ax.set_title(title)
+        if i < len(main_algs):
+            alg_base = main_algs[i % ncols]
+            alg_label = LABEL_MAP.get(alg_base, alg_base)
+            title = f"{alg_label}"
+            ax.set_title(title)
+
         ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
         if i % ncols == 0:
             ax.set_ylabel("Average Reward")

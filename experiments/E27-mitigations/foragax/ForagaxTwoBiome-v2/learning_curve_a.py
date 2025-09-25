@@ -1,50 +1,72 @@
-import json
+import argparse
 import os
 import sys
-from collections import defaultdict
 from pathlib import Path
+
+sys.path.append(os.getcwd() + "/src")
 
 import matplotlib
 
 matplotlib.use("Agg")
-
-sys.path.append(os.getcwd() + "/src")
 import matplotlib.pyplot as plt
 import numpy as np
+import polars as pl
 from matplotlib.lines import Line2D
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 from rlevaluation.statistics import Statistic
 from rlevaluation.temporal import (
     curve_percentile_bootstrap_ci,
-    extract_learning_curves,
 )
 
-from experiment.ExperimentModel import ExperimentModel
 from utils.constants import LABEL_MAP
 from utils.plotting import select_colors
-from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
 setFonts(20)
 
-SINGLE = {
-    "Random",
-    "Search-Brown-Avoid-Green",
-    "Search-Brown",
-    "Search-Morel-Avoid-Green",
-    "Search-Morel",
-    "Search-Nearest",
-    "Search-Oracle",
-    "Search-Oyster",
-}
 
+def main(experiment_path: Path):
+    data_path = (
+        Path("results")
+        / experiment_path.relative_to(Path("experiments"))
+        / "data.parquet"
+    )
 
-if __name__ == "__main__":
-    results = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
-    results.paths = [path for path in results.paths if "hypers" not in path]
+    # Load processed data
+    all_df = pl.read_parquet(data_path)
+
+    # Derive additional columns
+    all_df = all_df.with_columns(
+        pl.col("alg").str.split("_B").list.get(0).alias("alg_base"),
+        pl.when(pl.col("alg").str.contains(r"_B(\d+)"))
+        .then(pl.col("alg").str.extract(r"_B(\d+)", 1).cast(pl.Int64))
+        .otherwise(None)
+        .alias("buffer"),
+        pl.col("alg").str.contains("frozen").alias("frozen"),
+    )
+
+    # Filter to only buffer size 1000 or None (for baselines)
+    all_df = all_df.filter((pl.col("buffer") == 1000) | (pl.col("buffer").is_null()))
+
+    # Compute metadata from df
+    unique_alg_bases = sorted(all_df["alg_base"].unique())
+    main_algs = sorted(
+        all_df.filter(pl.col("aperture").is_not_null())["alg_base"].unique()
+    )
+    env = all_df["env"][0]
+
+    # Collect all color keys
+    all_color_keys = set(unique_alg_bases)
+    n_colors = len(all_color_keys)
+    color_list = select_colors(n_colors)
+    sorted_keys = sorted(all_color_keys)
+    COLORS = dict(zip(sorted_keys, color_list, strict=True))
+    SINGLE = unique_alg_bases
+    metric = "ewm_reward"
+
     dd = data_definition(
-        hyper_cols=results.get_hyperparameter_columns(),
+        hyper_cols=[],  # will be set from df
         seed_col="seed",
         time_col="frame",
         environment_col=None,
@@ -52,168 +74,155 @@ if __name__ == "__main__":
         make_global=True,
     )
 
-    # Collect unique algorithm bases, apertures, and buffers
-    unique_alg_bases = set()
-    unique_apertures = set()
-    unique_buffers = set()
-    for aperture_or_baseline, sub_results in sorted(
-        results.groupby_directory(level=4),
-        key=lambda x: (
-            0 if x[0].isdigit() else 1,
-            int(x[0].rsplit("-", 1)[-1]) if x[0].isdigit() else 0,
-        ),
-    ):
-        if aperture_or_baseline.isdigit():
-            aperture = int(aperture_or_baseline)
-            unique_apertures.add(aperture)
-            for alg_result in sub_results:
-                alg = alg_result.filename
-                if "_B" in alg:
-                    parts = alg.split("_B")
-                    alg_base = parts[0]
-                    buffer = int(parts[1])
-                    unique_alg_bases.add(alg_base)
-                    unique_buffers.add(buffer)
-    unique_alg_bases = sorted(unique_alg_bases)
-    unique_apertures = sorted(unique_apertures)
-    unique_buffers = sorted(unique_buffers)
+    num_seeds = all_df.select(pl.col(dd.seed_col).max()).item() + 1
 
-    ncols = len(unique_buffers)
-    nrows = len(unique_apertures)
-    env = "unknown"
+    ncols = len(main_algs)
+    nrows = 1 + num_seeds
+    fig, axs = plt.subplots(
+        nrows, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
+    )
 
-    # Collect data for plotting
-    aperture_buffer_data = defaultdict(list)
+    for group_key, df in all_df.group_by(["alg_base", "aperture", "alg"]):
+        alg_base = group_key[0]
+        aperture = group_key[1]
+        alg = group_key[2]
+        print(alg)
 
-    for aperture_or_baseline, sub_results in sorted(
-        results.groupby_directory(level=4),
-        key=lambda x: (
-            0 if x[0].isdigit() else 1,
-            int(x[0].rsplit("-", 1)[-1]) if x[0].isdigit() else 0,
-        ),
-    ):
-        aperture = None
-        if aperture_or_baseline.isdigit():
-            aperture = int(aperture_or_baseline)
+        df = df.sort(dd.seed_col).group_by(dd.seed_col).agg(dd.time_col, metric)
 
-        for alg_result in sorted(sub_results, key=lambda x: x.filename):
-            alg = alg_result.filename
-            print(f"{aperture_or_baseline} {alg}")
+        xs = np.stack(df["frame"].to_numpy())  # type: ignore
+        ys = np.stack(df[metric].to_numpy())  # type: ignore
+        mask = xs[0] > 1000
+        xs = xs[:, mask]
+        ys = ys[:, mask]
+        print(ys.shape)
+        assert np.all(np.isclose(xs[0], xs))
 
-            exp_path = Path(alg_result.exp_path)
-            env = exp_path.parent.parent
-            env = env.name
+        res = curve_percentile_bootstrap_ci(
+            rng=np.random.default_rng(0),
+            y=ys,
+            statistic=Statistic.mean,
+            iterations=10000,
+        )
 
-            df = alg_result.load()
-            if df is None:
-                continue
-            df = df.sort("id", "frame")
+        color = "grey" if "frozen" in alg else COLORS[alg_base]
+        linestyle = "--" if "frozen" in alg else "-"
 
-            cols = set(dd.hyper_cols).intersection(df.columns)
-            hyper_vals = {col: df[col][0] for col in cols}  # type: ignore
-
-            exp = alg_result.exp
-
-            xs, ys = extract_learning_curves(
-                df,  # type: ignore
-                hyper_vals=hyper_vals,
-                metric="ewm_reward",
+        # Plot
+        if aperture is not None:
+            col = main_algs.index(alg_base)
+            # Plot mean on row 0
+            ax = axs[0, col]
+            ax.plot(
+                xs[0],
+                res.sample_stat,
+                color=color,
+                linewidth=1.0,
+                linestyle=linestyle,
             )
-
-            xs = np.asarray(xs)
-            ys = np.asarray(ys)
-            mask = xs[0] > 1000
-            xs = xs[:, mask]
-            ys = ys[:, mask]
-            print(ys.shape)
-            assert np.all(np.isclose(xs[0], xs))
-
-            res = curve_percentile_bootstrap_ci(
-                rng=np.random.default_rng(0),
-                y=ys,
-                statistic=Statistic.mean,
-                iterations=10000,
-            )
-            print(f"{np.mean(res.sample_stat):.3f}")
-
-            if aperture:
-                alg_base = alg.split("_B")[0]
-                buffer = int(alg.split("_B")[1])
-                alg_label = LABEL_MAP.get(alg_base, alg_base)
-                aperture_buffer_data[(aperture, buffer)].append(
-                    [alg_label, xs, ys, res, None]
-                )
-            else:
-                alg_label = LABEL_MAP.get(alg, alg)
-                for ap in unique_apertures:
-                    for buf in unique_buffers:
-                        aperture_buffer_data[(ap, buf)].append(
-                            [alg_label, xs, ys, res, None]
-                        )
-
-    # Assign colors based on number of algorithms
-    all_algorithms = set()
-    for key in aperture_buffer_data:
-        for item in aperture_buffer_data[key]:
-            all_algorithms.add(item[0])
-    n_colors = len(all_algorithms)
-    color_list = select_colors(n_colors)
-
-    color_map = dict(zip(sorted(all_algorithms), color_list, strict=True))  # type: ignore
-
-    # Update colors in aperture_buffer_data
-    for key in aperture_buffer_data:
-        for item in aperture_buffer_data[key]:
-            item[4] = color_map[item[0]]
-
-    # Plot the data
-    for ap in unique_apertures:
-        for buf in unique_buffers:
-            fig, ax = plt.subplots(1, 1, layout="constrained")
-            for alg_label, xs, ys, res, color in aperture_buffer_data[(ap, buf)]:
+            if len(ys) >= 5:
+                ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
+            # Plot each seed on subsequent rows
+            for i in range(len(ys)):
+                ax = axs[1 + i, col]
+                ax.plot(xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle)
+        else:
+            # Plot mean on all axs
+            for ax in axs.flatten():
                 ax.plot(
                     xs[0],
                     res.sample_stat,
                     color=color,
                     linewidth=1.0,
-                    label=alg_label,
+                    linestyle=linestyle,
                 )
                 if len(ys) >= 5:
                     ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
-                else:
-                    for y in ys:
-                        ax.plot(xs[0], y, color=color, linewidth=0.2)
-            ax.set_title(f"Aperture {ap}, Buffer {buf}")
 
-            # Set formatting
+    # Set titles and formatting
+    for col in range(ncols):
+        ax = axs[0, col]
+        alg_base = main_algs[col]
+        alg_label = LABEL_MAP.get(alg_base, alg_base)
+        ax.set_title(f"{alg_label}")
+
+    for i in range(nrows):
+        for j in range(ncols):
+            ax = axs[i, j]
             ax.ticklabel_format(
                 axis="x", style="sci", scilimits=(0, 0), useMathText=True
             )
-            ax.set_ylabel("Average Reward")
-            ax.set_xlabel("Time steps")
+            if j == 0:
+                ax.set_ylabel("Average Reward")
+            if i == nrows - 1:
+                ax.set_xlabel("Time steps")
             ax.spines["top"].set_visible(False)
             ax.spines["right"].set_visible(False)
 
-            # Create legend
-            legend_items = {}
-            for alg_label, _, _, _, color in aperture_buffer_data[(ap, buf)]:
-                legend_items[alg_label] = color
+    for ax in axs.flatten():
+        if not ax.get_lines():
+            ax.set_visible(False)
+            continue
 
-            legend_elements = [
-                Line2D([0], [0], color=color, lw=2, label=label)
-                for label, color in legend_items.items()
-            ]
-
-            fig.legend(
-                handles=legend_elements, loc="outside center right", frameon=False
+    legend_elements = []
+    for color_key in SINGLE:
+        alg_label = str(LABEL_MAP.get(color_key, color_key))
+        # Normal version
+        legend_elements.append(
+            Line2D(
+                [0],
+                [0],
+                color=COLORS[color_key],
+                lw=2,
+                label=alg_label,
+                linestyle="-",
+            )
+        )
+        # Frozen version if exists
+        if (
+            all_df.filter(pl.col("alg_base") == color_key)
+            .filter(pl.col("frozen"))
+            .height
+            > 0
+        ):
+            legend_elements.append(
+                Line2D(
+                    [0],
+                    [0],
+                    color="grey",
+                    lw=2,
+                    label=alg_label + " (Frozen)",
+                    linestyle="--",
+                )
             )
 
-            path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
-            save(
-                save_path=f"{path}/plots",
-                plot_name=f"{env}_aperture_{ap}_buffer_{buf}",
-                save_type="pdf",
-                f=fig,
-                width=4 / 3,
-                height_ratio=1 / 2,
-            )
+    # Sort legend elements by label
+    legend_elements.sort(key=lambda x: x.get_label())
+
+    fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
+
+    path_plots = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
+    save(
+        save_path=f"{path_plots}/plots",
+        plot_name=env,
+        save_type="pdf",
+        f=fig,
+        width=ncols,
+        height_ratio=(nrows / ncols) * (2 / 3),
+    )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Plot learning curves from processed data"
+    )
+    parser.add_argument(
+        "--path",
+        type=str,
+        help="Path to the experiment directory",
+        default="experiments/E27-mitigations/foragax/ForagaxTwoBiome-v2",
+    )
+    args = parser.parse_args()
+
+    experiment_path = Path(args.path)
+    main(experiment_path)

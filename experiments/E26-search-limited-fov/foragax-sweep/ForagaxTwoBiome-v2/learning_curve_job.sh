@@ -6,7 +6,7 @@
 #SBATCH --output=../slurm-%j.out
 #SBATCH --time=00:15:00
 
-tar -xf venv.tar.xz -C $SLURM_TMPDIR
+cp -R .venv $SLURM_TMPDIR
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
