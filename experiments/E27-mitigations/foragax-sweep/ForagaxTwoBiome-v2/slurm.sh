@@ -1,4 +1,4 @@
-python scripts/slurm.py --cluster clusters/vulcan-cpu-1.json --runs 5 --entry src/continuing_main.py --force -e experiments/E27-mitigations/foragax-sweep/ForagaxTwoBiome-v2/9/DQN_Hare_and_Tortoise_B1000.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-1h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E27-mitigations/foragax-sweep/ForagaxTwoBiome-v2/9/DQN_Hare_and_Tortoise_B1000.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-1h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E27-mitigations/foragax-sweep/ForagaxTwoBiome-v2/9/DQN_Hare_and_Tortoise_B10000.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-1h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E27-mitigations/foragax-sweep/ForagaxTwoBiome-v2/9/DQN_Hare_and_Tortoise_B100000.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-2h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E27-mitigations/foragax-sweep/ForagaxTwoBiome-v2/9/DQN_L2_Init_B1000.json
