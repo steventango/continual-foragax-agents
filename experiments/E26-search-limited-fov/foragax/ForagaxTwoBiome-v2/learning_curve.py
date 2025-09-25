@@ -35,9 +35,7 @@ if __name__ == "__main__":
     results_temp = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
     results_temp.paths = [path for path in results_temp.paths if "hypers" not in path]
 
-    for aperture_or_baseline, sub_results in results_temp.groupby_directory(level=4):
-        if aperture_or_baseline.isdigit():
-            all_color_keys.add(aperture_or_baseline)
+    for _, sub_results in results_temp.groupby_directory(level=4):
         for alg_result in sub_results:
             alg = alg_result.filename
             if "_B" in alg:
@@ -110,17 +108,8 @@ if __name__ == "__main__":
             print(f"{aperture_or_baseline} {alg}")
 
             exp_path = Path(alg_result.exp_path)
-            env = exp_path.parent.parent
-            best_configuration_path = (
-                env / "hypers" / exp_path.parent.name / exp_path.name
-            )
-            env = env.name
-            if not best_configuration_path.exists():
-                continue
-            with open(best_configuration_path) as f:
-                best_configuration = json.load(f)
-
-            df = alg_result.load_by_params(best_configuration)
+            env = exp_path.parent.parent.name
+            df = alg_result.load()
             if df is None:
                 continue
             df = df.sort("id", "frame")
@@ -157,7 +146,7 @@ if __name__ == "__main__":
                 row = unique_buffers.index(buffer)
                 col = unique_alg_bases.index(alg_base)
                 ax = axs[row, col]
-                color = COLORS[aperture_or_baseline]
+                color = COLORS[alg_base]
             else:
                 color = COLORS[alg]
 
