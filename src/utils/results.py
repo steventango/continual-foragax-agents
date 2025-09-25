@@ -157,6 +157,15 @@ class Result(Generic[Exp]):
             params = getParamsAsDict(self.exp, param_id)
             run_ids.update(get_run_ids(db_path, params, data_path))
         run_ids = sorted(run_ids)
+        # if not run_ids:
+        #     # Fall back to loading from data directly
+        #     df = read_metrics_from_data(
+        #         data_path, self.metrics, None, sample, sample_type, start, end
+        #     )
+        #     df = df.with_columns(
+        #         pl.col("id").alias("seed"),
+        #     )
+        #     return df.collect()
         df = load_all_results_from_data(
             data_path,
             db_path,
@@ -213,7 +222,7 @@ class ResultCollection(Generic[Exp]):
 
         project = Path.cwd()
         paths = self.path.glob("**/*.json")
-        paths = map(lambda p: p.relative_to(project), paths)
+        paths = map(lambda p: p.absolute().relative_to(project), paths)
         paths = map(str, paths)
         self.paths = list(paths)
 
