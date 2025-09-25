@@ -89,7 +89,7 @@ if __name__ == "__main__":
     ncols = len(unique_alg_bases)
     nrows = len(unique_buffers)
     fig, axs = plt.subplots(
-        nrows, ncols, sharex=True, sharey="all", layout="constrained"
+        nrows, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
     )
     env = "unknown"
     for aperture_or_baseline, sub_results in sorted(
