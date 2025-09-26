@@ -6,7 +6,7 @@
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxWeather-v3",
-            "aperture_`size": 1,
+            "aperture_size": 1,
             "observation_type": "world",
             "privileged": true
         },
