@@ -81,7 +81,7 @@ class SearchAgent(BaseAgent):
         obs = (obs != 0).astype(jnp.int32)
 
         priorities = self.priorities_array[:num_channels]
-        flipped_priorities = priorities[::-1]
+        flipped_priorities = -priorities
         use_priorities = jax.lax.cond(
             is_negative, lambda: flipped_priorities, lambda: priorities
         )

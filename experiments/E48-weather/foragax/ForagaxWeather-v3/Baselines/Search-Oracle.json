@@ -11,8 +11,8 @@
             "privileged": true
         },
         "channel_priorities": {
-            "0": 2,
-            "1": 1
+            "0": 1,
+            "1": -1
         },
         "experiment": {
             "seed_offset": 0
