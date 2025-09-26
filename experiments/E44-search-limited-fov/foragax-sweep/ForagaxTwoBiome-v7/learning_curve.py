@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -81,6 +82,22 @@ def main(experiment_path: Path):
         alg = group_key[2]
         print(alg)
 
+        # Check if best configuration exists
+        if aperture is not None:
+            best_configuration_path = (
+                experiment_path / "hypers" / str(aperture) / f"{alg}.json"
+            )
+        else:
+            continue
+        if best_configuration_path.exists():
+            with open(best_configuration_path) as f:
+                best_configuration = json.load(f)
+
+            # Filter df to only include rows matching best configuration
+            for param, value in best_configuration.items():
+                if param in df.columns:
+                    df = df.filter(pl.col(param) == value)
+
         df = df.sort(dd.seed_col).group_by(dd.seed_col).agg(dd.time_col, metric)
 
         xs = np.stack(df["frame"].to_numpy())  # type: ignore
@@ -120,8 +137,9 @@ def main(experiment_path: Path):
                 ax = axs[1 + i, col]
                 ax.plot(xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle)
         else:
-            # Plot mean on all axs
-            for ax in axs.flatten():
+            # Plot mean on row 0, all columns
+            for col in range(ncols):
+                ax = axs[0, col]
                 ax.plot(
                     xs[0],
                     res.sample_stat,
@@ -131,6 +149,13 @@ def main(experiment_path: Path):
                 )
                 if len(ys) >= 5:
                     ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
+            # Plot each seed on subsequent rows, all columns
+            for i in range(len(ys)):
+                for col in range(ncols):
+                    ax = axs[1 + i, col]
+                    ax.plot(
+                        xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle
+                    )
 
     # Set titles and formatting
     for col in range(ncols):
@@ -192,6 +217,7 @@ def main(experiment_path: Path):
     # Sort legend elements by label
     legend_elements.sort(key=lambda x: x.get_label())
 
+    fig.suptitle(env)
     fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
 
     path_plots = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
