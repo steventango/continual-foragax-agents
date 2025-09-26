@@ -8,7 +8,7 @@
             "env_id": "ForagaxWeather-v3",
             "aperture_size": 1,
             "observation_type": "world",
-            "privileged": true
+            "privileged": false
         },
         "channel_priorities": {
             "0": 1,
