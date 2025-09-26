@@ -69,7 +69,7 @@ def main(experiment_path: Path):
 
     num_seeds = all_df.select(pl.col(dd.seed_col).max()).item() + 1
 
-    ncols = len(main_algs)
+    ncols = max(len(main_algs), 1)
     nrows = 1 + num_seeds
     fig, axs = plt.subplots(
         nrows, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
@@ -120,8 +120,9 @@ def main(experiment_path: Path):
                 ax = axs[1 + i, col]
                 ax.plot(xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle)
         else:
-            # Plot mean on all axs
-            for ax in axs.flatten():
+            # Plot mean on row 0, all columns
+            for col in range(ncols):
+                ax = axs[0, col]
                 ax.plot(
                     xs[0],
                     res.sample_stat,
@@ -131,13 +132,21 @@ def main(experiment_path: Path):
                 )
                 if len(ys) >= 5:
                     ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
+            # Plot each seed on subsequent rows, all columns
+            for i in range(len(ys)):
+                for col in range(ncols):
+                    ax = axs[1 + i, col]
+                    ax.plot(
+                        xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle
+                    )
 
     # Set titles and formatting
     for col in range(ncols):
-        ax = axs[0, col]
-        alg_base = main_algs[col]
-        alg_label = LABEL_MAP.get(alg_base, alg_base)
-        ax.set_title(f"{alg_label}")
+        if len(main_algs) > 0:
+            ax = axs[0, col]
+            alg_base = main_algs[col]
+            alg_label = LABEL_MAP.get(alg_base, alg_base)
+            ax.set_title(f"{alg_label}")
 
     for i in range(nrows):
         for j in range(ncols):
@@ -192,6 +201,7 @@ def main(experiment_path: Path):
     # Sort legend elements by label
     legend_elements.sort(key=lambda x: x.get_label())
 
+    fig.suptitle(env)
     fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
 
     path_plots = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
