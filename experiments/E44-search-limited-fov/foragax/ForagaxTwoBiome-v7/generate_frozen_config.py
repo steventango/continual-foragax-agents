@@ -12,6 +12,9 @@ def generate_frozen_configs():
 
     # Process each JSON file
     for config_file in config_dir.glob("*.json"):
+        if "_frozen" in config_file.stem:
+            continue
+
         with open(config_file, 'r') as f:
             config = json.load(f)
 
