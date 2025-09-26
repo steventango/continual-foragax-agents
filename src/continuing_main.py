@@ -292,6 +292,8 @@ for i, idx in enumerate(indices):
                 datas["squared_td_error"] = np.empty((len(indices), n), dtype=np.float16)
                 datas["abs_td_error"] = np.empty((len(indices), n), dtype=np.float16)
                 datas["loss"] = np.empty((len(indices), n), dtype=np.float16)
+                if isinstance(glues[0].environment, Foragax):
+                    datas["pos"] = np.empty((len(indices), n, 2), dtype=np.int32)
 
 if len(glues) > 1:
     # combine states
@@ -336,7 +338,7 @@ for current_step in range(start_step, n, save_every):
 
         # Write to temporary files first for atomic checkpointing
         glue_state_path_tmp = context.resolve(f"{idx}/glue_state.pkl.xz.tmp")
-        data_path_tmp = context.resolve(f"{idx}/data.npz.tmp")
+        data_path_tmp = context.resolve(f"{idx}/data.tmp.npz")
         step_path_tmp = context.resolve(f"{idx}/step.txt.tmp")
 
         # Ensure directories exist
