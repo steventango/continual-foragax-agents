@@ -338,7 +338,7 @@ for current_step in range(start_step, n, save_every):
 
         # Write to temporary files first for atomic checkpointing
         glue_state_path_tmp = context.resolve(f"{idx}/glue_state.pkl.xz.tmp")
-        data_path_tmp = context.resolve(f"{idx}/data.npz.tmp")
+        data_path_tmp = context.resolve(f"{idx}/data.tmp.npz")
         step_path_tmp = context.resolve(f"{idx}/step.txt.tmp")
 
         # Ensure directories exist
