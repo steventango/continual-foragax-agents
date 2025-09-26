@@ -38,24 +38,21 @@ def main(experiment_path: Path):
 
     # Derive additional columns
     all_df = all_df.with_columns(
-        pl.col("alg").str.split("_").list.get(0).alias("alg_base"),
         pl.col("alg").str.contains("frozen").alias("frozen"),
     )
 
     # Compute metadata from df
-    unique_alg_bases = sorted(all_df["alg_base"].unique())
-    main_algs = sorted(
-        all_df.filter(pl.col("aperture").is_not_null())["alg_base"].unique()
-    )
+    unique_algs = sorted(all_df["alg"].unique())
+    main_algs = sorted(all_df.filter(pl.col("aperture").is_not_null())["alg"].unique())
     env = all_df["env"][0]
 
     # Collect all color keys
-    all_color_keys = set(unique_alg_bases)
+    all_color_keys = set(unique_algs)
     n_colors = len(all_color_keys)
     color_list = select_colors(n_colors)
     sorted_keys = sorted(all_color_keys)
     COLORS = dict(zip(sorted_keys, color_list, strict=True))
-    SINGLE = unique_alg_bases
+    SINGLE = unique_algs
     metric = "ewm_reward"
 
     dd = data_definition(
@@ -67,18 +64,15 @@ def main(experiment_path: Path):
         make_global=True,
     )
 
-    num_seeds = all_df.select(pl.col(dd.seed_col).max()).item() + 1
-
-    ncols = len(main_algs)
-    nrows = 1 + num_seeds
+    ncols = max(len(main_algs), 1)
+    nrows = 1
     fig, axs = plt.subplots(
         nrows, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
     )
 
-    for group_key, df in all_df.group_by(["alg_base", "aperture", "alg"]):
-        alg_base = group_key[0]
+    for group_key, df in all_df.group_by(["alg", "aperture"]):
+        alg = group_key[0]
         aperture = group_key[1]
-        alg = group_key[2]
         print(alg)
 
         df = df.sort(dd.seed_col).group_by(dd.seed_col).agg(dd.time_col, metric)
@@ -98,14 +92,15 @@ def main(experiment_path: Path):
             iterations=10000,
         )
 
-        color = "grey" if "frozen" in alg else COLORS[alg_base]
+        color = COLORS[alg]
         linestyle = "--" if "frozen" in alg else "-"
 
         # Plot
         if aperture is not None:
-            col = main_algs.index(alg_base)
-            # Plot mean on row 0
-            ax = axs[0, col]
+            row = 0
+            col = main_algs.index(alg)
+            ax = axs[row, col]
+            # Plot on specific ax
             ax.plot(
                 xs[0],
                 res.sample_stat,
@@ -115,12 +110,11 @@ def main(experiment_path: Path):
             )
             if len(ys) >= 5:
                 ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
-            # Plot each seed on subsequent rows
-            for i in range(len(ys)):
-                ax = axs[1 + i, col]
-                ax.plot(xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle)
+            else:
+                for y in ys:
+                    ax.plot(xs[0], y, color=color, linewidth=0.2, linestyle=linestyle)
         else:
-            # Plot mean on all axs
+            # Plot on all axs
             for ax in axs.flatten():
                 ax.plot(
                     xs[0],
@@ -131,26 +125,28 @@ def main(experiment_path: Path):
                 )
                 if len(ys) >= 5:
                     ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
+                else:
+                    for y in ys:
+                        ax.plot(
+                            xs[0], y, color=color, linewidth=0.2, linestyle=linestyle
+                        )
 
     # Set titles and formatting
-    for col in range(ncols):
-        ax = axs[0, col]
-        alg_base = main_algs[col]
-        alg_label = LABEL_MAP.get(alg_base, alg_base)
-        ax.set_title(f"{alg_label}")
+    for i, ax in enumerate(axs.flatten()):
+        if i < len(main_algs):
+            alg = main_algs[i % ncols]
+            alg_label = LABEL_MAP.get(alg, alg)
+            title = f"{alg_label}"
+            ax.set_title(title)
 
-    for i in range(nrows):
-        for j in range(ncols):
-            ax = axs[i, j]
-            ax.ticklabel_format(
-                axis="x", style="sci", scilimits=(0, 0), useMathText=True
-            )
-            if j == 0:
-                ax.set_ylabel("Average Reward")
-            if i == nrows - 1:
-                ax.set_xlabel("Time steps")
-            ax.spines["top"].set_visible(False)
-            ax.spines["right"].set_visible(False)
+        ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+        if i % ncols == 0:
+            ax.set_ylabel("Average Reward")
+        if i // ncols == nrows - 1:
+            ax.set_xlabel("Time steps")
+
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
     for ax in axs.flatten():
         if not ax.get_lines():
@@ -161,33 +157,18 @@ def main(experiment_path: Path):
     for color_key in SINGLE:
         alg_label = str(LABEL_MAP.get(color_key, color_key))
         # Normal version
+        linestyle = "--" if "frozen" in color_key else "-"
+        color = COLORS[color_key]
         legend_elements.append(
             Line2D(
-                [0],
-                [0],
-                color=COLORS[color_key],
+                [0, 1],
+                [0, 0],
+                color=color,
                 lw=2,
                 label=alg_label,
-                linestyle="-",
+                linestyle=linestyle,
             )
         )
-        # Frozen version if exists
-        if (
-            all_df.filter(pl.col("alg_base") == color_key)
-            .filter(pl.col("frozen"))
-            .height
-            > 0
-        ):
-            legend_elements.append(
-                Line2D(
-                    [0],
-                    [0],
-                    color="grey",
-                    lw=2,
-                    label=alg_label + " (Frozen)",
-                    linestyle="--",
-                )
-            )
 
     # Sort legend elements by label
     legend_elements.sort(key=lambda x: x.get_label())
