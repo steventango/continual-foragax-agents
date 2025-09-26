@@ -292,6 +292,8 @@ for i, idx in enumerate(indices):
                 datas["squared_td_error"] = np.empty((len(indices), n), dtype=np.float16)
                 datas["abs_td_error"] = np.empty((len(indices), n), dtype=np.float16)
                 datas["loss"] = np.empty((len(indices), n), dtype=np.float16)
+                if isinstance(glues[0].environment, Foragax):
+                    datas["pos"] = np.empty((len(indices), n, 2), dtype=np.int32)
 
 if len(glues) > 1:
     # combine states
