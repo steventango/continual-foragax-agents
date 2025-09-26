@@ -1,4 +1,5 @@
 import gc
+import glob
 import importlib
 import sqlite3
 from collections.abc import Callable, Iterable, Sequence
@@ -213,10 +214,11 @@ class ResultCollection(Generic[Exp]):
         self.path = Path(path)
 
         project = Path.cwd()
-        paths = self.path.glob("**/*.json")
-        paths = map(lambda p: p.absolute().relative_to(project), paths)
-        paths = map(str, paths)
-        self.paths = list(paths)
+        paths = glob.glob(
+            "**/*.json", root_dir=str(self.path), recursive=True,
+        )
+        paths = [str((self.path / p).absolute().relative_to(project)) for p in paths]
+        self.paths = paths
 
     def _result(self, path: str):
         exp = loadExperiment(path, self.Model)
