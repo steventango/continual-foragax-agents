@@ -36,18 +36,13 @@ def main(experiment_path: Path):
     # Load processed data
     all_df = pl.read_parquet(data_path)
 
+    print(list(all_df["alg"].unique()))
+
     # Derive additional columns
     all_df = all_df.with_columns(
-        pl.col("alg").str.split("_B").list.get(0).alias("alg_base"),
-        pl.when(pl.col("alg").str.contains(r"_B(\d+)"))
-        .then(pl.col("alg").str.extract(r"_B(\d+)", 1).cast(pl.Int64))
-        .otherwise(None)
-        .alias("buffer"),
+        pl.col("alg").str.split("_frozen").list.get(0).alias("alg_base"),
         pl.col("alg").str.contains("frozen").alias("frozen"),
     )
-
-    # Filter to only buffer size 1000 or None (for baselines)
-    all_df = all_df.filter((pl.col("buffer") == 1000) | (pl.col("buffer").is_null()))
 
     # Compute metadata from df
     unique_alg_bases = sorted(all_df["alg_base"].unique())
@@ -127,8 +122,9 @@ def main(experiment_path: Path):
                 ax = axs[1 + i, col]
                 ax.plot(xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle)
         else:
-            # Plot mean on all axs
-            for ax in axs.flatten():
+            # Plot mean on row 0, all columns
+            for col in range(ncols):
+                ax = axs[0, col]
                 ax.plot(
                     xs[0],
                     res.sample_stat,
@@ -138,6 +134,13 @@ def main(experiment_path: Path):
                 )
                 if len(ys) >= 5:
                     ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
+            # Plot each seed on subsequent rows, all columns
+            for i in range(len(ys)):
+                for col in range(ncols):
+                    ax = axs[1 + i, col]
+                    ax.plot(
+                        xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle
+                    )
 
     # Set titles and formatting
     for col in range(ncols):
@@ -199,6 +202,7 @@ def main(experiment_path: Path):
     # Sort legend elements by label
     legend_elements.sort(key=lambda x: x.get_label())
 
+    fig.suptitle(env)
     fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
 
     path_plots = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
@@ -208,7 +212,7 @@ def main(experiment_path: Path):
         save_type="pdf",
         f=fig,
         width=ncols,
-        height_ratio=(nrows / ncols) * (2 / 3),
+        height_ratio=nrows / ncols * 2 / 3,
     )
 
 
