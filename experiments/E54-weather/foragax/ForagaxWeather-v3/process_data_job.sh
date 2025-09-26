@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
-#SBATCH --job-name=process_data_E54-weather_foragax_ForagaxWeather-v3
+#SBATCH --job-name=E54_process_data-weather_foragax_ForagaxWeather-v3
 #SBATCH --mem-per-cpu=128G
 #SBATCH --ntasks=1
 #SBATCH --output=../slurm-%j.out

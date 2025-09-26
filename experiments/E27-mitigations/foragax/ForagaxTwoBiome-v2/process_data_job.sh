@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
-#SBATCH --job-name=process_data_E27-mitigations_foragax_ForagaxTwoBiome-v2
+#SBATCH --job-name=E27_process_data-mitigations_foragax_ForagaxTwoBiome-v2
 #SBATCH --mem-per-cpu=128G
 #SBATCH --ntasks=1
 #SBATCH --output=../slurm-%j.out
