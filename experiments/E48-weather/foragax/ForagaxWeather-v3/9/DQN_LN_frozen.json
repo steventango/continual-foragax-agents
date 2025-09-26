@@ -1,11 +1,11 @@
 {
-    "agent": "DQN_L2_Init",
+    "agent": "DQN_LN_frozen",
     "problem": "Foragax",
     "total_steps": 10000000,
     "episode_cutoff": -1,
     "metaParameters": {
         "epsilon": 0.05,
-        "target_refresh": 1,
+        "target_refresh": 128,
         "buffer_size": 1000,
         "buffer_min_size": 50,
         "batch": 32,
@@ -17,18 +17,18 @@
             "seed_offset": 0
         },
         "gamma": 0.99,
-        "lambda_l2_init": 1e-05,
         "optimizer": {
             "name": "Adam",
-            "alpha": 0.0001,
+            "alpha": 0.0003,
             "beta1": 0.9,
-            "beta2": 0.9,
+            "beta2": 0.999,
             "eps": 1e-08
         },
         "representation": {
-            "type": "Forager2Net",
+            "type": "Forager2LayerNormNet",
             "hidden": 64
         },
-        "update_freq": 1
+        "update_freq": 1,
+        "freeze_steps": 1000000
     }
 }

@@ -1,5 +1,5 @@
 {
-    "agent": "DQN_L2_Init",
+    "agent": "DQN_frozen",
     "problem": "Foragax",
     "total_steps": 10000000,
     "episode_cutoff": -1,
@@ -17,7 +17,6 @@
             "seed_offset": 0
         },
         "gamma": 0.99,
-        "lambda_l2_init": 1e-05,
         "optimizer": {
             "name": "Adam",
             "alpha": 0.0001,
@@ -29,6 +28,7 @@
             "type": "Forager2Net",
             "hidden": 64
         },
-        "update_freq": 1
+        "update_freq": 1,
+        "freeze_steps": 1000000
     }
 }
