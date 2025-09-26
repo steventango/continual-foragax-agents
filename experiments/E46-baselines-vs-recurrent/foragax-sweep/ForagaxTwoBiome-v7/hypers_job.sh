@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
-#SBATCH --job-name=hypers_E46-baselines-vs-recurrent_foragax-sweep_ForagaxTwoBiome-v7
+#SBATCH --job-name=E46_hypers-baselines-vs-recurrent_foragax-sweep_ForagaxTwoBiome-v7
 #SBATCH --mem-per-cpu=12G
 #SBATCH --output=../slurm-%j.out
 #SBATCH --time=00:15:00
