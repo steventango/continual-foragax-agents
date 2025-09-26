@@ -20,6 +20,7 @@ def main(experiment_path: Path):
         path=experiment_path, Model=ExperimentModel,
     )
     results.paths = [path for path in results.paths if "hypers" not in path]
+    print(results.paths)
 
     dfs = []
     for group, sub_results in results.groupby_directory(level=4):
