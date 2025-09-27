@@ -19,10 +19,10 @@ python scripts/slurm.py --cluster clusters/vulcan-cpu-3h.json --runs 30 --entry 
 python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E48-weather/foragax/ForagaxWeather-v3/15/DQN.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-3h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E48-weather/foragax/ForagaxWeather-v3/15/DQN_frozen.json
 
-python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-1d.json --runs 30 --entry src/continuing_main.py --force -e experiments/E48-weather/foragax/ForagaxWeather-v3/15/DQN_privileged.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E48-weather/foragax/ForagaxWeather-v3/15/DQN_privileged.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E48-weather/foragax/ForagaxWeather-v3/15/DQN_privileged_frozen.json
 
-python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-1d.json --runs 30 --entry src/continuing_main.py --force -e experiments/E48-weather/foragax/ForagaxWeather-v3/15/DQN_world.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E48-weather/foragax/ForagaxWeather-v3/15/DQN_world.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E48-weather/foragax/ForagaxWeather-v3/15/DQN_world_frozen.json
 
 python scripts/slurm.py --cluster clusters/vulcan-cpu-15m.json --runs 30 --entry src/continuing_main.py --force -e experiments/E48-weather/foragax/ForagaxWeather-v3/Baselines/Search-Nearest.json
