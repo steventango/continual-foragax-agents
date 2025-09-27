@@ -27,7 +27,7 @@ setDefaultConference("jmlr")
 setFonts(20)
 
 
-def main(experiment_path: Path):
+def main(experiment_path: Path, normalize: str | None):
     data_path = (
         Path("results")
         / experiment_path.relative_to(Path("experiments"))
@@ -70,6 +70,27 @@ def main(experiment_path: Path):
     SINGLE = unique_alg_bases
     metric = "ewm_reward"
 
+    # Compute baseline_ys_dict for normalization
+    baseline_ys_dict = {}
+    normalized = False
+    if normalize is not None:
+        baseline_df = all_df.filter(pl.col("alg_base") == normalize)
+        if baseline_df.height > 0:
+            baseline_df = (
+                baseline_df.sort("seed")
+                .group_by("seed")
+                .agg(pl.col("frame"), pl.col(metric))
+            )
+            baseline_ys_dict = {
+                row["seed"]: np.array(row[metric])
+                for row in baseline_df.iter_rows(named=True)
+            }
+            normalized = True
+        else:
+            print(
+                f"Warning: No data found for baseline algorithm '{normalize}'. Normalization skipped."
+            )
+
     dd = data_definition(
         hyper_cols=[],  # will be set from df
         seed_col="seed",
@@ -94,6 +115,8 @@ def main(experiment_path: Path):
         alg_base = group_key[0]
         aperture = group_key[1]
         alg = group_key[2]
+        if normalized and (alg_base == "Search-Nearest" or "frozen" in alg):
+            continue
         print(alg)
 
         df = df.sort(dd.seed_col).group_by(dd.seed_col).agg(dd.time_col, metric)
@@ -110,12 +133,39 @@ def main(experiment_path: Path):
         print(ys.shape)
         assert np.all(np.isclose(xs[0], xs))
 
+        # Normalize to baseline
+        if baseline_ys_dict:
+            for i in range(len(ys)):
+                seed = df["seed"][i]
+                if seed in baseline_ys_dict:
+                    baseline = baseline_ys_dict[seed][mask]
+                    ys[i] /= np.maximum(np.abs(baseline), 1e-6)
+
+        # Clip to [-2, 2] for normalized plots
+        if normalized:
+            for i in range(len(ys)):
+                ys[i] = np.where((ys[i] >= -2) & (ys[i] <= 2), ys[i], np.nan)
+
         res = curve_percentile_bootstrap_ci(
             rng=np.random.default_rng(0),
             y=ys,
             statistic=Statistic.mean,
             iterations=10000,
         )
+
+        # Clip res to [-2, 2] for normalized plots
+        if normalized:
+            sample_stat = np.where(
+                (res.sample_stat >= -2) & (res.sample_stat <= 2),
+                res.sample_stat,
+                np.nan,
+            )
+            ci_low = np.where((res.ci[0] >= -2) & (res.ci[0] <= 2), res.ci[0], np.nan)
+            ci_high = np.where((res.ci[1] >= -2) & (res.ci[1] <= 2), res.ci[1], np.nan)
+        else:
+            sample_stat = res.sample_stat
+            ci_low = res.ci[0]
+            ci_high = res.ci[1]
 
         color = "grey" if "frozen" in alg else COLORS[alg_base]
         linestyle = "--" if "frozen" in alg else "-"
@@ -127,13 +177,13 @@ def main(experiment_path: Path):
             ax = axs_mean[0, col]
             ax.plot(
                 xs[0],
-                res.sample_stat,
+                sample_stat,
                 color=color,
                 linewidth=1.0,
                 linestyle=linestyle,
             )
             if len(ys) >= 5:
-                ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
+                ax.fill_between(xs[0], ci_low, ci_high, color=color, alpha=0.2)
             # Plot each seed on seeds figure
             for i in range(len(ys)):
                 ax = axs_seeds[i, col]
@@ -142,22 +192,32 @@ def main(experiment_path: Path):
             # Plot mean on mean figure, all columns
             for col in range(ncols):
                 ax = axs_mean[0, col]
-                ax.plot(
-                    xs[0],
-                    res.sample_stat,
-                    color=color,
-                    linewidth=1.0,
-                    linestyle=linestyle,
-                )
-                if len(ys) >= 5:
-                    ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
-            # Plot each seed on subsequent rows, all columns
+                if alg_base == "Search-Oracle" and normalized:
+                    ax.axhline(1, color=color, linestyle=linestyle, linewidth=1.0)
+                else:
+                    ax.plot(
+                        xs[0],
+                        sample_stat,
+                        color=color,
+                        linewidth=1.0,
+                        linestyle=linestyle,
+                    )
+                    if len(ys) >= 5:
+                        ax.fill_between(xs[0], ci_low, ci_high, color=color, alpha=0.2)
+            # Plot each seed on seeds figure, all columns
             for i in range(len(ys)):
                 for col in range(ncols):
                     ax = axs_seeds[i, col]
-                    ax.plot(
-                        xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle
-                    )
+                    if alg_base == "Search-Oracle" and normalized:
+                        ax.axhline(1, color=color, linestyle=linestyle, linewidth=0.5)
+                    else:
+                        ax.plot(
+                            xs[0],
+                            ys[i],
+                            color=color,
+                            linewidth=0.5,
+                            linestyle=linestyle,
+                        )
 
     # Set titles and formatting
     for col in range(ncols):
@@ -173,12 +233,14 @@ def main(experiment_path: Path):
     for j in range(ncols):
         ax = axs_mean[0, j]
         ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
-        ax.set_ylabel("Average Reward")
+        ylabel = "Normalized Average Reward" if normalized else "Average Reward"
+        ax.set_ylabel(ylabel)
         ax.set_xlabel("Time steps")
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
     # Format seeds axes
+    ylabel = "Normalized Average Reward" if normalized else "Average Reward"
     for i in range(num_seeds):
         for j in range(ncols):
             ax = axs_seeds[i, j]
@@ -186,7 +248,7 @@ def main(experiment_path: Path):
                 axis="x", style="sci", scilimits=(0, 0), useMathText=True
             )
             if j == 0:
-                ax.set_ylabel("Average Reward")
+                ax.set_ylabel(ylabel)
             if i == num_seeds - 1:
                 ax.set_xlabel("Time steps")
             ax.spines["top"].set_visible(False)
@@ -199,6 +261,8 @@ def main(experiment_path: Path):
 
     legend_elements = []
     for color_key in SINGLE:
+        if normalized and color_key == "Search-Nearest":
+            continue
         alg_label = str(LABEL_MAP.get(color_key, color_key))
         # Normal version
         legend_elements.append(
@@ -213,7 +277,8 @@ def main(experiment_path: Path):
         )
         # Frozen version if exists
         if (
-            all_df.filter(pl.col("alg_base") == color_key)
+            not normalized
+            and all_df.filter(pl.col("alg_base") == color_key)
             .filter(pl.col("frozen"))
             .height
             > 0
@@ -241,19 +306,19 @@ def main(experiment_path: Path):
     path_plots = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
     save(
         save_path=f"{path_plots}/plots",
-        plot_name=f"{env}",
+        plot_name=f"{env}{'_normalized' if normalized else ''}",
         save_type="pdf",
         f=fig_mean,
-        width=4 / 3 * ncols,
-        height_ratio=1 / 2,
+        width=ncols,
+        height_ratio=2 / 3 / ncols,
     )
     save(
         save_path=f"{path_plots}/plots",
-        plot_name=f"{env}_seeds",
+        plot_name=f"{env}_seeds{('_normalized' if normalized else '')}",
         save_type="pdf",
         f=fig_seeds,
-        width=2 * ncols,
-        height_ratio=(num_seeds / ncols) * (1 / 3),
+        width=ncols,
+        height_ratio=(num_seeds / ncols) * (2 / 3),
     )
 
 
@@ -267,7 +332,13 @@ if __name__ == "__main__":
         help="Path to the experiment directory",
         default="experiments/E48-weather/foragax/ForagaxWeather-v3",
     )
+    parser.add_argument(
+        "--normalize",
+        type=str,
+        default=None,
+        help="Algorithm to normalize results to before bootstrapping (default: no normalization)",
+    )
     args = parser.parse_args()
 
     experiment_path = Path(args.path)
-    main(experiment_path)
+    main(experiment_path, args.normalize)
