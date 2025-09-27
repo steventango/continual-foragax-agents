@@ -38,7 +38,7 @@ def main(experiment_path: Path):
 
     # Derive additional columns
     all_df = all_df.with_columns(
-        pl.col("alg").str.split("_").list.get(0).alias("alg_base"),
+        pl.col("alg").str.split("_frozen").list.get(0).alias("alg_base"),
         pl.col("alg").str.contains("frozen").alias("frozen"),
     )
 
@@ -83,7 +83,11 @@ def main(experiment_path: Path):
 
         df = df.sort(dd.seed_col).group_by(dd.seed_col).agg(dd.time_col, metric)
 
-        xs = np.stack(df["frame"].to_numpy())  # type: ignore
+        try:
+            xs = np.stack(df["frame"].to_numpy())  # type: ignore
+        except Exception as e:
+            print(f"Skipping {alg} due to error in stacking frames: {e}")
+            continue
         ys = np.stack(df[metric].to_numpy())  # type: ignore
         mask = xs[0] > 1000
         xs = xs[:, mask]
