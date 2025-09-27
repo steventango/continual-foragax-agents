@@ -39,7 +39,18 @@ def main(experiment_path: Path):
 
     # Derive additional columns
     all_df = all_df.with_columns(
-        pl.col("alg").str.split("_frozen").list.get(0).alias("alg_base"),
+        pl.when(pl.col("aperture").is_not_null())
+        .then(
+            pl.concat_str(
+                [
+                    pl.col("alg").str.split("_frozen").list.get(0),
+                    pl.lit("_"),
+                    pl.col("aperture").cast(pl.Utf8),
+                ]
+            )
+        )
+        .otherwise(pl.col("alg").str.split("_frozen").list.get(0))
+        .alias("alg_base"),
         pl.col("alg").str.contains("frozen").alias("frozen"),
     )
 
