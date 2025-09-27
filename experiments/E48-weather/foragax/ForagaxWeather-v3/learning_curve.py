@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+from itertools import chain
 from pathlib import Path
 
 sys.path.append(os.getcwd() + "/src")
@@ -70,9 +71,12 @@ def main(experiment_path: Path):
     num_seeds = all_df.select(pl.col(dd.seed_col).max()).item() + 1
 
     ncols = max(len(main_algs), 1)
-    nrows = 1 + num_seeds
-    fig, axs = plt.subplots(
-        nrows, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
+    # Create separate figures for mean and seeds
+    fig_mean, axs_mean = plt.subplots(
+        1, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
+    )
+    fig_seeds, axs_seeds = plt.subplots(
+        num_seeds, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
     )
 
     for group_key, df in all_df.group_by(["alg_base", "aperture", "alg"]):
@@ -108,8 +112,8 @@ def main(experiment_path: Path):
         # Plot
         if aperture is not None:
             col = main_algs.index(alg_base)
-            # Plot mean on row 0
-            ax = axs[0, col]
+            # Plot mean on mean figure
+            ax = axs_mean[0, col]
             ax.plot(
                 xs[0],
                 res.sample_stat,
@@ -119,14 +123,14 @@ def main(experiment_path: Path):
             )
             if len(ys) >= 5:
                 ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
-            # Plot each seed on subsequent rows
+            # Plot each seed on seeds figure
             for i in range(len(ys)):
-                ax = axs[1 + i, col]
+                ax = axs_seeds[i, col]
                 ax.plot(xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle)
         else:
-            # Plot mean on row 0, all columns
+            # Plot mean on mean figure, all columns
             for col in range(ncols):
-                ax = axs[0, col]
+                ax = axs_mean[0, col]
                 ax.plot(
                     xs[0],
                     res.sample_stat,
@@ -139,7 +143,7 @@ def main(experiment_path: Path):
             # Plot each seed on subsequent rows, all columns
             for i in range(len(ys)):
                 for col in range(ncols):
-                    ax = axs[1 + i, col]
+                    ax = axs_seeds[i, col]
                     ax.plot(
                         xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle
                     )
@@ -147,25 +151,37 @@ def main(experiment_path: Path):
     # Set titles and formatting
     for col in range(ncols):
         if len(main_algs) > 0:
-            ax = axs[0, col]
             alg_base = main_algs[col]
             alg_label = LABEL_MAP.get(alg_base, alg_base)
-            ax.set_title(f"{alg_label}")
+            # Title for mean figure
+            axs_mean[0, col].set_title(f"{alg_label}")
+            # Title for seeds figure (first row)
+            axs_seeds[0, col].set_title(f"{alg_label}")
 
-    for i in range(nrows):
+    # Format mean axes
+    for j in range(ncols):
+        ax = axs_mean[0, j]
+        ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+        ax.set_ylabel("Average Reward")
+        ax.set_xlabel("Time steps")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    # Format seeds axes
+    for i in range(num_seeds):
         for j in range(ncols):
-            ax = axs[i, j]
+            ax = axs_seeds[i, j]
             ax.ticklabel_format(
                 axis="x", style="sci", scilimits=(0, 0), useMathText=True
             )
             if j == 0:
                 ax.set_ylabel("Average Reward")
-            if i == nrows - 1:
+            if i == num_seeds - 1:
                 ax.set_xlabel("Time steps")
             ax.spines["top"].set_visible(False)
             ax.spines["right"].set_visible(False)
 
-    for ax in axs.flatten():
+    for ax in chain(axs_mean.flatten(), axs_seeds.flatten()):
         if not ax.get_lines():
             ax.set_visible(False)
             continue
@@ -205,17 +221,28 @@ def main(experiment_path: Path):
     # Sort legend elements by label
     legend_elements.sort(key=lambda x: x.get_label())
 
-    fig.suptitle(env)
-    fig.legend(handles=legend_elements, loc="outside center right", frameon=False)
+    fig_mean.suptitle(env)
+    fig_mean.legend(handles=legend_elements, loc="outside center right", frameon=False)
+
+    fig_seeds.suptitle(f"{env} - Individual Seeds")
+    fig_seeds.legend(handles=legend_elements, loc="outside center right", frameon=False)
 
     path_plots = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
     save(
         save_path=f"{path_plots}/plots",
-        plot_name=env,
+        plot_name=f"{env}",
         save_type="pdf",
-        f=fig,
+        f=fig_mean,
+        width=4 / 3 * ncols,
+        height_ratio=1 / 2,
+    )
+    save(
+        save_path=f"{path_plots}/plots",
+        plot_name=f"{env}_seeds",
+        save_type="pdf",
+        f=fig_seeds,
         width=2 * ncols,
-        height_ratio=(nrows / ncols) * (1 / 3),
+        height_ratio=(num_seeds / ncols) * (1 / 3),
     )
 
 
