@@ -1,4 +1,5 @@
 import argparse
+import math
 import os
 import sys
 from itertools import chain
@@ -39,26 +40,18 @@ def main(experiment_path: Path, normalize: str | None):
 
     # Derive additional columns
     all_df = all_df.with_columns(
-        pl.when(pl.col("aperture").is_not_null())
-        .then(
-            pl.concat_str(
-                [
-                    pl.col("alg").str.split("_frozen").list.get(0),
-                    pl.lit("_"),
-                    pl.col("aperture").cast(pl.Utf8),
-                ]
-            )
-        )
-        .otherwise(pl.col("alg").str.split("_frozen").list.get(0))
-        .alias("alg_base"),
+        pl.col("alg").str.split("_frozen").list.get(0).alias("alg_base"),
         pl.col("alg").str.contains("frozen").alias("frozen"),
     )
 
     # Compute metadata from df
     unique_alg_bases = sorted(all_df["alg_base"].unique())
     main_algs = sorted(
-        all_df.filter(pl.col("aperture").is_not_null())["alg_base"].unique()
+        all_df.filter(pl.col("aperture").is_not_null())["alg_base", "aperture"]
+        .unique()
+        .iter_rows(named=False)
     )
+    print("Main algs:", main_algs)
     env = all_df["env"][0]
 
     # Collect all color keys
@@ -103,9 +96,22 @@ def main(experiment_path: Path, normalize: str | None):
     num_seeds = all_df.select(pl.col(dd.seed_col).max()).item() + 1
 
     ncols = max(len(main_algs), 1)
+    # Calculate nrows and ncols for mean plots to be close to square
+    n_plots = len(main_algs)
+    if n_plots == 0:
+        nrows_mean = 1
+        ncols_mean = 1
+    else:
+        nrows_mean = int(math.sqrt(n_plots))
+        ncols_mean = math.ceil(n_plots / nrows_mean)
     # Create separate figures for mean and seeds
     fig_mean, axs_mean = plt.subplots(
-        1, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
+        nrows_mean,
+        ncols_mean,
+        sharex=True,
+        sharey="all",
+        layout="constrained",
+        squeeze=False,
     )
     fig_seeds, axs_seeds = plt.subplots(
         num_seeds, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
@@ -115,9 +121,7 @@ def main(experiment_path: Path, normalize: str | None):
         alg_base = group_key[0]
         aperture = group_key[1]
         alg = group_key[2]
-        if normalized and (alg_base == "Search-Nearest" or "frozen" in alg):
-            continue
-        print(alg)
+        print(alg_base, aperture, alg)
 
         df = df.sort(dd.seed_col).group_by(dd.seed_col).agg(dd.time_col, metric)
 
@@ -139,12 +143,7 @@ def main(experiment_path: Path, normalize: str | None):
                 seed = df["seed"][i]
                 if seed in baseline_ys_dict:
                     baseline = baseline_ys_dict[seed][mask]
-                    ys[i] /= np.maximum(np.abs(baseline), 1e-6)
-
-        # Clip to [-2, 2] for normalized plots
-        if normalized:
-            for i in range(len(ys)):
-                ys[i] = np.where((ys[i] >= -2) & (ys[i] <= 2), ys[i], np.nan)
+                    ys[i] /= baseline
 
         res = curve_percentile_bootstrap_ci(
             rng=np.random.default_rng(0),
@@ -172,9 +171,11 @@ def main(experiment_path: Path, normalize: str | None):
 
         # Plot
         if aperture is not None:
-            col = main_algs.index(alg_base)
+            col_linear = main_algs.index((alg_base, aperture))
+            row = col_linear // ncols_mean
+            col = col_linear % ncols_mean
             # Plot mean on mean figure
-            ax = axs_mean[0, col]
+            ax = axs_mean[row, col]
             ax.plot(
                 xs[0],
                 sample_stat,
@@ -186,24 +187,27 @@ def main(experiment_path: Path, normalize: str | None):
                 ax.fill_between(xs[0], ci_low, ci_high, color=color, alpha=0.2)
             # Plot each seed on seeds figure
             for i in range(len(ys)):
-                ax = axs_seeds[i, col]
+                ax = axs_seeds[i, col_linear]
                 ax.plot(xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle)
         else:
-            # Plot mean on mean figure, all columns
-            for col in range(ncols):
-                ax = axs_mean[0, col]
-                if alg_base == "Search-Oracle" and normalized:
-                    ax.axhline(1, color=color, linestyle=linestyle, linewidth=1.0)
-                else:
-                    ax.plot(
-                        xs[0],
-                        sample_stat,
-                        color=color,
-                        linewidth=1.0,
-                        linestyle=linestyle,
-                    )
-                    if len(ys) >= 5:
-                        ax.fill_between(xs[0], ci_low, ci_high, color=color, alpha=0.2)
+            # Plot mean on mean figure, all subplots
+            for row in range(nrows_mean):
+                for col in range(ncols_mean):
+                    ax = axs_mean[row, col]
+                    if alg_base == "Search-Oracle" and normalized:
+                        ax.axhline(1, color=color, linestyle=linestyle, linewidth=1.0)
+                    else:
+                        ax.plot(
+                            xs[0],
+                            sample_stat,
+                            color=color,
+                            linewidth=1.0,
+                            linestyle=linestyle,
+                        )
+                        if len(ys) >= 5:
+                            ax.fill_between(
+                                xs[0], ci_low, ci_high, color=color, alpha=0.2
+                            )
             # Plot each seed on seeds figure, all columns
             for i in range(len(ys)):
                 for col in range(ncols):
@@ -220,24 +224,34 @@ def main(experiment_path: Path, normalize: str | None):
                         )
 
     # Set titles and formatting
-    for col in range(ncols):
-        if len(main_algs) > 0:
-            alg_base = main_algs[col]
-            alg_label = LABEL_MAP.get(alg_base, alg_base)
-            # Title for mean figure
-            axs_mean[0, col].set_title(f"{alg_label}")
-            # Title for seeds figure (first row)
-            axs_seeds[0, col].set_title(f"{alg_label}")
+    for i, (alg_base, aperture_val) in enumerate(main_algs):
+        alg_label = LABEL_MAP.get(alg_base, alg_base)
+        if alg_label is None:
+            alg_label = alg_base
+        row = i // ncols_mean
+        col = i % ncols_mean
+        # Title for mean figure
+        title = alg_label
+        if aperture_val is not None:
+            title += f" ({aperture_val})"
+        axs_mean[row, col].set_title(title)
+        # Title for seeds figure (first row)
+        axs_seeds[0, i].set_title(title)
 
     # Format mean axes
-    for j in range(ncols):
-        ax = axs_mean[0, j]
-        ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
-        ylabel = "Normalized Average Reward" if normalized else "Average Reward"
-        ax.set_ylabel(ylabel)
-        ax.set_xlabel("Time steps")
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
+    ylabel = "Normalized Average Reward" if normalized else "Average Reward"
+    for row in range(nrows_mean):
+        for col in range(ncols_mean):
+            ax = axs_mean[row, col]
+            ax.ticklabel_format(
+                axis="x", style="sci", scilimits=(0, 0), useMathText=True
+            )
+            if col == 0:  # Only leftmost columns get ylabel
+                ax.set_ylabel(ylabel)
+            if row == nrows_mean - 1:  # Only bottom row gets xlabel
+                ax.set_xlabel("Time steps")
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
 
     # Format seeds axes
     ylabel = "Normalized Average Reward" if normalized else "Average Reward"
@@ -261,8 +275,6 @@ def main(experiment_path: Path, normalize: str | None):
 
     legend_elements = []
     for color_key in SINGLE:
-        if normalized and color_key == "Search-Nearest":
-            continue
         alg_label = str(LABEL_MAP.get(color_key, color_key))
         # Normal version
         legend_elements.append(
@@ -277,8 +289,7 @@ def main(experiment_path: Path, normalize: str | None):
         )
         # Frozen version if exists
         if (
-            not normalized
-            and all_df.filter(pl.col("alg_base") == color_key)
+            all_df.filter(pl.col("alg_base") == color_key)
             .filter(pl.col("frozen"))
             .height
             > 0
@@ -309,8 +320,8 @@ def main(experiment_path: Path, normalize: str | None):
         plot_name=f"{env}{'_normalized' if normalized else ''}",
         save_type="pdf",
         f=fig_mean,
-        width=ncols,
-        height_ratio=2 / 3 / ncols,
+        width=ncols_mean,
+        height_ratio=2 / 3 * nrows_mean / ncols_mean,
     )
     save(
         save_path=f"{path_plots}/plots",
