@@ -57,7 +57,7 @@ class SearchAgent(BaseAgent):
 
     def _get_world_position(self, obs: jax.Array) -> Tuple[jax.Array, jax.Array]:
         """Get agent position from the last channel (world mode)."""
-        agent_channel = obs[:, :, -1]
+        agent_channel = jnp.abs(obs[:, :, -1])
         agent_pos = jnp.argwhere(agent_channel > 0, size=1)[0]
         return agent_pos[0], agent_pos[1]
 
