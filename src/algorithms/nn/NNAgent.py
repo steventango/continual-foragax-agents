@@ -207,9 +207,16 @@ class NNAgent(BaseAgent):
     def _update(self, state: AgentState) -> Tuple[AgentState, Dict[str, jax.Array]]: ...
 
     @partial(jax.jit, static_argnums=0)
-    def _maybe_update(
-        self, state: AgentState
-    ) -> AgentState:
+    def _maybe_update_if_not_frozen(self, state: AgentState) -> AgentState:
+        return jax.lax.cond(
+            state.steps < state.hypers.freeze_steps,
+            self._maybe_update,
+            lambda s: s,
+            state,
+        )
+
+    @partial(jax.jit, static_argnums=0)
+    def _maybe_update(self, state: AgentState) -> AgentState:
         def do_update():
             new_state, metrics = self._update(state)
             # Update the latest metrics in the state
@@ -227,13 +234,15 @@ class NNAgent(BaseAgent):
         def no_update():
             return state
 
-        return jax.lax.cond(
+        state = jax.lax.cond(
             (state.steps % state.hypers.update_freq == 0)
-            & self.buffer.can_sample(state.buffer_state)
-            & (state.steps < state.hypers.freeze_steps),
+            & self.buffer.can_sample(state.buffer_state),
             do_update,
             no_update,
         )
+        state = replace(state, steps=state.steps + 1)
+        state = self._decay_epsilon(state)
+        return state
 
     @partial(jax.jit, static_argnums=0)
     def _decay_epsilon(self, state: AgentState):
@@ -307,9 +316,7 @@ class NNAgent(BaseAgent):
                 "a": a,
             }
         )
-        state = replace(state, steps=state.steps + 1)
-        state = self._decay_epsilon(state)
-        state = self._maybe_update(state)
+        state = self._maybe_update_if_not_frozen(state)
         return state, a
 
     def step(self, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
@@ -352,9 +359,7 @@ class NNAgent(BaseAgent):
                 "a": a,
             }
         )
-        state = self._maybe_update(state)
-        state = replace(state, steps=state.steps + 1)
-        state = self._decay_epsilon(state)
+        state = self._maybe_update_if_not_frozen(state)
         return state, a
 
     def end(self, reward: jax.Array, extra: Dict[str, jax.Array]):
@@ -379,7 +384,5 @@ class NNAgent(BaseAgent):
         )
         buffer_state = self.buffer.add(state.buffer_state, batch_sequence)
         state = replace(state, buffer_state=buffer_state)
-        state = self._maybe_update(state)
-        state = replace(state, steps=state.steps + 1)
-        state = self._decay_epsilon(state)
+        state = self._maybe_update_if_not_frozen(state)
         return state
