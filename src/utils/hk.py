@@ -70,3 +70,7 @@ class DuelingHeads(hk.Module):
         v = inputs.dot(wv) + bv
 
         return v + (adv - jnp.mean(adv, axis=-1, keepdims=True))
+
+
+def crelu(x: jax.Array):
+    return jnp.concatenate([jax.nn.relu(x), jax.nn.relu(-x)], axis=-1)

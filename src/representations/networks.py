@@ -123,6 +123,25 @@ def reluLayers(
     return out
 
 
+def creluLayers(
+    layers: List[int],
+    name: Optional[str] = None,
+    w_init: Optional[hk.initializers.Initializer] = None,
+    b_init: Optional[hk.initializers.Initializer] = None,
+):
+    if w_init is None:
+        w_init = hk.initializers.Orthogonal(np.sqrt(2))
+    if b_init is None:
+        b_init = hk.initializers.Constant(0)
+
+    out = []
+    for width in layers:
+        out.append(hk.Linear(width, w_init=w_init, b_init=b_init, name=name))
+        out.append(hku.crelu)
+
+    return out
+
+
 def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
     def _inner(x: jax.Array, *args, **kwargs):
         name = params["type"]
@@ -133,6 +152,12 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
 
         elif name == "OneLayerRelu":
             layers = reluLayers([hidden], name="phi")
+
+        if name == "TwoLayerCrelu":
+            layers = creluLayers([hidden, hidden], name="phi")
+
+        elif name == "OneLayerCrelu":
+            layers = creluLayers([hidden], name="phi")
 
         elif name == "MinatarNet":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
@@ -167,6 +192,15 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 hk.Flatten(name="phi"),
             ]
             layers += reluLayers([hidden, hidden], name="phi")
+
+        elif name == "Forager2CreluNet":
+            w_init = hk.initializers.Orthogonal(np.sqrt(2))
+            layers = [
+                hk.Conv2D(16, 3, 1, w_init=w_init, name="phi"),
+                jax.nn.relu,
+                hk.Flatten(name="phi"),
+            ]
+            layers += creluLayers([hidden, hidden], name="phi")
 
         elif name == "Forager2LayerNormNet":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
