@@ -49,21 +49,15 @@ class DQN_Shrink_and_Perturb(DQN):
         )
 
     @partial(jax.jit, static_argnums=0)
-    def _step(
-        self,
-        state: AgentState,
-        reward: jax.Array,
-        obs: jax.Array,
-        extra: Dict[str, jax.Array],
-    ):
-        state, a = super()._step(state, reward, obs, extra)
+    def _maybe_update(self, state: AgentState) -> AgentState:
+        state = super()._maybe_update(state)
         state = jax.lax.cond(
             (state.steps % state.hypers.sp_steps == 0) & (state.steps > 0),
             self._shrink_and_perturb,
             lambda s: s,
             state,
         )
-        return state, a
+        return state
 
     @partial(jax.jit, static_argnums=0)
     def _shrink_and_perturb(self, state: AgentState):
