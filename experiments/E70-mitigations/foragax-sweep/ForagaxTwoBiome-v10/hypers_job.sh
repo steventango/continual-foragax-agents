@@ -20,3 +20,5 @@ export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
 export JAX_PLATFORMS=cpu
 
 $SLURM_TMPDIR/.venv/bin/python experiments/E70-mitigations/foragax-sweep/ForagaxTwoBiome-v10/hypers.py
+
+$SLURM_TMPDIR/.venv/bin/python experiments/E70-mitigations/foragax/ForagaxTwoBiome-v10/generate_frozen_config.py

@@ -1,5 +1,5 @@
 {
-    "agent": "DQN",
+    "agent": "DQN_frozen_frozen",
     "problem": "Foragax",
     "total_steps": 10000000,
     "episode_cutoff": -1,
@@ -28,6 +28,7 @@
             "type": "Forager2Net",
             "hidden": 64
         },
-        "update_freq": 1
+        "update_freq": 1,
+        "freeze_steps": 1000000
     }
 }
