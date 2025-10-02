@@ -8,13 +8,13 @@
 
 module load python/3.11 arrow/19 gcc opencv rust swig
 
-rsync -azP $path/pyproject.toml $SLURM_TMPDIR/
+cp $path/pyproject.toml $SLURM_TMPDIR/
 cd $SLURM_TMPDIR
 python -m venv .venv
 source .venv/bin/activate
 
 pip install -e .
 
-rsync -azP .venv/ $path/.venv.tmp/ && mv $path/.venv.tmp $path/.venv
+cp -r .venv $path/
 
 pip freeze
