@@ -67,7 +67,7 @@ nvidia-cuda-mps-control -d"""
 
 {exclude_str}
 cd {cwd}
-rsync -azP {venv_origin}/ {venv}/
+rsync -azP {venv_origin} {venv}
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
