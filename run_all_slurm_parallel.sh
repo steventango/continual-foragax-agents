@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Run all slurm_search.sh scripts in parallel
-bash experiments/E73-search-limited-fov/foragax/ForagaxTwoBiome-v10/slurm_search.sh &
-bash experiments/E76-search-limited-fov/foragax/ForagaxTwoBiome-v13/slurm_search.sh &
-bash experiments/E79-search-limited-fov/foragax/ForagaxTwoBiome-v14/slurm_search.sh &
-bash experiments/E82-search-limited-fov/foragax/ForagaxTwoBiome-v15/slurm_search.sh &
-bash experiments/E85-search-limited-fov/foragax/ForagaxTwoBiome-v16/slurm_search.sh &
+bash experiments/E73-search-limited-fov/foragax-sweep/ForagaxTwoBiome-v10/slurm.sh &
+bash experiments/E76-search-limited-fov/foragax-sweep/ForagaxTwoBiome-v13/slurm.sh &
+bash experiments/E79-search-limited-fov/foragax-sweep/ForagaxTwoBiome-v14/slurm.sh &
+bash experiments/E82-search-limited-fov/foragax-sweep/ForagaxTwoBiome-v15/slurm.sh &
+bash experiments/E85-search-limited-fov/foragax-sweep/ForagaxTwoBiome-v16/slurm.sh &
 
 # Wait for all background jobs to complete
 wait
