@@ -8,7 +8,7 @@
 
 module load arrow/19
 
-cp -R .venv $SLURM_TMPDIR
+rsync -azP .venv/ $SLURM_TMPDIR/
 
 export MPLBACKEND=TKAgg
 export OMP_NUM_THREADS=1
