@@ -10,9 +10,8 @@ cd $SLURM_TMPDIR
 python -m venv .venv
 source .venv/bin/activate
 
-pip install .
+pip install -e .
 
-tar -cavf venv.tar.xz .venv
-cp venv.tar.xz $path/
+cp .venv $path/
 
 pip freeze
