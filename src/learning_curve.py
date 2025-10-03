@@ -28,7 +28,7 @@ setDefaultConference("jmlr")
 setFonts(20)
 
 
-def main(experiment_path: Path, normalize: str | None):
+def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
     data_path = (
         Path("results")
         / experiment_path.relative_to(Path("experiments").resolve())
@@ -314,19 +314,18 @@ def main(experiment_path: Path, normalize: str | None):
     fig_seeds.suptitle(f"{env} - Individual Seeds")
     fig_seeds.legend(handles=legend_elements, loc="outside center right", frameon=False)
 
-    path_plots = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
     save(
-        save_path=f"{path_plots}/plots",
+        save_path=f"{experiment_path}/plots",
         plot_name=f"{env}{'_normalized' if normalized else ''}",
-        save_type="pdf",
+        save_type=save_type,
         f=fig_mean,
         width=ncols_mean if ncols_mean > 1 else 2,
         height_ratio=2 / 3 * nrows_mean / ncols_mean if ncols_mean > 1 else nrows_mean / 3
     )
     save(
-        save_path=f"{path_plots}/plots",
+        save_path=f"{experiment_path}/plots",
         plot_name=f"{env}_seeds{('_normalized' if normalized else '')}",
-        save_type="pdf",
+        save_type=save_type,
         f=fig_seeds,
         width=ncols if ncols > 1 else 2,
         height_ratio=(num_seeds / ncols) * (2 / 3) if ncols > 1 else num_seeds / 3,
@@ -338,10 +337,9 @@ if __name__ == "__main__":
         description="Plot learning curves from processed data"
     )
     parser.add_argument(
-        "--path",
+        "path",
         type=str,
         help="Path to the experiment directory",
-        default=Path(__file__).parent.resolve(),
     )
     parser.add_argument(
         "--normalize",
@@ -349,7 +347,13 @@ if __name__ == "__main__":
         default=None,
         help="Algorithm to normalize results to before bootstrapping (default: no normalization)",
     )
+    parser.add_argument(
+        "--save-type",
+        type=str,
+        default="pdf",
+        help="File format to save the plots (default: pdf)",
+    )
     args = parser.parse_args()
 
-    experiment_path = Path(args.path)
-    main(experiment_path, args.normalize)
+    experiment_path = Path(args.path).resolve()
+    main(experiment_path, args.normalize, args.save_type)
