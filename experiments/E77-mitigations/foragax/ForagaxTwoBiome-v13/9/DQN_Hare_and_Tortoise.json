@@ -19,7 +19,7 @@
         "ht_steps": 4000,
         "optimizer": {
             "name": "Adam",
-            "alpha": 0.0003,
+            "alpha": 3e-05,
             "beta1": 0.9,
             "beta2": 0.999,
             "eps": 1e-08
