@@ -1,24 +1,5 @@
 import polars as pl
 
-from utils.constants import BIOME_DEFINITIONS
-
-
-def get_biome(pos, biomes):
-    """Determine which biome a position belongs to.
-
-    Args:
-        pos: Tuple of (x, y) coordinates
-        biomes: Dictionary mapping biome names to ((x1, y1), (x2, y2)) bounding boxes
-
-    Returns:
-        str: Name of the biome or "Neither" if not in any biome
-    """
-    x, y = pos
-    for name, ((x1, y1), (x2, y2)) in biomes.items():
-        if x1 <= x < x2 and y1 <= y < y2:
-            return name
-    return "Neither"
-
 
 def calculate_ewm_reward(df):
     """Calculate exponentially weighted moving average of rewards.
