@@ -19,10 +19,10 @@
         "gamma": 0.99,
         "optimizer": {
             "name": "Adam",
-            "alpha": 0.0003,
+            "alpha": 1e-05,
             "beta1": 0.9,
             "beta2": 0.9,
-            "eps": 0.01
+            "eps": 1e-08
         },
         "representation": {
             "type": "Forager2Net",

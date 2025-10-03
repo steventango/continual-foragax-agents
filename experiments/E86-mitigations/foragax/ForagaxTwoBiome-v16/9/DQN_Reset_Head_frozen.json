@@ -21,7 +21,7 @@
             "name": "Adam",
             "alpha": 0.0003,
             "beta1": 0.9,
-            "beta2": 0.9,
+            "beta2": 0.999,
             "eps": 0.01
         },
         "representation": {
