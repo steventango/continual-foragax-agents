@@ -6,6 +6,7 @@ from algorithms.nn.DQN_Hare_and_Tortoise import DQN_Hare_and_Tortoise
 from algorithms.nn.DQN_L2_Init import DQN_L2_Init
 from algorithms.nn.DQN_Reset import DQN_Reset
 from algorithms.nn.DQN_Shrink_and_Perturb import DQN_Shrink_and_Perturb
+from algorithms.nn.DQN_CBP import DQN_CBP
 from algorithms.nn.DRQN import DRQN
 from algorithms.nn.MADRQN import MADRQN
 from algorithms.nn.AADRQN import AADRQN
@@ -22,6 +23,9 @@ def getAgent(name) -> Type[BaseAgent]:
         return DQN_L2_Init
     if name == "DQN":
         return DQN
+
+    if name == 'DQN_CBP':
+        return DQN_CBP
 
     if name.startswith("DRQN"):
         return DRQN
