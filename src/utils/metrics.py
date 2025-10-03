@@ -1,14 +1,16 @@
 import polars as pl
 
+from utils.constants import BIOME_DEFINITIONS
+
 
 def calculate_ewm_reward(df):
-    """Calculate exponentially weighted moving average of rewards.
+    """Calculate exponentially weighted moving average of rewards and traces for eating objects.
 
     Args:
         df: Polars DataFrame with 'rewards' column
 
     Returns:
-        Polars DataFrame with 'ewm_reward' and 'mean_ewm_reward' columns added
+        Polars DataFrame with 'ewm_reward', 'mean_ewm_reward', 'morel_trace', 'oyster_trace', and 'deathcap_trace' columns added
     """
     if "rewards" not in df.columns:
         return df
@@ -17,6 +19,23 @@ def calculate_ewm_reward(df):
         pl.col("rewards").ewm_mean(alpha=1e-3).alias("ewm_reward"),
     )
     df = df.with_columns(pl.col("ewm_reward").mean().alias("mean_ewm_reward"))
+
+    # Add ewm traces for eating objects
+    df = df.with_columns(
+        (pl.col("rewards") == 10)
+        .cast(pl.Float32)
+        .ewm_mean(alpha=1e-3)
+        .alias("morel_trace"),
+        (pl.col("rewards") == 1)
+        .cast(pl.Float32)
+        .ewm_mean(alpha=1e-3)
+        .alias("oyster_trace"),
+        (pl.col("rewards") == -5)
+        .cast(pl.Float32)
+        .ewm_mean(alpha=1e-3)
+        .alias("deathcap_trace"),
+    )
+
     return df
 
 
@@ -63,9 +82,9 @@ def calculate_biome_occupancy(df, window_size=30):
             .alias(f"{name}_occupancy")
         )
         df = df.with_columns(
-            (pl.col("biome")
-            .filter(pl.col("biome") == name)
-            .len() / pl.len()).alias(f"biome_percent_{name}")
+            (pl.col("biome").filter(pl.col("biome") == name).len() / pl.len()).alias(
+                f"biome_percent_{name}"
+            )
         )
 
     return df

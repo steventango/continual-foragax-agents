@@ -52,7 +52,19 @@ def read_metrics_from_data(
             pl.lit(np.arange(len(datas[run_id]))).alias("frame"),
         )
         if "rewards" in datas[run_id].columns and (
-            metrics is None or not metrics or "ewm_reward" in metrics or "mean_ewm_reward" in metrics
+            metrics is None
+            or not metrics
+            or any(
+                m
+                in [
+                    "ewm_reward",
+                    "mean_ewm_reward",
+                    "morel_trace",
+                    "oyster_trace",
+                    "deathcap_trace",
+                ]
+                for m in metrics
+            )
         ):
             datas[run_id] = calculate_ewm_reward(datas[run_id])
 
