@@ -25,15 +25,39 @@ def calculate_ewm_reward(df):
         (pl.col("rewards") == 10)
         .cast(pl.Float32)
         .ewm_mean(alpha=1e-3)
-        .alias("morel_trace"),
+        .alias("morel_trace_3"),
         (pl.col("rewards") == 1)
         .cast(pl.Float32)
         .ewm_mean(alpha=1e-3)
-        .alias("oyster_trace"),
+        .alias("oyster_trace_3"),
         (pl.col("rewards") == -5)
         .cast(pl.Float32)
         .ewm_mean(alpha=1e-3)
-        .alias("deathcap_trace"),
+        .alias("deathcap_trace_3"),
+        (pl.col("rewards") == 10)
+        .cast(pl.Float32)
+        .ewm_mean(alpha=1e-2)
+        .alias("morel_trace_2"),
+        (pl.col("rewards") == 1)
+        .cast(pl.Float32)
+        .ewm_mean(alpha=1e-2)
+        .alias("oyster_trace_2"),
+        (pl.col("rewards") == -5)
+        .cast(pl.Float32)
+        .ewm_mean(alpha=1e-2)
+        .alias("deathcap_trace_2"),
+        (pl.col("rewards") == 10)
+        .cast(pl.Float32)
+        .ewm_mean(alpha=1e-1)
+        .alias("morel_trace_1"),
+        (pl.col("rewards") == 1)
+        .cast(pl.Float32)
+        .ewm_mean(alpha=1e-2)
+        .alias("oyster_trace_1"),
+        (pl.col("rewards") == -5)
+        .cast(pl.Float32)
+        .ewm_mean(alpha=1e-1)
+        .alias("deathcap_trace_1"),
     )
 
     return df
