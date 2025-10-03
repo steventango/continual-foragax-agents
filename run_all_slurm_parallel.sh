@@ -1,6 +1,9 @@
 #!/bin/bash
 
 # Run all slurm.sh scripts in parallel
+bash experiments/E69-search-limited-fov/foragax-sweep/ForagaxTwoBiome-v10/slurm.sh &
+bash experiments/E70-mitigations/foragax-sweep/ForagaxTwoBiome-v10/slurm.sh &
+bash experiments/E71-baselines-vs-recurrent/foragax-sweep/ForagaxTwoBiome-v10/slurm.sh &
 # bash experiments/E73-search-limited-fov/foragax-sweep/ForagaxTwoBiome-v10/slurm.sh &
 bash experiments/E74-mitigations/foragax-sweep/ForagaxTwoBiome-v10/slurm.sh &
 bash experiments/E75-baselines-vs-recurrent/foragax-sweep/ForagaxTwoBiome-v10/slurm.sh &
