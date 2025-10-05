@@ -1,4 +1,5 @@
 import argparse
+import json
 import math
 import os
 import sys
@@ -122,6 +123,23 @@ def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
         aperture = group_key[1]
         alg = group_key[2]
         print(alg_base, aperture, alg)
+
+        if "sweep" in str(experiment_path):
+            # Check if best configuration exists
+            if aperture is not None:
+                best_configuration_path = (
+                    experiment_path / "hypers" / str(aperture) / f"{alg}.json"
+                )
+            else:
+                continue
+            if best_configuration_path.exists():
+                with open(best_configuration_path) as f:
+                    best_configuration = json.load(f)
+
+                # Filter df to only include rows matching best configuration
+                for param, value in best_configuration.items():
+                    if param in df.columns:
+                        df = df.filter(pl.col(param) == value)
 
         df = df.sort(dd.seed_col).group_by(dd.seed_col).agg(dd.time_col, metric)
 
