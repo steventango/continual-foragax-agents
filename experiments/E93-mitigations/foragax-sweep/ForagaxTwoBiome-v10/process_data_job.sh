@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
-#SBATCH --job-name=E93_process_data-mitigations_foragax-sweep_ForagaxTwoBiome-v13
+#SBATCH --job-name=E93_process_data-mitigations_foragax-sweep_ForagaxTwoBiome-v10
 #SBATCH --mem-per-cpu=128G
 #SBATCH --ntasks=1
 #SBATCH --output=../slurm-%j.out
@@ -19,4 +19,4 @@ export XLA_FLAGS="--xla_cpu_multi_thread_eigen=false intra_op_parallelism_thread
 export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
 export JAX_PLATFORMS=cpu
 
-$SLURM_TMPDIR/.venv/bin/python src/process_data.py experiments/E93-mitigations/foragax-sweep/ForagaxTwoBiome-v13
+$SLURM_TMPDIR/.venv/bin/python src/process_data.py experiments/E93-mitigations/foragax-sweep/ForagaxTwoBiome-v10
