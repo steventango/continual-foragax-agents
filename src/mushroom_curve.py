@@ -41,7 +41,10 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
     # Derive additional columns
     all_df = all_df.with_columns(
         pl.col("alg").str.split("_frozen").list.get(0).alias("alg_base"),
-        pl.col("alg").str.contains("frozen").alias("frozen"),
+        pl.when(pl.col("alg").str.contains("frozen"))
+        .then(pl.col("alg").str.split("_frozen").list.get(1))
+        .otherwise(None)
+        .alias("freeze_steps_str"),
     )
 
     # Compute metadata from df
@@ -81,6 +84,8 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
     metric_colors = dict(
         zip(trace_metrics, select_colors(len(trace_metrics)), strict=True)
     )
+
+    linestyle_map = {"1M": "--", "5M": ":"}
 
     dd = data_definition(
         hyper_cols=[],
@@ -137,8 +142,12 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
                     if param in df.columns:
                         df = df.filter(pl.col(param) == value)
 
-        is_frozen = df["frozen"][0]
-        linestyle = "--" if is_frozen else "-"
+        freeze_steps_str = alg.split("_frozen")[1] if "_frozen" in alg else None
+
+        if freeze_steps_str:
+            linestyle = linestyle_map.get(freeze_steps_str, "--")
+        else:
+            linestyle = "-"
 
         for metric in trace_metrics:
             metric_df = (
