@@ -1,6 +1,6 @@
 python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E98-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v13/15/DQN.json
 python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-8h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E98-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v13/15/DQN_world.json
-python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-3h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E98-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v13/15/DQN_frozen_1M.json
-python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-3h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E98-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v13/15/DQN_world_frozen_1M.json
-python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-3h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E98-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v13/15/DQN_frozen_5M.json
-python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-3h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E98-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v13/15/DQN_world_frozen_5M.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E98-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v13/15/DQN_frozen_1M.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E98-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v13/15/DQN_world_frozen_1M.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E98-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v13/15/DQN_frozen_5M.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E98-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v13/15/DQN_world_frozen_5M.json
