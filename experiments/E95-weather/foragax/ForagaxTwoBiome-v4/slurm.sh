@@ -11,9 +11,6 @@ python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-6h.json --runs 30 --en
 python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E95-weather/foragax/ForagaxTwoBiome-v4/15/DQN_privileged.json
 python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E95-weather/foragax/ForagaxTwoBiome-v4/15/DQN_world.json
 
-python scripts/slurm.py --cluster clusters/vulcan-cpu-15m.json --runs 30 --entry src/continuing_main.py --force -e experiments/E95-weather/foragax/ForagaxTwoBiome-v4/Baselines/Search-Nearest.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu-30m.json --runs 30 --entry src/continuing_main.py --force -e experiments/E95-weather/foragax/ForagaxTwoBiome-v4/Baselines/Search-Oracle.json
-
 python scripts/slurm.py --cluster clusters/vulcan-cpu-3h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E95-weather/foragax/ForagaxTwoBiome-v4/9/DQN_CReLU_frozen_1M.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-3h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E95-weather/foragax/ForagaxTwoBiome-v4/9/DQN_CReLU_frozen_5M.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-3h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E95-weather/foragax/ForagaxTwoBiome-v4/9/DQN_LN_frozen_1M.json
