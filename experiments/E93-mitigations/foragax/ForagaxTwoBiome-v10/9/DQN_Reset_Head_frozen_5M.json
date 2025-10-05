@@ -1,5 +1,5 @@
 {
-    "agent": "DQN_Reset_Head",
+    "agent": "DQN_Reset_Head_frozen_5M",
     "problem": "Foragax",
     "total_steps": 10000000,
     "episode_cutoff": -1,
@@ -30,6 +30,7 @@
         },
         "update_freq": 4,
         "reset_steps": 10000,
-        "reset_head_only": true
+        "reset_head_only": true,
+        "freeze_steps": 5000000
     }
 }
