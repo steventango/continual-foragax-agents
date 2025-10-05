@@ -4,7 +4,7 @@ python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-3h.json --runs 5 --en
 python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-3h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax-sweep/ForagaxWeather-v5/9/DQN_L2.json
 python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-3h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax-sweep/ForagaxWeather-v5/9/DQN_L2_Init.json
 python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-3h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax-sweep/ForagaxWeather-v5/9/DQN_LN.json
-python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-3h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax-sweep/ForagaxWeather-v5/9/DQN_Reset_Head.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-3h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax-sweep/ForagaxWeather-v5/9/DQN_Reset_Head.json
 python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-3h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax-sweep/ForagaxWeather-v5/9/DQN_Shrink_and_Perturb.json
 
 python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-6h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax-sweep/ForagaxWeather-v5/15/DQN.json

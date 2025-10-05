@@ -3,5 +3,5 @@ python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-3h.json --runs 5 --en
 python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-3h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E93-mitigations/foragax-sweep/ForagaxTwoBiome-v10/9/DQN_L2.json
 python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-3h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E93-mitigations/foragax-sweep/ForagaxTwoBiome-v10/9/DQN_L2_Init.json
 python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-3h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E93-mitigations/foragax-sweep/ForagaxTwoBiome-v10/9/DQN_LN.json
-python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-3h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E93-mitigations/foragax-sweep/ForagaxTwoBiome-v10/9/DQN_Reset_Head.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-3h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E93-mitigations/foragax-sweep/ForagaxTwoBiome-v10/9/DQN_Reset_Head.json
 python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-3h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E93-mitigations/foragax-sweep/ForagaxTwoBiome-v10/9/DQN_Shrink_and_Perturb.json
