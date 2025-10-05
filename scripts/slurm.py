@@ -33,6 +33,7 @@ parser.add_argument("--results", type=str, default="./")
 parser.add_argument("--debug", action="store_true", default=False)
 parser.add_argument("--force", action="store_true", default=False)
 parser.add_argument("--exclude", type=str, nargs="+", default=[])
+parser.add_argument("-i", "--idxs", type=int, nargs="+", default=None)
 
 cmdline = parser.parse_args()
 
@@ -105,8 +106,11 @@ base_group_size = math.ceil(slurm.cores / threads * tasks_per_core) * slurm.sequ
 hours, minutes, seconds = slurm.time.split(":")
 total_hours = int(hours) + (int(minutes) / 60) + (int(seconds) / 3600)
 
-# gather missing
-missing = gather_missing_indices(cmdline.e, cmdline.runs, loader=Experiment.load)
+# gather missing or use provided indices
+if cmdline.idxs is not None:
+    missing = {path: cmdline.idxs for path in cmdline.e}
+else:
+    missing = gather_missing_indices(cmdline.e, cmdline.runs, loader=Experiment.load)
 
 # compute cost
 memory = Slurm.memory_in_mb(slurm.mem_per_core)
