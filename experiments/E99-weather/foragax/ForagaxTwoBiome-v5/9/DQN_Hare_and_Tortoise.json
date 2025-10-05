@@ -30,6 +30,6 @@
         },
         "target_refresh": 1,
         "tau": 0.05,
-        "update_freq": 1
+        "update_freq": 4
     }
 }

@@ -30,7 +30,7 @@
             "type": "Forager2Net",
             "hidden": 64
         },
-        "update_freq": 1,
+        "update_freq": 4,
         "freeze_steps": 1000000
     }
 }

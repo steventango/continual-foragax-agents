@@ -42,9 +42,6 @@
             "type": "Forager2LayerNormNet",
             "hidden": 64
         },
-        "update_freq": [
-            1,
-            4
-        ]
+        "update_freq": 4
     }
 }

@@ -28,7 +28,7 @@
             "type": "Forager2Net",
             "hidden": 64
         },
-        "update_freq": 1,
+        "update_freq": 4,
         "reset_steps": 10000,
         "reset_head_only": true
     }

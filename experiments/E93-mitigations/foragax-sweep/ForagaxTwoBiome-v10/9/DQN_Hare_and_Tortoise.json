@@ -46,6 +46,6 @@
             0.05,
             0.005
         ],
-        "update_freq": 1
+        "update_freq": 4
     }
 }
