@@ -233,6 +233,8 @@ def get_agent_metrics(agent_state, batch_shape):
 
 if isinstance(glues[0].environment, Foragax):
     datas["pos"] = np.empty((len(indices), n, 2), dtype=np.int32)
+    datas["biome_id"] = np.empty((len(indices), n), dtype=np.int32)
+    datas["object_collected_id"] = np.empty((len(indices), n), dtype=np.int32)
     def get_data(carry, interaction):
         weight_change, squared_td_error, abs_td_error, loss = get_agent_metrics(
             carry.agent_state, interaction.reward.shape
@@ -240,6 +242,8 @@ if isinstance(glues[0].environment, Foragax):
         data = {
             "rewards": interaction.reward,
             "pos": carry.env_state.state.pos,
+            "biome_id": interaction.extra["biome_id"],
+            "object_collected_id": interaction.extra["object_collected_id"],
             "weight_change": weight_change,
             "squared_td_error": squared_td_error,
             "abs_td_error": abs_td_error,
@@ -294,6 +298,10 @@ for i, idx in enumerate(indices):
                 datas["loss"] = np.empty((len(indices), n), dtype=np.float16)
                 if isinstance(glues[0].environment, Foragax):
                     datas["pos"] = np.empty((len(indices), n, 2), dtype=np.int32)
+                    datas["biome_id"] = np.empty((len(indices), n), dtype=np.int32)
+                    datas["object_collected_id"] = np.empty(
+                        (len(indices), n), dtype=np.int32
+                    )
 
 if len(glues) > 1:
     # combine states
