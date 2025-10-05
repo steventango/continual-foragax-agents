@@ -1,0 +1,12 @@
+bash experiments/E70-mitigations/foragax/ForagaxTwoBiome-v10/run.sh
+bash experiments/E71-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v10/run.sh
+bash experiments/E74-mitigations/foragax/ForagaxTwoBiome-v10/run.sh
+bash experiments/E75-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v10/run.sh
+bash experiments/E77-mitigations/foragax/ForagaxTwoBiome-v13/run.sh
+bash experiments/E78-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v13/run.sh
+bash experiments/E80-mitigations/foragax/ForagaxTwoBiome-v14/run.sh
+bash experiments/E81-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v14/run.sh
+bash experiments/E83-mitigations/foragax/ForagaxTwoBiome-v15/run.sh
+bash experiments/E84-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v15/run.sh
+bash experiments/E86-mitigations/foragax/ForagaxTwoBiome-v16/run.sh
+bash experiments/E87-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v16/run.sh

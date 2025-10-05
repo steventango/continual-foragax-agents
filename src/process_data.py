@@ -40,7 +40,7 @@ def main(experiment_path: Path):
                 pl.lit(env).alias("env"),
                 pl.lit(group).alias("group"),
                 pl.lit(alg).alias("alg"),
-                pl.lit(aperture).cast(pl.Int32).alias("aperture"),
+                pl.lit(aperture).cast(pl.Int64).alias("aperture"),
             )
             print(df)
             dfs.append(df)
@@ -50,7 +50,7 @@ def main(experiment_path: Path):
         print("No data found to concatenate")
         return
 
-    all_df = pl.concat(dfs, how="diagonal")
+    all_df = pl.concat(dfs, how="diagonal_relaxed")
     all_df = all_df.sort(["env", "group", "alg", "id", "frame"])
     all_df.write_parquet(output_path)
     print(f"Data saved to {output_path}")

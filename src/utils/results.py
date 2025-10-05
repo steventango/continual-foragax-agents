@@ -17,7 +17,11 @@ from PyExpUtils.models.ExperimentDescription import (
 from PyExpUtils.results.indices import listIndices
 from PyExpUtils.results.tools import getHeader, getParamsAsDict
 
-from utils.metrics import calculate_biome_occupancy, calculate_ewm_reward
+from utils.metrics import (
+    calculate_biome_occupancy,
+    calculate_ewm_reward,
+    calculate_object_traces,
+)
 from utils.ml_instrumentation.reader import get_run_ids
 
 Exp = TypeVar("Exp", bound=ExperimentDescription)
@@ -52,21 +56,28 @@ def read_metrics_from_data(
             pl.lit(np.arange(len(datas[run_id]))).alias("frame"),
         )
         if "rewards" in datas[run_id].columns and (
-            metrics is None or not metrics or "ewm_reward" in metrics or "mean_ewm_reward" in metrics
-        ):
-            datas[run_id] = calculate_ewm_reward(datas[run_id])
-
-        # Calculate biome occupancy if requested
-        if "pos" in datas[run_id].columns and (
             metrics is None
             or not metrics
             or any(
-                m.startswith(
-                    ("Morel_occupancy", "Oyster_occupancy", "Neither_occupancy")
-                )
-                or m == "biome"
+                m in ["ewm_reward", "mean_ewm_reward"]
                 for m in metrics
             )
+        ):
+            datas[run_id] = calculate_ewm_reward(datas[run_id])
+
+        # Calculate object traces if requested
+        if "object_collected_id" in datas[run_id].columns and (
+            metrics is None
+            or not metrics
+            or any(m.startswith("object_trace_") for m in metrics)
+        ):
+            datas[run_id] = calculate_object_traces(datas[run_id])
+
+        # Calculate biome occupancy if requested
+        if "biome_id" in datas[run_id].columns and (
+            metrics is None
+            or not metrics
+            or any(m.startswith("biome_") for m in metrics)
         ):
             datas[run_id] = calculate_biome_occupancy(datas[run_id])
         if start is not None or end is not None:
@@ -76,7 +87,9 @@ def read_metrics_from_data(
         if sample is None:
             continue
         if sample_type == "every":
-            datas[run_id] = datas[run_id].gather_every(max(1, len(datas[run_id]) // sample))
+            datas[run_id] = datas[run_id].gather_every(
+                max(1, len(datas[run_id]) // sample)
+            )
         elif sample_type == "random":
             datas[run_id] = datas[run_id].sample(n=sample, seed=0).sort("frame")
 
@@ -215,7 +228,9 @@ class ResultCollection(Generic[Exp]):
 
         project = Path.cwd()
         paths = glob.glob(
-            "**/*.json", root_dir=str(self.path), recursive=True,
+            "**/*.json",
+            root_dir=str(self.path),
+            recursive=True,
         )
         paths = [str((self.path / p).absolute().relative_to(project)) for p in paths]
         self.paths = paths
@@ -257,7 +272,9 @@ def detect_missing_indices(exp: ExperimentDescription, runs: int, base: str = ".
 
     n_params = exp.numPermutations()
     for param_id in range(n_params):
-        run_ids = set(get_run_ids(path, getParamsAsDict(exp, param_id, header=header), data_path))
+        run_ids = set(
+            get_run_ids(path, getParamsAsDict(exp, param_id, header=header), data_path)
+        )
 
         for seed in range(runs):
             run_id = seed * n_params + param_id

@@ -1,0 +1,2 @@
+python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-1h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E84-baselines-vs-recurrent/foragax-sweep/ForagaxTwoBiome-v15/15/DQN.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-1h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E84-baselines-vs-recurrent/foragax-sweep/ForagaxTwoBiome-v15/15/DQN_world.json

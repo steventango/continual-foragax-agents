@@ -1,7 +1,10 @@
 #!/bin/bash
 
-#SBATCH --time=00:55:00
 #SBATCH --account=rrg-whitem
+#SBATCH --mem-per-cpu=3G
+#SBATCH --ntasks=8
+#SBATCH --time=01:00:00
+#SBATCH --export=path="/home/stang5/scratch/continual-foragax-agents"
 
 module load python/3.11 arrow/19 gcc opencv rust swig
 
@@ -10,9 +13,8 @@ cd $SLURM_TMPDIR
 python -m venv .venv
 source .venv/bin/activate
 
-pip install .
+pip install -e .
 
-tar -cavf venv.tar.xz .venv
-cp venv.tar.xz $path/
+cp -r .venv $path/
 
 pip freeze
