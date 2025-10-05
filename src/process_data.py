@@ -1,4 +1,5 @@
 import argparse
+import concurrent.futures
 import os
 import sys
 from pathlib import Path
@@ -9,6 +10,26 @@ import polars as pl
 
 from experiment.ExperimentModel import ExperimentModel
 from utils.results import ResultCollection
+
+
+def process_alg_result(alg_result, group, aperture):
+    alg = alg_result.filename
+    print(f"{group} {alg}")
+
+    exp_path = Path(alg_result.exp_path)
+    env = exp_path.parent.parent.name
+    df = alg_result.load()
+    if df is None:
+        return None
+
+    df = df.with_columns(
+        pl.lit(env).alias("env"),
+        pl.lit(group).alias("group"),
+        pl.lit(alg).alias("alg"),
+        pl.lit(aperture).cast(pl.Int64).alias("aperture"),
+    )
+    print(df)
+    return df
 
 
 def main(experiment_path: Path):
@@ -26,24 +47,15 @@ def main(experiment_path: Path):
     for group, sub_results in results.groupby_directory(level=4):
         aperture = int(group) if group.isdigit() else None
 
-        for alg_result in sub_results:
-            alg = alg_result.filename
-            print(f"{group} {alg}")
-
-            exp_path = Path(alg_result.exp_path)
-            env = exp_path.parent.parent.name
-            df = alg_result.load()
-            if df is None:
-                continue
-
-            df = df.with_columns(
-                pl.lit(env).alias("env"),
-                pl.lit(group).alias("group"),
-                pl.lit(alg).alias("alg"),
-                pl.lit(aperture).cast(pl.Int64).alias("aperture"),
-            )
-            print(df)
-            dfs.append(df)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [
+                executor.submit(process_alg_result, alg_result, group, aperture)
+                for alg_result in sub_results
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                df = future.result()
+                if df is not None:
+                    dfs.append(df)
 
     dfs = [df for df in dfs if not df.is_empty()]
     if not dfs:

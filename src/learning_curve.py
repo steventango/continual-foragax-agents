@@ -1,4 +1,5 @@
 import argparse
+import json
 import math
 import os
 import sys
@@ -40,11 +41,12 @@ def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
 
     # Derive additional columns
     all_df = all_df.with_columns(
-        pl.col("alg").str.split("_frozen").list.get(0).alias("alg_base"),
-        pl.col("alg").str.contains("frozen").alias("frozen"),
-    )
-
-    # Compute metadata from df
+        pl.col("alg").str.replace(r"_frozen_.*", "").alias("alg_base"),
+        pl.when(pl.col("alg").str.contains("_frozen"))
+            .then(pl.col("alg").str.extract(r"_frozen_(.*)", 1))
+            .otherwise(None)
+            .alias("freeze_steps_str"),
+    )    # Compute metadata from df
     unique_alg_bases = sorted(all_df["alg_base"].unique())
     main_algs = sorted(
         all_df.filter(pl.col("aperture").is_not_null())["alg_base", "aperture"]
@@ -60,8 +62,9 @@ def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
     color_list = select_colors(n_colors)
     sorted_keys = sorted(all_color_keys)
     COLORS = dict(zip(sorted_keys, color_list, strict=True))
-    SINGLE = unique_alg_bases
     metric = "ewm_reward"
+
+    linestyle_map = {"1M": "--", "5M": ":"}
 
     # Compute baseline_ys_dict for normalization
     baseline_ys_dict = {}
@@ -123,6 +126,23 @@ def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
         alg = group_key[2]
         print(alg_base, aperture, alg)
 
+        if "sweep" in str(experiment_path):
+            # Check if best configuration exists
+            if aperture is not None:
+                best_configuration_path = (
+                    experiment_path / "hypers" / str(aperture) / f"{alg}.json"
+                )
+            else:
+                continue
+            if best_configuration_path.exists():
+                with open(best_configuration_path) as f:
+                    best_configuration = json.load(f)
+
+                # Filter df to only include rows matching best configuration
+                for param, value in best_configuration.items():
+                    if param in df.columns:
+                        df = df.filter(pl.col(param) == value)
+
         df = df.sort(dd.seed_col).group_by(dd.seed_col).agg(dd.time_col, metric)
 
         try:
@@ -166,8 +186,14 @@ def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
             ci_low = res.ci[0]
             ci_high = res.ci[1]
 
-        color = "grey" if "frozen" in alg else COLORS[alg_base]
-        linestyle = "--" if "frozen" in alg else "-"
+        freeze_steps_str = alg.split("_frozen")[1] if "_frozen" in alg else None
+
+        if freeze_steps_str:
+            color = "grey"
+            linestyle = linestyle_map.get(freeze_steps_str, "--")
+        else:
+            color = COLORS[alg_base]
+            linestyle = "-"
 
         # Plot
         if aperture is not None:
@@ -273,37 +299,31 @@ def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
             ax.set_visible(False)
             continue
 
+    # Collect unique alg_base and freeze_steps_str combinations
+    unique_configs = all_df.select("alg_base", "freeze_steps_str").unique()
     legend_elements = []
-    for color_key in SINGLE:
-        alg_label = str(LABEL_MAP.get(color_key, color_key))
-        # Normal version
+    for row in unique_configs.iter_rows(named=True):
+        alg_base = row["alg_base"]
+        freeze_steps_str = row["freeze_steps_str"]
+        alg_label = str(LABEL_MAP.get(alg_base, alg_base))
+        if freeze_steps_str:
+            label = f"{alg_label} (Frozen {freeze_steps_str})"
+            color = "grey"
+            linestyle = linestyle_map.get(freeze_steps_str, "--")
+        else:
+            label = alg_label
+            color = COLORS[alg_base]
+            linestyle = "-"
         legend_elements.append(
             Line2D(
                 [0],
                 [0],
-                color=COLORS[color_key],
+                color=color,
                 lw=2,
-                label=alg_label,
-                linestyle="-",
+                label=label,
+                linestyle=linestyle,
             )
         )
-        # Frozen version if exists
-        if (
-            all_df.filter(pl.col("alg_base") == color_key)
-            .filter(pl.col("frozen"))
-            .height
-            > 0
-        ):
-            legend_elements.append(
-                Line2D(
-                    [0],
-                    [0],
-                    color="grey",
-                    lw=2,
-                    label=alg_label + " (Frozen)",
-                    linestyle="--",
-                )
-            )
 
     # Sort legend elements by label
     legend_elements.sort(key=lambda x: x.get_label())

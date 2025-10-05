@@ -1,4 +1,5 @@
 import argparse
+import json
 import math
 import os
 import sys
@@ -39,8 +40,11 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
 
     # Derive additional columns
     all_df = all_df.with_columns(
-        pl.col("alg").str.split("_frozen").list.get(0).alias("alg_base"),
-        pl.col("alg").str.contains("frozen").alias("frozen"),
+        pl.col("alg").str.replace(r"_frozen_.*", "").alias("alg_base"),
+        pl.when(pl.col("alg").str.contains("_frozen"))
+        .then(pl.col("alg").str.extract(r"_frozen_(.*)", 1))
+        .otherwise(None)
+        .alias("freeze_steps_str"),
     )
 
     # Compute metadata from df
@@ -81,6 +85,8 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
         zip(trace_metrics, select_colors(len(trace_metrics)), strict=True)
     )
 
+    linestyle_map = {"1M": "--", "5M": ":"}
+
     dd = data_definition(
         hyper_cols=[],
         seed_col="seed",
@@ -119,8 +125,29 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
         alg_base, aperture, alg = group_key
         print(f"Plotting: {alg}")
 
-        is_frozen = df["frozen"][0]
-        linestyle = "--" if is_frozen else "-"
+        if "sweep" in str(experiment_path):
+            # Check if best configuration exists
+            if aperture is not None:
+                best_configuration_path = (
+                    experiment_path / "hypers" / str(aperture) / f"{alg}.json"
+                )
+            else:
+                continue
+            if best_configuration_path.exists():
+                with open(best_configuration_path) as f:
+                    best_configuration = json.load(f)
+
+                # Filter df to only include rows matching best configuration
+                for param, value in best_configuration.items():
+                    if param in df.columns:
+                        df = df.filter(pl.col(param) == value)
+
+        freeze_steps_str = alg.split("_frozen")[1] if "_frozen" in alg else None
+
+        if freeze_steps_str:
+            linestyle = linestyle_map.get(freeze_steps_str, "--")
+        else:
+            linestyle = "-"
 
         for metric in trace_metrics:
             metric_df = (
