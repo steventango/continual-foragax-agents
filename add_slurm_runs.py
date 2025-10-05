@@ -6,39 +6,50 @@ import os
 
 
 def main():
-    # Find all slurm.sh in E92-E99 foragax and foragax-sweep
-    for i in range(92, 100):
-        for sub in ["foragax", "foragax-sweep"]:
-            pattern = f"experiments/E{i}-*/{sub}/*/slurm.sh"
-            for slurm_path in glob.glob(pattern):
-                print(f"Processing {slurm_path}")
-                # Determine the config path
-                config_dir = os.path.dirname(slurm_path)
-                crelu_config = os.path.join(config_dir, "9", "DQN_CReLU.json")
+    # Find all slurm.sh in experiments with search-limited-fov, mitigations, or weather
+    patterns = [
+        "experiments/*-search-limited-fov/**/slurm.sh",
+        "experiments/*-mitigations/**/slurm.sh",
+        "experiments/*-weather/**/slurm.sh",
+    ]
 
-                if os.path.exists(crelu_config):
-                    with open(slurm_path, 'r') as f:
-                        content = f.read()
+    for pattern in patterns:
+        for slurm_path in glob.glob(pattern, recursive=True):
+            print(f"Processing {slurm_path}")
+            # Determine the config path
+            config_dir = os.path.dirname(slurm_path)
 
-                    # Determine runs and cluster: 30 runs for foragax, 5 for foragax-sweep
-                    # For foragax, use vulcan-cpu-12h.json like the regular DQN
-                    runs = 30 if sub == "foragax" else 5
-                    cluster = (
-                        "vulcan-cpu-12h.json"
-                        if sub == "foragax"
-                        else "vulcan-cpu-1h.json"
-                    )
+            with open(slurm_path, "r") as f:
+                content = f.read()
 
-                    # The line to add
-                    slurm_line = f"python scripts/slurm.py --cluster clusters/{cluster} --runs {runs} --entry src/continuing_main.py --force -e {crelu_config}"
+            # Determine runs and cluster based on whether it's foragax or foragax-sweep
+            is_foragax = "foragax/" in slurm_path and "foragax-sweep/" not in slurm_path
+            runs = 30 if is_foragax else 5
+            cluster_frozen = (
+                "vulcan-cpu-3h.json" if is_foragax else "vulcan-cpu-1h.json"
+            )
 
-                    if slurm_line not in content:
-                        content += f"\n{slurm_line}\n"
-                        with open(slurm_path, 'w') as f:
-                            f.write(content)
-                        print(f"Added run for {crelu_config}")
-                    else:
-                        print(f"Run already exists for {crelu_config}")
+            updated = False
+            # Add runs for all frozen configs in 9/ and 15/
+            for subdir in ["9", "15"]:
+                config_subdir = os.path.join(config_dir, subdir)
+                if os.path.exists(config_subdir):
+                    for config_file in os.listdir(config_subdir):
+                        if config_file.endswith(".json") and "_frozen_" in config_file:
+                            config_path = os.path.join(config_subdir, config_file)
+                            slurm_line = f"python scripts/slurm.py --cluster clusters/{cluster_frozen} --runs {runs} --entry src/continuing_main.py --force -e {config_path}"
+                            if slurm_line not in content:
+                                content += f"{slurm_line}\n"
+                                updated = True
+                                print(f"Added run for {config_path}")
+
+            if updated:
+                with open(slurm_path, "w") as f:
+                    f.write(content)
+                print(f"Updated {slurm_path}")
+            else:
+                print(f"No new runs added for {slurm_path}")
+
 
 if __name__ == "__main__":
     main()
