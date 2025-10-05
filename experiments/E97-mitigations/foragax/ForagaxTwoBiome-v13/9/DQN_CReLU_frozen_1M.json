@@ -1,5 +1,5 @@
 {
-    "agent": "DQN_CReLU",
+    "agent": "DQN_CReLU_frozen_1M",
     "problem": "Foragax",
     "total_steps": 10000000,
     "episode_cutoff": -1,
@@ -28,6 +28,7 @@
             "type": "Forager2CreluNet",
             "hidden": 64
         },
-        "update_freq": 4
+        "update_freq": 4,
+        "freeze_steps": 1000000
     }
 }

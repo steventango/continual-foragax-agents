@@ -1,11 +1,11 @@
 {
-    "agent": "DQN_CReLU",
+    "agent": "DQN_Reset_Head_frozen_1M",
     "problem": "Foragax",
     "total_steps": 10000000,
     "episode_cutoff": -1,
     "metaParameters": {
         "epsilon": 0.05,
-        "target_refresh": 1,
+        "target_refresh": 128,
         "buffer_size": 1000,
         "buffer_min_size": 50,
         "batch": 32,
@@ -19,15 +19,18 @@
         "gamma": 0.99,
         "optimizer": {
             "name": "Adam",
-            "alpha": 0.0003,
+            "alpha": 0.001,
             "beta1": 0.9,
             "beta2": 0.9,
             "eps": 0.01
         },
         "representation": {
-            "type": "Forager2CreluNet",
+            "type": "Forager2Net",
             "hidden": 64
         },
-        "update_freq": 4
+        "update_freq": 4,
+        "reset_steps": 10000,
+        "reset_head_only": true,
+        "freeze_steps": 1000000
     }
 }

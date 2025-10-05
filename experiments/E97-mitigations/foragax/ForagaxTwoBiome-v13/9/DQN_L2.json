@@ -29,6 +29,6 @@
             "hidden": 64
         },
         "update_freq": 4,
-        "lambda_l2": 1e-05
+        "lambda_l2": 0.0001
     }
 }

@@ -1,5 +1,5 @@
 {
-    "agent": "DQN_CReLU",
+    "agent": "DQN_Shrink_and_Perturb_frozen_5M",
     "problem": "Foragax",
     "total_steps": 10000000,
     "episode_cutoff": -1,
@@ -19,15 +19,19 @@
         "gamma": 0.99,
         "optimizer": {
             "name": "Adam",
-            "alpha": 0.0003,
+            "alpha": 0.001,
             "beta1": 0.9,
             "beta2": 0.9,
             "eps": 0.01
         },
         "representation": {
-            "type": "Forager2CreluNet",
+            "type": "Forager2Net",
             "hidden": 64
         },
-        "update_freq": 4
+        "update_freq": 4,
+        "sp_steps": 10000,
+        "shrink_factor": 0.9,
+        "noise_scale": 0.01,
+        "freeze_steps": 5000000
     }
 }
