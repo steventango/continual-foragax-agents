@@ -19,6 +19,6 @@
             "seed_offset": 0
         },
         "mode": "world",
-        "nowrap": true
+        "nowrap": false
     }
 }
