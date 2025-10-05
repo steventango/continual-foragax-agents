@@ -1,0 +1,33 @@
+{
+    "agent": "DQN_CReLU",
+    "problem": "Foragax",
+    "total_steps": 10000000,
+    "episode_cutoff": -1,
+    "metaParameters": {
+        "epsilon": 0.05,
+        "target_refresh": 128,
+        "buffer_size": 1000,
+        "buffer_min_size": 50,
+        "batch": 32,
+        "environment": {
+            "env_id": "ForagaxTwoBiome-v4",
+            "aperture_size": 15
+        },
+        "experiment": {
+            "seed_offset": 0
+        },
+        "gamma": 0.99,
+        "optimizer": {
+            "name": "Adam",
+            "alpha": 3e-05,
+            "beta1": 0.9,
+            "beta2": 0.999,
+            "eps": 1e-08
+        },
+        "representation": {
+            "type": "Forager2CreluNet",
+            "hidden": 64
+        },
+        "update_freq": 4
+    }
+}
