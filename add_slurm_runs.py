@@ -26,7 +26,7 @@ def main():
             is_foragax = "foragax/" in slurm_path and "foragax-sweep/" not in slurm_path
             runs = 30 if is_foragax else 5
             cluster_frozen = (
-                "vulcan-cpu-3h.json" if is_foragax else "vulcan-cpu-1h.json"
+                "vulcan-cpu-3h.json" if is_foragax else "vulcan-gpu-vmap-3h.json"
             )
 
             updated = False
