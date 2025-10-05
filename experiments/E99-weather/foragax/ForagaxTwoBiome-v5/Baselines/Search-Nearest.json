@@ -6,8 +6,8 @@
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxTwoBiome-v5",
-            "aperture_size": 1,
-            "observation_type": "world",
+            "aperture_size": -1,
+            "observation_type": "object",
             "privileged": false
         },
         "channel_priorities": {
