@@ -20,3 +20,5 @@ export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
 export JAX_PLATFORMS=cpu
 
 $SLURM_TMPDIR/.venv/bin/python src/process_data.py experiments/E98-baselines-vs-recurrent/foragax-sweep/ForagaxTwoBiome-v13
+
+$SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E98-baselines-vs-recurrent/foragax/ForagaxTwoBiome-v5/15

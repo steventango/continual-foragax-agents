@@ -21,4 +21,4 @@ export JAX_PLATFORMS=cpu
 
 $SLURM_TMPDIR/.venv/bin/python experiments/E93-mitigations/foragax-sweep/ForagaxTwoBiome-v10/hypers.py
 
-$SLURM_TMPDIR/.venv/bin/python experiments/E93-mitigations/foragax/ForagaxTwoBiome-v10/generate_frozen_config.py
+$SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E93-mitigations/foragax/ForagaxTwoBiome-v10/9

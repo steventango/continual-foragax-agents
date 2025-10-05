@@ -21,4 +21,5 @@ export JAX_PLATFORMS=cpu
 
 $SLURM_TMPDIR/.venv/bin/python experiments/E99-weather/foragax-sweep/ForagaxTwoBiome-v5/hypers.py
 
-$SLURM_TMPDIR/.venv/bin/python experiments/E99-weather/foragax/ForagaxTwoBiome-v5/generate_frozen_config.py
+$SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E99-weather/foragax/ForagaxTwoBiome-v5/9
+$SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E99-weather/foragax/ForagaxTwoBiome-v5/15
