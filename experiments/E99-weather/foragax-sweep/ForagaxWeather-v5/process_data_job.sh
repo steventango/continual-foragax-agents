@@ -6,6 +6,8 @@
 #SBATCH --output=../slurm-%j.out
 #SBATCH --time=01:00:00
 
+module load arrow/19
+
 cp -R .venv $SLURM_TMPDIR
 
 export MPLBACKEND=TKAgg
