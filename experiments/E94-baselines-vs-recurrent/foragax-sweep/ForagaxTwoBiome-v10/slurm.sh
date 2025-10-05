@@ -1,2 +1,2 @@
-python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-6h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E94-baselines-vs-recurrent/foragax-sweep/ForagaxTwoBiome-v10/15/DQN.json
-python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-6h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E94-baselines-vs-recurrent/foragax-sweep/ForagaxTwoBiome-v10/15/DQN_world.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-2h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E94-baselines-vs-recurrent/foragax-sweep/ForagaxTwoBiome-v10/15/DQN.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-2h.json --runs 5 --entry src/continuing_main.py --force -e experiments/E94-baselines-vs-recurrent/foragax-sweep/ForagaxTwoBiome-v10/15/DQN_world.json
