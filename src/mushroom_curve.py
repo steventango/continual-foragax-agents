@@ -48,12 +48,35 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
     print("Main algs:", main_algs)
     env = all_df["env"][0]
 
+    # Determine object mappings based on environment
+    if "TwoBiome" in env:
+        object_mapping = {1: "Morel", 2: "Oyster", 3: "Deathcap", 4: "Fake"}
+    elif "Weather" in env:
+        object_mapping = {1: "Hot", 2: "Cold"}
+    else:
+        # Fallback - use generic names
+        object_mapping = {}
+        if "object_collected_id" in all_df.columns:
+            unique_objects = sorted(all_df["object_collected_id"].unique())
+            unique_objects = [
+                obj for obj in unique_objects if obj != -1
+            ]  # Exclude no collection
+            object_mapping = {obj: f"Object {obj}" for obj in unique_objects}
+
+    # Get available object traces from data
+    available_objects = []
+    if "object_collected_id" in all_df.columns:
+        unique_objects = sorted(all_df["object_collected_id"].unique())
+        available_objects = [
+            obj for obj in unique_objects if obj != -1
+        ]  # Exclude no collection
+
     trace_metrics = [
-        f"morel_trace_{trace_exponent}",
-        f"oyster_trace_{trace_exponent}",
-        f"deathcap_trace_{trace_exponent}",
+        f"object_trace_{obj}_{trace_exponent}" for obj in available_objects
     ]
-    mushroom_names = ["Morel", "Oyster", "Deathcap"]
+    mushroom_names = [
+        object_mapping.get(obj, f"Object {obj}") for obj in available_objects
+    ]
     metric_colors = dict(
         zip(trace_metrics, select_colors(len(trace_metrics)), strict=True)
     )
@@ -107,14 +130,37 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
                 continue
 
             try:
-                xs = np.stack(metric_df["frame"].to_list())
+                xs = np.stack(metric_df["frame"].to_list()).astype(np.int64)
             except Exception as e:
                 print(f"Skipping {alg} for metric {metric} due to error: {e}")
                 continue
 
-            ys = np.stack(metric_df[metric].to_list())
+            # Handle null values in the metric data
+            metric_lists = metric_df[metric].to_list()
+            # Check if any list contains null values
+            has_nulls = any(any(pl.Series(lst).is_null().any() for lst in metric_lists if lst is not None) for lst in metric_lists)
+
+            if has_nulls:
+                print(f"Warning: {metric} contains null values, filling with 0")
+                # Fill nulls in each list
+                cleaned_lists = []
+                for lst in metric_lists:
+                    if lst is not None:
+                        series = pl.Series(lst)
+                        filled = series.fill_null(0)
+                        cleaned_lists.append(filled.to_list())
+                    else:
+                        cleaned_lists.append([])
+                ys = np.stack(cleaned_lists).astype(np.float64)
+            else:
+                ys = np.stack(metric_lists).astype(np.float64)
             mask = xs[0] > 1000
             xs, ys = xs[:, mask], ys[:, mask]
+
+            # Skip if we don't have enough data after filtering
+            if ys.shape[1] < 10:
+                print(f"Skipping {alg} for metric {metric}: insufficient data after filtering")
+                continue
 
             res = curve_percentile_bootstrap_ci(
                 rng=np.random.default_rng(0),
@@ -174,7 +220,7 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
                 axis="x", style="sci", scilimits=(0, 0), useMathText=True
             )
             if col == 0:
-                ax.set_ylabel(f"Mushroom Trace (1e-{trace_exponent})")
+                ax.set_ylabel(f"Object Trace (1e-{trace_exponent})")
             if row == nrows_mean - 1:
                 ax.set_xlabel("Time steps")
             ax.spines["top"].set_visible(False)
@@ -188,7 +234,7 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
                 axis="x", style="sci", scilimits=(0, 0), useMathText=True
             )
             if j == 0:
-                ax.set_ylabel(f"Mushroom Trace (1e-{trace_exponent})")
+                ax.set_ylabel(f"Object Trace (1e-{trace_exponent})")
             if i == num_seeds - 1:
                 ax.set_xlabel("Time steps")
             ax.spines["top"].set_visible(False)
@@ -214,7 +260,7 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
 
     save(
         save_path=f"{experiment_path}/plots",
-        plot_name=f"{env}_mushroom_trace_e{trace_exponent}",
+        plot_name=f"{env}_object_trace_e{trace_exponent}",
         save_type=save_type,
         f=fig_mean,
         width=ncols_mean if ncols_mean > 1 else 2,
@@ -224,7 +270,7 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
     )
     save(
         save_path=f"{experiment_path}/plots",
-        plot_name=f"{env}_mushroom_trace_seeds_e{trace_exponent}",
+        plot_name=f"{env}_object_trace_seeds_e{trace_exponent}",
         save_type=save_type,
         f=fig_seeds,
         width=ncols if ncols > 1 else 2,
@@ -234,14 +280,14 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Plot mushroom trace metrics from processed data"
+        description="Plot object trace metrics from processed data"
     )
     parser.add_argument("path", type=str, help="Path to the experiment directory")
     parser.add_argument(
         "--trace-exponent",
         type=int,
-        default=3,
-        help="The exponent for the trace metric (e.g., 3 for 1e-3)",
+        default=1,
+        help="The exponent for the trace metric (e.g., 1 for 1e-1)",
     )
     parser.add_argument(
         "--save-type",
