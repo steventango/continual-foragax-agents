@@ -87,7 +87,9 @@ def read_metrics_from_data(
         if sample is None:
             continue
         if sample_type == "every":
-            datas[run_id] = datas[run_id].gather_every(max(1, len(datas[run_id]) // sample))
+            datas[run_id] = datas[run_id].gather_every(
+                max(1, len(datas[run_id]) // sample)
+            )
         elif sample_type == "random":
             datas[run_id] = datas[run_id].sample(n=sample, seed=0).sort("frame")
 
@@ -226,7 +228,9 @@ class ResultCollection(Generic[Exp]):
 
         project = Path.cwd()
         paths = glob.glob(
-            "**/*.json", root_dir=str(self.path), recursive=True,
+            "**/*.json",
+            root_dir=str(self.path),
+            recursive=True,
         )
         paths = [str((self.path / p).absolute().relative_to(project)) for p in paths]
         self.paths = paths
@@ -268,7 +272,9 @@ def detect_missing_indices(exp: ExperimentDescription, runs: int, base: str = ".
 
     n_params = exp.numPermutations()
     for param_id in range(n_params):
-        run_ids = set(get_run_ids(path, getParamsAsDict(exp, param_id, header=header), data_path))
+        run_ids = set(
+            get_run_ids(path, getParamsAsDict(exp, param_id, header=header), data_path)
+        )
 
         for seed in range(runs):
             run_id = seed * n_params + param_id
