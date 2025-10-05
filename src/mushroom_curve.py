@@ -40,9 +40,9 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
 
     # Derive additional columns
     all_df = all_df.with_columns(
-        pl.col("alg").str.split("_frozen").list.get(0).alias("alg_base"),
-        pl.when(pl.col("alg").str.contains("frozen"))
-        .then(pl.col("alg").str.split("_frozen").list.get(1))
+        pl.col("alg").str.replace(r"_frozen_.*", "").alias("alg_base"),
+        pl.when(pl.col("alg").str.contains("_frozen"))
+        .then(pl.col("alg").str.extract(r"_frozen_(.*)", 1))
         .otherwise(None)
         .alias("freeze_steps_str"),
     )
