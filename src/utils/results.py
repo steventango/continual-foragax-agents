@@ -69,16 +69,10 @@ def read_metrics_from_data(
             datas[run_id] = calculate_ewm_reward(datas[run_id])
 
         # Calculate biome occupancy if requested
-        if "pos" in datas[run_id].columns and (
+        if "biome_id" in datas[run_id].columns and (
             metrics is None
             or not metrics
-            or any(
-                m.startswith(
-                    ("Morel_occupancy", "Oyster_occupancy", "Neither_occupancy")
-                )
-                or m == "biome"
-                for m in metrics
-            )
+            or any(m.startswith("biome_") for m in metrics)
         ):
             datas[run_id] = calculate_biome_occupancy(datas[run_id])
         if start is not None or end is not None:
