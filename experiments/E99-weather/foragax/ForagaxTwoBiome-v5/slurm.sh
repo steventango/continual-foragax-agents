@@ -1,6 +1,9 @@
 python scripts/slurm.py --cluster clusters/vulcan-cpu-12h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxTwoBiome-v5/9/DQN.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-3h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxTwoBiome-v5/9/DQN_frozen.json
 
+python scripts/slurm.py --cluster clusters/vulcan-cpu-12h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxTwoBiome-v5/9/DQN_CReLU.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-3h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxTwoBiome-v5/9/DQN_CReLU_frozen.json
+
 python scripts/slurm.py --cluster clusters/vulcan-cpu-12h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxTwoBiome-v5/9/DQN_Hare_and_Tortoise.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-3h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxTwoBiome-v5/9/DQN_Hare_and_Tortoise_frozen.json
 
