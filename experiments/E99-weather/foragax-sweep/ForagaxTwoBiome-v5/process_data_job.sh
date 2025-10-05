@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
-#SBATCH --job-name=E99_process_data-weather_foragax-sweep_ForagaxTwoBiome-v5
+#SBATCH --job-name=E99_process_data-weather_foragax-sweep_ForagaxWeather-v5
 #SBATCH --mem-per-cpu=128G
 #SBATCH --ntasks=1
 #SBATCH --output=../slurm-%j.out
@@ -17,4 +17,4 @@ export XLA_FLAGS="--xla_cpu_multi_thread_eigen=false intra_op_parallelism_thread
 export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
 export JAX_PLATFORMS=cpu
 
-$SLURM_TMPDIR/.venv/bin/python src/process_data.py experiments/E99-weather/foragax-sweep/ForagaxTwoBiome-v5
+$SLURM_TMPDIR/.venv/bin/python src/process_data.py experiments/E99-weather/foragax-sweep/ForagaxWeather-v5

@@ -9,7 +9,7 @@
         "buffer_min_size": 50,
         "batch": 32,
         "environment": {
-            "env_id": "ForagaxTwoBiome-v5",
+            "env_id": "ForagaxWeather-v5",
             "aperture_size": 9
         },
         "experiment": {

@@ -10,7 +10,7 @@
         "buffer_min_size": 50,
         "batch": 32,
         "environment": {
-            "env_id": "ForagaxTwoBiome-v4",
+            "env_id": "ForagaxWeather-v4",
             "aperture_size": -1,
             "observation_type": "object"
         },
