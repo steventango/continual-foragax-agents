@@ -55,14 +55,7 @@ def read_metrics_from_data(
             metrics is None
             or not metrics
             or any(
-                m
-                in [
-                    "ewm_reward",
-                    "mean_ewm_reward",
-                    "morel_trace",
-                    "oyster_trace",
-                    "deathcap_trace",
-                ]
+                m in ["ewm_reward", "mean_ewm_reward"] or m.startswith("object_trace_")
                 for m in metrics
             )
         ):

@@ -2,13 +2,13 @@ import polars as pl
 
 
 def calculate_ewm_reward(df):
-    """Calculate exponentially weighted moving average of rewards and traces for eating objects.
+    """Calculate exponentially weighted moving average of rewards and traces for collected objects.
 
     Args:
         df: Polars DataFrame with 'rewards' column
 
     Returns:
-        Polars DataFrame with 'ewm_reward', 'mean_ewm_reward', 'morel_trace', 'oyster_trace', and 'deathcap_trace' columns added
+        Polars DataFrame with 'ewm_reward', 'mean_ewm_reward', and object trace columns added
     """
     if "rewards" not in df.columns:
         return df
@@ -18,45 +18,24 @@ def calculate_ewm_reward(df):
     )
     df = df.with_columns(pl.col("ewm_reward").mean().alias("mean_ewm_reward"))
 
-    # Add ewm traces for eating objects
-    df = df.with_columns(
-        (pl.col("rewards") == 10)
-        .cast(pl.Float32)
-        .ewm_mean(alpha=1e-3)
-        .alias("morel_trace_3"),
-        (pl.col("rewards") == 1)
-        .cast(pl.Float32)
-        .ewm_mean(alpha=1e-3)
-        .alias("oyster_trace_3"),
-        (pl.col("rewards") == -5)
-        .cast(pl.Float32)
-        .ewm_mean(alpha=1e-3)
-        .alias("deathcap_trace_3"),
-        (pl.col("rewards") == 10)
-        .cast(pl.Float32)
-        .ewm_mean(alpha=1e-2)
-        .alias("morel_trace_2"),
-        (pl.col("rewards") == 1)
-        .cast(pl.Float32)
-        .ewm_mean(alpha=1e-2)
-        .alias("oyster_trace_2"),
-        (pl.col("rewards") == -5)
-        .cast(pl.Float32)
-        .ewm_mean(alpha=1e-2)
-        .alias("deathcap_trace_2"),
-        (pl.col("rewards") == 10)
-        .cast(pl.Float32)
-        .ewm_mean(alpha=1e-1)
-        .alias("morel_trace_1"),
-        (pl.col("rewards") == 1)
-        .cast(pl.Float32)
-        .ewm_mean(alpha=1e-2)
-        .alias("oyster_trace_1"),
-        (pl.col("rewards") == -5)
-        .cast(pl.Float32)
-        .ewm_mean(alpha=1e-1)
-        .alias("deathcap_trace_1"),
-    )
+    # Add ewm traces for collected objects
+    if "object_collected_id" in df.columns:
+        min_obj = df.select(pl.col("object_collected_id").min()).item()
+        max_obj = df.select(pl.col("object_collected_id").max()).item()
+
+        for i in range(min_obj, max_obj + 1):
+            if i == -1:  # Skip no collection
+                continue
+            df = df.with_columns(
+                (pl.col("object_collected_id") == i)
+                .cast(pl.Float32)
+                .ewm_mean(alpha=1e-2)
+                .alias(f"object_trace_{i}_2"),
+                (pl.col("object_collected_id") == i)
+                .cast(pl.Float32)
+                .ewm_mean(alpha=1e-1)
+                .alias(f"object_trace_{i}_1"),
+            )
 
     return df
 
