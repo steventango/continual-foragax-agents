@@ -81,4 +81,13 @@ def calculate_biome_occupancy(df, window_size=30):
             )
         )
 
+        # Calculate last 1M steps occupancy
+        last_1m_start = max(0, len(df) - 1000000)
+        last_1m_occupancy = (
+            df.slice(last_1m_start).select((pl.col("biome_id") == i).mean()).item()
+        )
+        df = df.with_columns(
+            pl.lit(last_1m_occupancy).alias(f"biome_{i}_occupancy_last_1M")
+        )
+
     return df
