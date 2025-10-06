@@ -23,13 +23,21 @@ from rlevaluation.temporal import (
 )
 
 from utils.constants import LABEL_MAP
-from utils.plotting import select_colors
+from utils.plotting import label_lines, select_colors
 
 setDefaultConference("jmlr")
 setFonts(20)
 
 
-def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
+def main(
+    experiment_path: Path,
+    normalize: str | None,
+    save_type: str = "pdf",
+    filter_algs: list[str] | None = None,
+    plot_name: str | None = None,
+    ylim: tuple[float, float] | None = None,
+    auto_label: bool = False,
+):
     data_path = (
         Path("results")
         / experiment_path.relative_to(Path("experiments").resolve())
@@ -43,11 +51,19 @@ def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
     all_df = all_df.with_columns(
         pl.col("alg").str.replace(r"_frozen_.*", "").alias("alg_base"),
         pl.when(pl.col("alg").str.contains("_frozen"))
-            .then(pl.col("alg").str.extract(r"_frozen_(.*)", 1))
-            .otherwise(None)
-            .alias("freeze_steps_str"),
-    )    # Compute metadata from df
-    unique_alg_bases = sorted(all_df["alg_base"].unique())
+        .then(pl.col("alg").str.extract(r"_frozen_(.*)", 1))
+        .otherwise(None)
+        .alias("freeze_steps_str"),
+    )
+
+    algs = all_df["alg"].unique()
+    print("Algs:", algs)
+
+    # Filter algorithms if specified
+    if filter_algs:
+        all_df = all_df.filter(pl.col("alg").is_in(filter_algs))
+
+    # Compute metadata from df
     main_algs = sorted(
         all_df.filter(pl.col("aperture").is_not_null())["alg_base", "aperture"]
         .unique()
@@ -56,15 +72,31 @@ def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
     print("Main algs:", main_algs)
     env = all_df["env"][0]
 
-    # Collect all color keys
-    all_color_keys = set(unique_alg_bases)
-    n_colors = len(all_color_keys)
-    color_list = select_colors(n_colors)
-    sorted_keys = sorted(all_color_keys)
-    COLORS = dict(zip(sorted_keys, color_list, strict=True))
-    metric = "ewm_reward"
+    # Collect all color keys and assign colors based on algorithm type
+    all_color_keys = set(all_df["alg"].unique())
 
-    linestyle_map = {"1M": "--", "5M": ":"}
+    def get_type_key(alg):
+        alg_base = alg.split("_frozen")[0] if "_frozen" in alg else alg
+        if alg_base.startswith("Search"):
+            return alg
+        elif "_frozen" in alg:
+            freeze_steps_str = alg.split("_frozen_")[1]
+            if freeze_steps_str == "1M":
+                return "frozen_1M"
+            elif freeze_steps_str == "5M":
+                return "frozen_5M"
+            else:
+                return "frozen_other"
+        else:
+            return "base"
+
+    type_keys = set(get_type_key(alg) for alg in all_color_keys)
+    n_colors = len(type_keys)
+    color_list = select_colors(n_colors)
+    type_to_color = dict(zip(sorted(type_keys), color_list, strict=True))
+    COLORS = {alg: type_to_color[get_type_key(alg)] for alg in all_color_keys}
+
+    metric = "ewm_reward"
 
     # Compute baseline_ys_dict for normalization
     baseline_ys_dict = {}
@@ -188,18 +220,21 @@ def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
 
         freeze_steps_str = alg.split("_frozen")[1] if "_frozen" in alg else None
 
+        linestyle = "-"
+
+        # Create label for auto-labeling
+        alg_label = str(LABEL_MAP.get(alg_base, alg_base))
         if freeze_steps_str:
-            color = "grey"
-            linestyle = linestyle_map.get(freeze_steps_str, "--")
+            plot_label = f"{alg_label} (Frozen @ {freeze_steps_str.lstrip('_')})"
         else:
-            color = COLORS[alg_base]
-            linestyle = "-"
+            plot_label = alg_label
 
         # Plot
         if aperture is not None:
             col_linear = main_algs.index((alg_base, aperture))
             row = col_linear // ncols_mean
             col = col_linear % ncols_mean
+            color = COLORS[alg]
             # Plot mean on mean figure
             ax = axs_mean[row, col]
             ax.plot(
@@ -208,20 +243,35 @@ def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
                 color=color,
                 linewidth=1.0,
                 linestyle=linestyle,
+                label=plot_label,
             )
             if len(ys) >= 5:
                 ax.fill_between(xs[0], ci_low, ci_high, color=color, alpha=0.2)
             # Plot each seed on seeds figure
             for i in range(len(ys)):
                 ax = axs_seeds[i, col_linear]
-                ax.plot(xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle)
+                ax.plot(
+                    xs[0],
+                    ys[i],
+                    color=color,
+                    linewidth=0.5,
+                    linestyle=linestyle,
+                    label=plot_label,
+                )
         else:
             # Plot mean on mean figure, all subplots
+            color = COLORS[alg]
             for row in range(nrows_mean):
                 for col in range(ncols_mean):
                     ax = axs_mean[row, col]
                     if alg_base == "Search-Oracle" and normalized:
-                        ax.axhline(1, color=color, linestyle=linestyle, linewidth=1.0)
+                        ax.axhline(
+                            1,
+                            color=color,
+                            linestyle=linestyle,
+                            linewidth=1.0,
+                            label=plot_label,
+                        )
                     else:
                         ax.plot(
                             xs[0],
@@ -229,17 +279,25 @@ def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
                             color=color,
                             linewidth=1.0,
                             linestyle=linestyle,
+                            label=plot_label,
                         )
                         if len(ys) >= 5:
                             ax.fill_between(
                                 xs[0], ci_low, ci_high, color=color, alpha=0.2
                             )
             # Plot each seed on seeds figure, all columns
+            color = COLORS[alg]
             for i in range(len(ys)):
                 for col in range(ncols):
                     ax = axs_seeds[i, col]
                     if alg_base == "Search-Oracle" and normalized:
-                        ax.axhline(1, color=color, linestyle=linestyle, linewidth=0.5)
+                        ax.axhline(
+                            1,
+                            color=color,
+                            linestyle=linestyle,
+                            linewidth=0.5,
+                            label=plot_label,
+                        )
                     else:
                         ax.plot(
                             xs[0],
@@ -247,6 +305,7 @@ def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
                             color=color,
                             linewidth=0.5,
                             linestyle=linestyle,
+                            label=plot_label,
                         )
 
     # Set titles and formatting
@@ -299,56 +358,83 @@ def main(experiment_path: Path, normalize: str | None, save_type: str = "pdf"):
             ax.set_visible(False)
             continue
 
-    # Collect unique alg_base and freeze_steps_str combinations
-    unique_configs = all_df.select("alg_base", "freeze_steps_str").unique()
-    legend_elements = []
-    for row in unique_configs.iter_rows(named=True):
-        alg_base = row["alg_base"]
-        freeze_steps_str = row["freeze_steps_str"]
-        alg_label = str(LABEL_MAP.get(alg_base, alg_base))
-        if freeze_steps_str:
-            label = f"{alg_label} (Frozen {freeze_steps_str})"
-            color = "grey"
-            linestyle = linestyle_map.get(freeze_steps_str, "--")
+    # Collect unique algorithms for legend
+    unique_algs = sorted(all_df["alg"].unique())
+    label_to_color = {}
+    for alg in unique_algs:
+        type_key = get_type_key(alg)
+        if type_key in ["base", "frozen_1M", "frozen_5M"]:
+            label = {
+                "base": "Base Algorithm",
+                "frozen_1M": "Frozen @ 1M",
+                "frozen_5M": "Frozen @ 5M",
+            }[type_key]
+            label_to_color[label] = COLORS[alg]
+        elif type_key == "baseline":
+            label = LABEL_MAP.get(alg, alg)
+            label_to_color[label] = COLORS[alg]
         else:
-            label = alg_label
-            color = COLORS[alg_base]
-            linestyle = "-"
-        legend_elements.append(
-            Line2D(
-                [0],
-                [0],
-                color=color,
-                lw=2,
-                label=label,
-                linestyle=linestyle,
-            )
+            label = LABEL_MAP.get(alg, alg)
+            label_to_color[label] = COLORS[alg]
+
+    legend_elements = [
+        Line2D(
+            [0],
+            [0],
+            color=color,
+            lw=2,
+            label=label,
+            linestyle="-",
+        )
+        for label, color in sorted(label_to_color.items())
+    ]
+
+    # Set ylim if provided
+    if ylim is not None:
+        for ax in chain(axs_mean.flatten(), axs_seeds.flatten()):
+            if ax.get_lines():  # Only set if there are lines
+                ax.set_ylim(ylim)
+
+    # Handle legend or auto labeling
+    if auto_label:
+        # Use automatic label annotation instead of legend
+        for ax in chain(axs_mean.flatten(), axs_seeds.flatten()):
+            if ax.get_lines():
+                label_lines(ax, offset_range=(12, 18))
+        fig_mean.suptitle(env)
+        fig_seeds.suptitle(f"{env} - Individual Seeds")
+    else:
+        fig_mean.suptitle(env)
+        fig_mean.legend(
+            handles=legend_elements, loc="outside center right", frameon=False
         )
 
-    # Sort legend elements by label
-    legend_elements.sort(key=lambda x: x.get_label())
+        fig_seeds.suptitle(f"{env} - Individual Seeds")
+        fig_seeds.legend(
+            handles=legend_elements, loc="outside center right", frameon=False
+        )
 
-    fig_mean.suptitle(env)
-    fig_mean.legend(handles=legend_elements, loc="outside center right", frameon=False)
-
-    fig_seeds.suptitle(f"{env} - Individual Seeds")
-    fig_seeds.legend(handles=legend_elements, loc="outside center right", frameon=False)
+    base_name = plot_name if plot_name else env
 
     save(
         save_path=f"{experiment_path}/plots",
-        plot_name=f"{env}{'_normalized' if normalized else ''}",
+        plot_name=f"{base_name}{'_normalized' if normalized else ''}",
         save_type=save_type,
         f=fig_mean,
-        width=ncols_mean if ncols_mean > 1 else 2,
-        height_ratio=2 / 3 * nrows_mean / ncols_mean if ncols_mean > 1 else nrows_mean / 3
+        width=ncols_mean if ncols_mean > 1 else (1 if auto_label else 2),
+        height_ratio=2 / 3 * nrows_mean / ncols_mean
+        if ncols_mean > 1
+        else (2 / 3 * nrows_mean if auto_label else nrows_mean / 3),
     )
     save(
         save_path=f"{experiment_path}/plots",
-        plot_name=f"{env}_seeds{('_normalized' if normalized else '')}",
+        plot_name=f"{base_name}_seeds{('_normalized' if normalized else '')}",
         save_type=save_type,
         f=fig_seeds,
-        width=ncols if ncols > 1 else 2,
-        height_ratio=(num_seeds / ncols) * (2 / 3) if ncols > 1 else num_seeds / 3,
+        width=ncols if ncols > 1 else (1 if auto_label else 2),
+        height_ratio=(num_seeds / ncols) * (2 / 3)
+        if ncols > 1
+        else (2 / 3 * num_seeds if auto_label else num_seeds / 3),
     )
 
 
@@ -373,7 +459,39 @@ if __name__ == "__main__":
         default="pdf",
         help="File format to save the plots (default: pdf)",
     )
+    parser.add_argument(
+        "--filter-algs",
+        nargs="*",
+        default=None,
+        help="List of algorithms to show (default: all)",
+    )
+    parser.add_argument(
+        "--plot-name",
+        type=str,
+        default=None,
+        help="Override the default plot name (default: use environment name)",
+    )
+    parser.add_argument(
+        "--ylim",
+        type=float,
+        nargs=2,
+        default=None,
+        help="Y-axis limits as two floats (default: auto)",
+    )
+    parser.add_argument(
+        "--auto-label",
+        action="store_true",
+        help="Use automatic label annotation instead of legend",
+    )
     args = parser.parse_args()
 
     experiment_path = Path(args.path).resolve()
-    main(experiment_path, args.normalize, args.save_type)
+    main(
+        experiment_path,
+        args.normalize,
+        args.save_type,
+        args.filter_algs,
+        args.plot_name,
+        args.ylim,
+        args.auto_label,
+    )

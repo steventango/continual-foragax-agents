@@ -464,6 +464,8 @@ def select_colors(n_colors: int):
         color_list = list(tc.colorsets["medium_contrast"][1 : n_colors + 1])
     elif n_colors <= 9:
         color_list = list(tc.colorsets["muted"][:n_colors])
-    else:
+    elif n_colors <= 23:
         color_list = cast(List, tc.rainbow_discrete(n_colors).colors)
+    else:
+        color_list = tc.rainbow(np.linspace(0, 1, n_colors))
     return color_list
