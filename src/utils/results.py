@@ -20,6 +20,7 @@ from PyExpUtils.results.tools import getHeader, getParamsAsDict
 from utils.metrics import (
     calculate_biome_occupancy,
     calculate_ewm_reward,
+    calculate_mean_reward,
     calculate_object_traces,
 )
 from utils.ml_instrumentation.reader import get_run_ids
@@ -59,11 +60,12 @@ def read_metrics_from_data(
             metrics is None
             or not metrics
             or any(
-                m in ["ewm_reward", "mean_ewm_reward"]
+                m in ["ewm_reward", "mean_ewm_reward", "mean_reward"]
                 for m in metrics
             )
         ):
             datas[run_id] = calculate_ewm_reward(datas[run_id])
+            datas[run_id] = calculate_mean_reward(datas[run_id])
 
         # Calculate object traces if requested
         if "object_collected_id" in datas[run_id].columns and (

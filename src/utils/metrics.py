@@ -21,6 +21,22 @@ def calculate_ewm_reward(df):
     return df
 
 
+def calculate_mean_reward(df):
+    """Calculate mean of rewards.
+
+    Args:
+        df: Polars DataFrame with 'rewards' column
+
+    Returns:
+        Polars DataFrame with 'ewm_reward' and 'mean_ewm_reward' columns added
+    """
+    if "rewards" not in df.columns:
+        return df
+
+    df = df.with_columns(pl.col("rewards").mean().alias("mean_reward"))
+    return df
+
+
 def calculate_object_traces(df):
     """Calculate exponentially weighted moving traces for collected objects.
 
