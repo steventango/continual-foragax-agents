@@ -18,11 +18,11 @@ def main():
         default=[
             "results/E96-search-limited-fov",
             "results/E97-mitigations",
-            "results/E98-baselines-vs-recurrent"
+            "results/E98-baselines-vs-recurrent",
             "results/E99-weather/foragax",
             "../checkpoints/continual-foragax-agents/results/E96-search-limited-fov",
             "../checkpoints/continual-foragax-agents/results/E97-mitigations",
-            "../checkpoints/continual-foragax-agents/results/E98-baselines-vs-recurrent"
+            "../checkpoints/continual-foragax-agents/results/E98-baselines-vs-recurrent",
             "../checkpoints/continual-foragax-agents/results/E99-weather/foragax",
         ],
         help="Directories to search recursively (default: results/E99-weather/foragax/ForagaxWeather-v5/)"
