@@ -31,6 +31,7 @@
             "hidden": 64
         },
         "update_freq": 4,
+        "greedy_when_frozen": true,
         "freeze_steps": 1000000
     }
 }
