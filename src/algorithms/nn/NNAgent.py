@@ -44,6 +44,7 @@ class Hypers(BaseHypers):
     initial_epsilon: Optional[float]
     final_epsilon: Optional[float]
     freeze_steps: float
+    greedy_when_frozen: bool
 
 
 @cxu.dataclass
@@ -82,6 +83,7 @@ class NNAgent(BaseAgent):
         epsilon_linear_decay = params.get("epsilon_linear_decay")
         initial_epsilon = params.get("initial_epsilon")
         final_epsilon = params.get("final_epsilon")
+        greedy_when_frozen = params.get("greedy_when_frozen", False)
         if epsilon_linear_decay is not None:
             epsilon = initial_epsilon
         else:
@@ -171,6 +173,7 @@ class NNAgent(BaseAgent):
             initial_epsilon=initial_epsilon,
             final_epsilon=final_epsilon,
             freeze_steps=freeze_steps,
+            greedy_when_frozen=greedy_when_frozen,
         )
         self.state = AgentState(
             **{k: v for k, v in self.state.__dict__.items() if k != "hypers"},
@@ -262,15 +265,19 @@ class NNAgent(BaseAgent):
         return replace(state, hypers=hypers)
 
     def policy(self, obs: jax.Array) -> jax.Array:
-        q = self.values(obs)
-        pi = egreedy_probabilities(q, self.actions, self.state.hypers.epsilon)
-        return pi
+        return self._policy(self.state, obs)
 
     @partial(jax.jit, static_argnums=0)
     def _policy(self, state: AgentState, obs: jax.Array) -> jax.Array:
         obs = jnp.expand_dims(obs, 0)
         q = self._values(state, obs)[0]
-        pi = egreedy_probabilities(q, self.actions, state.hypers.epsilon)
+        epsilon = jax.lax.cond(
+            state.hypers.greedy_when_frozen
+            & (state.steps >= state.hypers.freeze_steps),
+            lambda: jnp.array(0.0),
+            lambda: state.hypers.epsilon,
+        )
+        pi = egreedy_probabilities(q, self.actions, epsilon)
         return pi
 
     @partial(jax.jit, static_argnums=0)
