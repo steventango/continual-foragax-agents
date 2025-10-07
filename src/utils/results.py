@@ -33,7 +33,10 @@ def read_metrics_from_data(
     metrics: Iterable[str] | None = None,
     run_ids: Iterable[int] | None = None,
     sample: int | None = 500,
-    sample_type: str = "every",
+    sample_type: str
+    | tuple[int, int]
+    | tuple[int, int, int]
+    | list[str | tuple[int, int] | tuple[int, int, int]] = "every",
     start: int | None = None,
     end: int | None = None,
 ):
@@ -44,7 +47,7 @@ def read_metrics_from_data(
             run_id_paths[run_id] = path
     else:
         run_id_paths = {run_id: Path(data_path) / f"{run_id}.npz" for run_id in run_ids}
-    datas = {}
+    datas: dict[int, pl.DataFrame] = {}
     for run_id, path in run_id_paths.items():
         if not path.exists():
             continue
@@ -60,8 +63,7 @@ def read_metrics_from_data(
             metrics is None
             or not metrics
             or any(
-                m in ["ewm_reward", "mean_ewm_reward", "mean_reward"]
-                for m in metrics
+                m in ["ewm_reward", "mean_ewm_reward", "mean_reward"] for m in metrics
             )
         ):
             datas[run_id] = calculate_ewm_reward(datas[run_id])
@@ -88,12 +90,32 @@ def read_metrics_from_data(
             datas[run_id] = datas[run_id].slice(start_idx, length)
         if sample is None:
             continue
-        if sample_type == "every":
-            datas[run_id] = datas[run_id].gather_every(
-                max(1, len(datas[run_id]) // sample)
-            )
-        elif sample_type == "random":
-            datas[run_id] = datas[run_id].sample(n=sample, seed=0).sort("frame")
+        sample_types = [sample_type] if isinstance(sample_type, str) else sample_type
+        datas_run_id = []
+        for st in sample_types:
+            if st == "every":
+                df = datas[run_id].gather_every(max(1, len(datas[run_id]) // sample))
+                datas_run_id.append(df)
+            elif st == "random":
+                df = datas[run_id].sample(n=sample, seed=0).sort("frame")
+                df = df.with_columns(pl.lit(st).alias("sample_type"))
+                datas_run_id.append(df)
+            elif isinstance(st, tuple):
+                if st[0] + st[1] > len(datas[run_id]):
+                    continue
+                df = datas[run_id].slice(st[0], st[1])
+                if len(st) > 2:
+                    df = df.gather_every(max(1, len(df) // st[2]))
+                    df = df.with_columns(
+                        pl.lit(f"slice_{st[0]}_{st[1]}_{st[2]}").alias("sample_type")
+                    )
+                else:
+                    df = df.with_columns(
+                        pl.lit(f"slice_{st[0]}_{st[1]}").alias("sample_type")
+                    )
+                datas_run_id.append(df)
+
+        df = pl.concat(datas_run_id)
 
     if len(datas) == 0:
         return pl.DataFrame().lazy()
@@ -109,7 +131,10 @@ def load_all_results_from_data(
     metrics: Iterable[str] | None = None,
     ids: Iterable[int] | None = None,
     sample: int | None = 500,
-    sample_type: str = "every",
+    sample_type: str
+    | tuple[int, int]
+    | tuple[int, int, int]
+    | list[str | tuple[int, int] | tuple[int, int, int]] = "every",
     start: int | None = None,
     end: int | None = None,
 ):
@@ -151,7 +176,10 @@ class Result(Generic[Exp]):
     def load(
         self,
         sample: int = 500,
-        sample_type: str = "every",
+        sample_type: str
+        | tuple[int, int]
+        | tuple[int, int, int]
+        | list[str | tuple[int, int] | tuple[int, int, int]] = "every",
         start: int | None = None,
         end: int | None = None,
     ):
