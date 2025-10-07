@@ -88,7 +88,7 @@ def calculate_biome_occupancy(df: pl.DataFrame):
     if "biome_id" not in df.columns:
         return df
 
-    window_sizes = [10, 100, 1000, 10000, 100000, 1000000]
+    window_sizes = [1, 10, 100, 1000, 10000, 100000, 1000000]
     window_sizes = [w for w in window_sizes if w < len(df)]
 
     # Get biome id range from data
