@@ -17,6 +17,8 @@ from scipy.stats import bootstrap
 from utils.constants import LABEL_MAP
 from utils.plotting import select_colors
 
+setDefaultConference("jmlr")
+setFonts(20)
 
 def format_sample_type(sample_type: str) -> str:
     """Format sample_type for display, e.g., 'slice_1000000_1000_500' -> '[1000000:1001000:500]'"""
@@ -40,6 +42,7 @@ def main(
     save_type: str = "pdf",
     bars: list[tuple[str, str, list[int] | None]] | None = None,
     plot_name: str | None = None,
+    window: int = 1000000,
 ):
     data_path = (
         Path("results")
@@ -98,6 +101,7 @@ def main(
     # Collect agg_data for each bar
     agg_data = []
     for bar_alg, bar_sample_type, bar_seeds in bars:
+        bar_agg_data = []
         # Filter data for this bar
         bar_df = all_df.filter(pl.col("sample_type") == bar_sample_type)
         if bar_seeds is not None:
@@ -120,11 +124,11 @@ def main(
         ):
             alg_base, aperture, alg, seed = group_key
             for biome in available_biomes:
-                col_name = f"biome_{biome}_occupancy_1000000"
+                col_name = f"biome_{biome}_occupancy_{window}"
                 if col_name in df.columns:
                     mean_val = df[col_name].item()
                     if mean_val is not None and mean_val == mean_val:
-                        agg_data.append(
+                        bar_agg_data.append(
                             {
                                 "bar_alg": bar_alg,
                                 "bar_sample_type": bar_sample_type,
@@ -143,6 +147,13 @@ def main(
                                 "mean_occupancy": mean_val,
                             }
                         )
+
+        if not bar_agg_data:
+            raise ValueError(
+                f"No data available for bar: {bar_alg}, {bar_sample_type}, seeds: {bar_seeds}"
+            )
+
+        agg_data.extend(bar_agg_data)
 
     agg_df = pl.DataFrame(agg_data)
 
@@ -225,21 +236,20 @@ def main(
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    fig_width = 2 / 3 * len(bar_labels)
 
     save(
         save_path=f"{experiment_path}/plots",
         plot_name=plot_name or f"{env}_biome_occupancy_bar",
         save_type=save_type,
         f=fig,
-        width=fig_width,
-        height_ratio=1,
+        width=len(bar_labels),
+        height_ratio=2/len(bar_labels),
     )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Plot biome occupancy bar plots from processed data (last 1M steps)"
+        description="Plot biome occupancy bar plots from processed data"
     )
     parser.add_argument("path", type=str, help="Path to the experiment directory")
     parser.add_argument(
@@ -276,6 +286,12 @@ if __name__ == "__main__":
         default=None,
         help="Custom plot name (default: {env}_biome_occupancy_bar)",
     )
+    parser.add_argument(
+        "--window",
+        type=int,
+        default=1000,
+        help="Biome occupancy window size in steps (default: 1000)",
+    )
     args = parser.parse_args()
 
     # Parse bars
@@ -311,4 +327,5 @@ if __name__ == "__main__":
         args.save_type,
         bars,
         args.plot_name,
+        args.window,
     )
