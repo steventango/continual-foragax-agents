@@ -104,15 +104,15 @@ def read_metrics_from_data(
             elif isinstance(st, tuple):
                 if st[0] + st[1] > len(datas[run_id]):
                     continue
-                df = datas[run_id].slice(st[0], st[1])
+                df = datas[run_id].slice(st[0], st[1] - st[0])
                 if len(st) > 2:
                     df = df.gather_every(max(1, len(df) // st[2]))
                     df = df.with_columns(
-                        pl.lit(f"slice_{st[0]}_{st[1]}_{st[2]}").alias("sample_type")
+                        pl.lit(f"{st[0]}:{st[1]}:{st[2]}").alias("sample_type")
                     )
                 else:
                     df = df.with_columns(
-                        pl.lit(f"slice_{st[0]}_{st[1]}").alias("sample_type")
+                        pl.lit(f"{st[0]}:{st[1]}").alias("sample_type")
                     )
                 datas_run_id.append(df)
 
