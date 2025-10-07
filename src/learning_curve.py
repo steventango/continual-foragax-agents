@@ -37,6 +37,7 @@ def main(
     plot_name: str | None = None,
     ylim: tuple[float, float] | None = None,
     auto_label: bool = False,
+    sample_type: str = "every",
 ):
     data_path = (
         Path("results")
@@ -46,6 +47,9 @@ def main(
 
     # Load processed data
     all_df = pl.read_parquet(data_path)
+
+    # Filter by sample_type
+    all_df = all_df.filter(pl.col("sample_type") == sample_type)
 
     # Derive additional columns
     all_df = all_df.with_columns(
@@ -483,6 +487,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Use automatic label annotation instead of legend",
     )
+    parser.add_argument(
+        "--sample-type",
+        type=str,
+        default="every",
+        help="Sample type to plot (default: every)",
+    )
     args = parser.parse_args()
 
     experiment_path = Path(args.path).resolve()
@@ -494,4 +504,5 @@ if __name__ == "__main__":
         args.plot_name,
         args.ylim,
         args.auto_label,
+        args.sample_type,
     )

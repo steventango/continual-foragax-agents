@@ -21,7 +21,13 @@ setDefaultConference("jmlr")
 setFonts(20)
 
 
-def main(experiment_path: Path, save_type: str = "pdf", filter_algs: list[str] | None = None, plot_name: str | None = None):
+def main(
+    experiment_path: Path,
+    save_type: str = "pdf",
+    filter_algs: list[str] | None = None,
+    plot_name: str | None = None,
+    sample_type: str = "every",
+):
     data_path = (
         Path("results")
         / experiment_path.relative_to(Path("experiments").resolve())
@@ -30,6 +36,9 @@ def main(experiment_path: Path, save_type: str = "pdf", filter_algs: list[str] |
 
     # Load processed data
     all_df = pl.read_parquet(data_path)
+
+    # Filter by sample_type
+    all_df = all_df.filter(pl.col("sample_type") == sample_type)
 
     # Derive additional columns
     all_df = all_df.with_columns(
@@ -226,7 +235,19 @@ if __name__ == "__main__":
         default=None,
         help="Custom plot name (default: {env}_biome_occupancy_bar)",
     )
+    parser.add_argument(
+        "--sample-type",
+        type=str,
+        default="every",
+        help="Sample type to plot (default: every)",
+    )
     args = parser.parse_args()
 
     experiment_path = Path(args.path).resolve()
-    main(experiment_path, args.save_type, args.filter_algs, args.plot_name)
+    main(
+        experiment_path,
+        args.save_type,
+        args.filter_algs,
+        args.plot_name,
+        args.sample_type,
+    )

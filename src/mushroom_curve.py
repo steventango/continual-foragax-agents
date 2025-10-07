@@ -28,7 +28,12 @@ setDefaultConference("jmlr")
 setFonts(20)
 
 
-def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
+def main(
+    experiment_path: Path,
+    trace_exponent: int,
+    save_type: str = "pdf",
+    sample_type: str = "every",
+):
     data_path = (
         Path("results")
         / experiment_path.relative_to(Path("experiments").resolve())
@@ -37,6 +42,9 @@ def main(experiment_path: Path, trace_exponent: int, save_type: str = "pdf"):
 
     # Load processed data
     all_df = pl.read_parquet(data_path)
+
+    # Filter by sample_type
+    all_df = all_df.filter(pl.col("sample_type") == sample_type)
 
     # Derive additional columns
     all_df = all_df.with_columns(
@@ -322,7 +330,13 @@ if __name__ == "__main__":
         default="pdf",
         help="File format to save the plots (default: pdf)",
     )
+    parser.add_argument(
+        "--sample-type",
+        type=str,
+        default="every",
+        help="Sample type to plot (default: every)",
+    )
     args = parser.parse_args()
 
     experiment_path = Path(args.path).resolve()
-    main(experiment_path, args.trace_exponent, args.save_type)
+    main(experiment_path, args.trace_exponent, args.save_type, args.sample_type)
