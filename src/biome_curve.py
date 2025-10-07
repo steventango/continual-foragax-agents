@@ -22,13 +22,22 @@ from rlevaluation.temporal import (
 )
 
 from utils.constants import LABEL_MAP
-from utils.plotting import select_colors
+from utils.plotting import label_lines, select_colors
 
 setDefaultConference("jmlr")
 setFonts(20)
 
 
-def main(experiment_path: Path, save_type: str = "pdf"):
+def main(
+    experiment_path: Path,
+    save_type: str = "pdf",
+    sample_type: str = "every",
+    filter_algs: list[str] | None = None,
+    plot_name: str | None = None,
+    ylim: tuple[float, float] | None = None,
+    auto_label: bool = False,
+    window: int = 1000,
+):
     data_path = (
         Path("results")
         / experiment_path.relative_to(Path("experiments").resolve())
@@ -37,6 +46,13 @@ def main(experiment_path: Path, save_type: str = "pdf"):
 
     # Load processed data
     all_df = pl.read_parquet(data_path)
+
+    # Filter by sample_type
+    all_df = all_df.filter(pl.col("sample_type") == sample_type)
+
+    # Filter algorithms if specified
+    if filter_algs:
+        all_df = all_df.filter(pl.col("alg").is_in(filter_algs))
 
     # Derive additional columns
     all_df = all_df.with_columns(
@@ -70,17 +86,13 @@ def main(experiment_path: Path, save_type: str = "pdf"):
         unique_biomes = sorted(all_df["biome_id"].unique())
         available_biomes = unique_biomes
 
-    biome_metrics = [
-        f"biome_{biome}_occupancy" for biome in available_biomes
-    ]
+    biome_metrics = [f"biome_{biome}_occupancy_{window}" for biome in available_biomes]
     biome_names = [
         biome_mapping.get(biome, f"Biome {biome}") for biome in available_biomes
     ]
     metric_colors = dict(
         zip(biome_metrics, select_colors(len(biome_metrics)), strict=True)
     )
-
-    linestyle_map = {"1M": "--", "5M": ":"}
 
     dd = data_definition(
         hyper_cols=[],
@@ -137,12 +149,7 @@ def main(experiment_path: Path, save_type: str = "pdf"):
                     if param in df.columns:
                         df = df.filter(pl.col(param) == value)
 
-        freeze_steps_str = alg.split("_frozen")[1] if "_frozen" in alg else None
-
-        if freeze_steps_str:
-            linestyle = linestyle_map.get(freeze_steps_str, "--")
-        else:
-            linestyle = "-"
+        linestyle = "-"
 
         for metric in biome_metrics:
             metric_df = (
@@ -160,7 +167,14 @@ def main(experiment_path: Path, save_type: str = "pdf"):
             # Handle null values in the metric data
             metric_lists = metric_df[metric].to_list()
             # Check if any list contains null values
-            has_nulls = any(any(pl.Series(lst).is_null().any() for lst in metric_lists if lst is not None) for lst in metric_lists)
+            has_nulls = any(
+                any(
+                    pl.Series(lst).is_null().any()
+                    for lst in metric_lists
+                    if lst is not None
+                )
+                for lst in metric_lists
+            )
 
             if has_nulls:
                 print(f"Warning: {metric} contains null values, filling with 0")
@@ -181,7 +195,9 @@ def main(experiment_path: Path, save_type: str = "pdf"):
 
             # Skip if we don't have enough data after filtering
             if ys.shape[1] < 10:
-                print(f"Skipping {alg} for metric {metric}: insufficient data after filtering")
+                print(
+                    f"Skipping {alg} for metric {metric}: insufficient data after filtering"
+                )
                 continue
 
             res = curve_percentile_bootstrap_ci(
@@ -212,9 +228,7 @@ def main(experiment_path: Path, save_type: str = "pdf"):
             # Plot each seed on seeds figure
             for i in range(len(ys)):
                 ax = axs_seeds[i, col_linear]
-                ax.plot(
-                    xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle
-                )
+                ax.plot(xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle)
 
     # Set titles and formatting for mean plot
     for i, (alg_base, aperture_val) in enumerate(main_algs):
@@ -270,33 +284,62 @@ def main(experiment_path: Path, save_type: str = "pdf"):
         if not ax.get_lines():
             ax.set_visible(False)
 
+    # Set ylim if provided
+    if ylim is not None:
+        for ax in axs_mean.flatten():
+            if ax.get_lines():
+                ax.set_ylim(ylim)
+        for ax in axs_seeds.flatten():
+            if ax.get_lines():
+                ax.set_ylim(ylim)
+
     legend_elements = [
         Line2D([0], [0], color=metric_colors[m], lw=2, label=n)
         for m, n in zip(biome_metrics, biome_names, strict=True)
     ]
-    fig_mean.suptitle(f"{env}")
-    fig_mean.legend(handles=legend_elements, loc="outside center right", frameon=False)
+    # Handle legend or auto labeling
+    if auto_label:
+        # Use automatic label annotation instead of legend
+        for ax in axs_mean.flatten():
+            if ax.get_lines():
+                label_lines(ax, offset_range=(12, 18))
+        for ax in axs_seeds.flatten():
+            if ax.get_lines():
+                label_lines(ax, offset_range=(12, 18))
+        fig_mean.suptitle(f"{plot_name if plot_name else env}")
+        fig_seeds.suptitle(f"{plot_name if plot_name else env} - Individual Seeds")
+    else:
+        fig_mean.suptitle(f"{plot_name if plot_name else env}")
+        fig_mean.legend(
+            handles=legend_elements, loc="outside center right", frameon=False
+        )
 
-    fig_seeds.suptitle(f"{env} - Individual Seeds")
-    fig_seeds.legend(handles=legend_elements, loc="outside center right", frameon=False)
+        fig_seeds.suptitle(f"{plot_name if plot_name else env} - Individual Seeds")
+        fig_seeds.legend(
+            handles=legend_elements, loc="outside center right", frameon=False
+        )
+
+    base_name = plot_name if plot_name else env
 
     save(
         save_path=f"{experiment_path}/plots",
-        plot_name=f"{env}_biome_occupancy",
+        plot_name=f"{base_name}_biome_occupancy",
         save_type=save_type,
         f=fig_mean,
-        width=ncols_mean if ncols_mean > 1 else 2,
+        width=ncols_mean if ncols_mean > 1 else (1 if auto_label else 2),
         height_ratio=2 / 3 * nrows_mean / ncols_mean
         if ncols_mean > 1
-        else nrows_mean / 3,
+        else (2 / 3 * nrows_mean if auto_label else nrows_mean / 3),
     )
     save(
         save_path=f"{experiment_path}/plots",
-        plot_name=f"{env}_biome_occupancy_seeds",
+        plot_name=f"{base_name}_biome_occupancy_seeds",
         save_type=save_type,
         f=fig_seeds,
-        width=ncols if ncols > 1 else 2,
-        height_ratio=(num_seeds / ncols) * (2 / 3) if ncols > 1 else num_seeds / 3,
+        width=ncols if ncols > 1 else (1 if auto_label else 2),
+        height_ratio=(num_seeds / ncols) * (2 / 3)
+        if ncols > 1
+        else (2 / 3 * num_seeds if auto_label else num_seeds / 3),
     )
 
 
@@ -311,7 +354,52 @@ if __name__ == "__main__":
         default="pdf",
         help="File format to save the plots (default: pdf)",
     )
+    parser.add_argument(
+        "--sample-type",
+        type=str,
+        default="every",
+        help="Sample type to plot (default: every)",
+    )
+    parser.add_argument(
+        "--filter-algs",
+        nargs="*",
+        default=None,
+        help="List of algorithms to show (default: all)",
+    )
+    parser.add_argument(
+        "--plot-name",
+        type=str,
+        default=None,
+        help="Override the default plot name (default: use environment name)",
+    )
+    parser.add_argument(
+        "--ylim",
+        type=float,
+        nargs=2,
+        default=None,
+        help="Y-axis limits as two floats (default: auto)",
+    )
+    parser.add_argument(
+        "--auto-label",
+        action="store_true",
+        help="Use automatic label annotation instead of legend",
+    )
+    parser.add_argument(
+        "--window",
+        type=int,
+        default=1000,
+        help="Window size for biome occupancy metric (default: 1000)",
+    )
     args = parser.parse_args()
 
     experiment_path = Path(args.path).resolve()
-    main(experiment_path, args.save_type)
+    main(
+        experiment_path,
+        args.save_type,
+        args.sample_type,
+        args.filter_algs,
+        args.plot_name,
+        args.ylim,
+        args.auto_label,
+        args.window,
+    )
