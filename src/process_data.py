@@ -2,6 +2,7 @@ import argparse
 import concurrent.futures
 import os
 import sys
+from itertools import product
 from pathlib import Path
 
 sys.path.append(os.getcwd() + "/src")
@@ -9,16 +10,29 @@ sys.path.append(os.getcwd() + "/src")
 import polars as pl
 
 from experiment.ExperimentModel import ExperimentModel
-from utils.results import ResultCollection
+from utils.results import Result, ResultCollection
 
 
-def process_alg_result(alg_result, group, aperture):
+def process_alg_result(alg_result: Result, group, aperture):
     alg = alg_result.filename
     print(f"{group} {alg}")
 
     exp_path = Path(alg_result.exp_path)
     env = exp_path.parent.parent.name
-    df = alg_result.load()
+    targets = [1_000_000, 5_000_000, 9_000_000]
+    intervals = [1_000, 10_000, 100_000, 1_000_000]
+    n_samples = 500
+
+    sample_type = (
+        ["every"]
+        + [
+            (total - interval, interval, n_samples)
+            for total, interval in product(targets, intervals)
+        ]
+        + [(total, interval, n_samples) for total, interval in product(targets, intervals)]
+    )
+
+    df = alg_result.load(sample_type=sample_type)
     if df is None:
         return None
 
@@ -33,12 +47,17 @@ def process_alg_result(alg_result, group, aperture):
 
 
 def main(experiment_path: Path):
-    output_path = Path("results") / experiment_path.relative_to(Path("experiments")) / "data.parquet"
+    output_path = (
+        Path("results")
+        / experiment_path.relative_to(Path("experiments"))
+        / "data.parquet"
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     experiment_path = experiment_path.resolve()
 
     results = ResultCollection(
-        path=experiment_path, Model=ExperimentModel,
+        path=experiment_path,
+        Model=ExperimentModel,
     )
     results.paths = [path for path in results.paths if "hypers" not in path]
     print(results.paths)
