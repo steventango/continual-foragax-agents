@@ -20,23 +20,6 @@ from utils.plotting import select_colors
 setDefaultConference("jmlr")
 setFonts(20)
 
-def format_sample_type(sample_type: str) -> str:
-    """Format sample_type for display, e.g., 'slice_1000000_1000_500' -> '[1000000:1001000:500]'"""
-    if sample_type.startswith("slice_"):
-        parts = sample_type.split("_")
-        if len(parts) == 4:
-            _, start_str, length_str, stride_str = parts
-            try:
-                start = int(start_str)
-                length = int(length_str)
-                stride = int(stride_str)
-                end = start + length
-                return f"[{start}:{end}:{stride}]"
-            except ValueError:
-                pass
-    return sample_type
-
-
 def main(
     experiment_path: Path,
     save_type: str = "pdf",
@@ -167,8 +150,7 @@ def main(
         # Generate label for this bar
         alg_label = str(LABEL_MAP.get(bar_alg, bar_alg))
         if bar_sample_type != "end":
-            formatted_sample = format_sample_type(bar_sample_type)
-            alg_label += f"\n{formatted_sample}"
+            alg_label += f"\n{bar_sample_type}"
         if bar_seeds is not None and len(bar_seeds) == 1:
             alg_label += f"\n(seed {bar_seeds[0]})"
         elif bar_seeds is not None:
@@ -261,7 +243,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--bars",
         nargs="*",
-        help="Bar specifications in format 'alg:sample_type:seeds' where seeds is comma-separated (e.g., 'DQN:slice_1000000_1000_500:0,1')",
+        help="Bar specifications in format 'alg|sample_type|seeds' where seeds is comma-separated (e.g., 'DQN|slice_1000000_1000_500|0,1')",
     )
     parser.add_argument(
         "--plot-name",
@@ -282,10 +264,10 @@ if __name__ == "__main__":
     if args.bars:
         bars = []
         for bar_spec in args.bars:
-            parts = bar_spec.split(":")
+            parts = bar_spec.split("|")
             if len(parts) != 3:
                 raise ValueError(
-                    f"Invalid bar spec: {bar_spec}. Expected format 'alg:sample_type:seeds'"
+                    f"Invalid bar spec: {bar_spec}. Expected format 'alg|sample_type|seeds'"
                 )
             alg, sample_type, seeds_str = parts
             if seeds_str:
