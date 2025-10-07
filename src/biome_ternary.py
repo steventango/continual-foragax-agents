@@ -21,11 +21,17 @@ from ternary.helpers import project_point
 from utils.constants import LABEL_MAP
 from utils.plotting import select_colors
 
+SAMPLE_TYPE_MAP = {
+    "999000:1000000:500": "Early learning",
+    "4999000:5000000:500": "Mid learning",
+    "9999000:10000000:500": "Late learning",
+}
+
 
 def main(
     experiment_path: Path,
     save_type: str = "pdf",
-    bars: list[tuple[str, str, list[int] | None]] | None = None,
+    bars: list[tuple[str, str | float | None, str, list[int] | None]] | None = None,
     plot_name: str | None = None,
     window: int = 1000000,
 ):
@@ -38,6 +44,7 @@ def main(
     # Load processed data
     all_df = pl.read_parquet(data_path)
     print(list(all_df["sample_type"].unique()))
+    print("Available alg:", sorted(all_df["alg"].unique()))
 
     # Derive additional columns
     all_df = all_df.with_columns(
@@ -78,11 +85,11 @@ def main(
     if bars is None:
         # Default: all algs, sample_type="end", all seeds
         unique_algs = all_df["alg"].unique().to_list()
-        bars = [(alg, "end", None) for alg in unique_algs]
+        bars = [(alg, None, "end", None) for alg in unique_algs]
 
     # Collect agg_data for each bar
     agg_data = []
-    for bar_alg, bar_sample_type, bar_seeds in bars:
+    for bar_alg, bar_aperture, bar_sample_type, bar_seeds in bars:
         bar_agg_data = []
         # Filter data for this bar
         bar_df = all_df.filter(pl.col("sample_type") == bar_sample_type)
@@ -91,28 +98,33 @@ def main(
 
         # Filter to the alg
         bar_df = bar_df.filter(pl.col("alg") == bar_alg)
+        if bar_aperture is not None:
+            bar_df = bar_df.filter(pl.col("aperture") == bar_aperture)
 
         # Filter data to frame == target_frame (or max frame if less)
         max_frame = bar_df.select(pl.col("frame").max()).item()
         filtered_df = bar_df.filter(pl.col("frame") == max_frame)
 
         print(
-            f"For bar {bar_alg} {bar_sample_type} seeds {bar_seeds}: filtered df shape {filtered_df.shape}"
+            f"For bar {bar_alg} aperture {bar_aperture} {bar_sample_type} seeds {bar_seeds}: filtered df shape {filtered_df.shape}"
         )
 
         # Aggregate biome occupancy for this bar
-        for group_key, df in filtered_df.group_by(
+        for group_key, df in bar_df.group_by(
             ["alg_base", "aperture", "alg", "seed"]
         ):
             alg_base, aperture, alg, seed = group_key
             for biome in available_biomes:
                 col_name = f"biome_{biome}_occupancy_{window}"
                 if col_name in df.columns:
-                    mean_val = df[col_name].item()
+                    # Take the last value since it's a rolling mean
+                    max_frame = df.select(pl.col("frame").max()).item()
+                    mean_val = df.filter(pl.col("frame") == max_frame)[col_name].item()
                     if mean_val is not None and mean_val == mean_val:
                         bar_agg_data.append(
                             {
                                 "bar_alg": bar_alg,
+                                "bar_aperture": bar_aperture,
                                 "bar_sample_type": bar_sample_type,
                                 "bar_seeds": bar_seeds,
                                 "bar_seeds_str": ",".join(map(str, bar_seeds))
@@ -132,7 +144,7 @@ def main(
 
         if not bar_agg_data:
             raise ValueError(
-                f"No data available for bar: {bar_alg}, {bar_sample_type}, seeds: {bar_seeds}"
+                f"No data available for bar: {bar_alg}, aperture: {bar_aperture}, {bar_sample_type}, seeds: {bar_seeds}"
             )
 
         agg_data.extend(bar_agg_data)
@@ -140,9 +152,9 @@ def main(
     # Prepare data for ternary plotting
     bar_points = [[] for _ in bars]
     bar_labels = []
-    bar_colors = select_colors(len(bars))
+    bar_colors = select_colors(len(bars), override="vibrant")
 
-    for bar_idx, (bar_alg, bar_sample_type, bar_seeds) in enumerate(bars):
+    for bar_idx, (bar_alg, bar_aperture, bar_sample_type, bar_seeds) in enumerate(bars):
         # Filter data for this bar
         bar_df = all_df.filter(pl.col("sample_type") == bar_sample_type)
         if bar_seeds is not None:
@@ -150,40 +162,49 @@ def main(
 
         # Filter to the alg
         bar_df = bar_df.filter(pl.col("alg") == bar_alg)
+        if bar_aperture is not None:
+            bar_df = bar_df.filter(pl.col("aperture") == bar_aperture)
 
-        # Filter data to frame == target_frame (or max frame if less)
-        max_frame = bar_df.select(pl.col("frame").max()).item()
-        filtered_df = bar_df.filter(pl.col("frame") == max_frame)
+        print(
+            f"For plotting bar {bar_alg}: alg values in bar_df: {sorted(bar_df['alg'].unique())}"
+        )
 
         # Get unique seeds for this bar
-        unique_seeds = sorted(filtered_df["seed"].unique())
+        unique_seeds = sorted(bar_df["seed"].unique())
 
         # Create label for this bar
         bar_label = str(LABEL_MAP.get(bar_alg, bar_alg))
+        if bar_aperture is not None:
+            bar_label += f" FOV {bar_aperture}"
         if bar_sample_type != "end":
-            bar_label += f" {bar_sample_type}"
+            readable_sample = SAMPLE_TYPE_MAP.get(bar_sample_type, bar_sample_type)
+            bar_label += f" {readable_sample}"
         bar_labels.append(bar_label)
 
         for seed in unique_seeds:
-            seed_df = filtered_df.filter(pl.col("seed") == seed)
+            seed_df = bar_df.filter(pl.col("seed") == seed)
 
             # Get the three proportions for this seed
             proportions = []
             for biome in available_biomes:
                 col_name = f"biome_{biome}_occupancy_{window}"
                 if col_name in seed_df.columns:
-                    mean_val = seed_df[col_name].item()
+                    # Take the last value since it's a rolling mean
+                    max_frame = seed_df.select(pl.col("frame").max()).item()
+                    mean_val = seed_df.filter(pl.col("frame") == max_frame)[
+                        col_name
+                    ].item()
                     if mean_val is not None and not (
                         mean_val != mean_val
                     ):  # Check for NaN
                         proportions.append(mean_val)
                     else:
                         raise ValueError(
-                            f"Missing data for biome {biome} in bar {bar_alg}, sample_type {bar_sample_type}, seed {seed}"
+                            f"Missing data for biome {biome} in bar {bar_alg}, aperture {bar_aperture}, sample_type {bar_sample_type}, seed {seed}"
                         )
                 else:
                     raise ValueError(
-                        f"Missing column {col_name} for biome {biome} in bar {bar_alg}, sample_type {bar_sample_type}, seed {seed}"
+                        f"Missing column {col_name} for biome {biome} in bar {bar_alg}, aperture {bar_aperture}, sample_type {bar_sample_type}, seed {seed}"
                     )
 
             # Normalize to sum to 100 (ternary scale)
@@ -194,10 +215,15 @@ def main(
                 proportions = [0, 0, 0]
 
             print(
-                f"Bar {bar_alg} {bar_sample_type} seed {seed}: proportions {proportions}"
+                f"Bar {bar_alg} aperture {bar_aperture} {bar_sample_type} seed {seed}: proportions {proportions}"
             )
 
             bar_points[bar_idx].append(proportions)  # Plot ternary diagram
+
+        if bar_points[bar_idx]:
+            mean_prop = np.mean(bar_points[bar_idx], axis=0)
+            print(f"Bar {bar_alg}: mean proportions {mean_prop}")
+
     fig, tax = ternary.figure(scale=100)
     tax.set_background_color("white")  # Make background white
     tax.boundary(linewidth=0.0)  # Remove the box around the ternary plot
@@ -220,65 +246,45 @@ def main(
     tax.left_axis_label(biome_names[2], fontsize=12, offset=0.2)
     tax.right_axis_label(biome_names[0], fontsize=12, offset=0.2)
     tax.bottom_axis_label(biome_names[1], fontsize=12, offset=0.2)
-    # Prepare combined data for hue-based KDE plotting
-    all_x = []
-    all_y = []
-    all_hue = []
-    hue_labels = []
-    hue_colors = []
+    # Plot KDEs separately for each bar that has multiple points
+    triangle_vertices = [(0, 0), (100, 0), (50, 86.60254037844386)]
+    path = mpath.Path(triangle_vertices)
 
     for bar_idx, points_list in enumerate(bar_points):
-        if points_list:
+        if len(points_list) > 1:
             cartesian = np.array([project_point(p) for p in points_list])
             x_coords = cartesian[:, 0]
             y_coords = cartesian[:, 1]
 
-            all_x.extend(x_coords)
-            all_y.extend(y_coords)
-            all_hue.extend([bar_idx] * len(points_list))
+            sns.kdeplot(
+                x=x_coords,
+                y=y_coords,
+                ax=tax.ax,
+                color=bar_colors[bar_idx],
+                alpha=0.5,
+                bw_adjust=0.4,
+                levels=10,
+                clip=(0, 100),
+                fill=True,
+            )
 
-            hue_labels.append(bar_labels[bar_idx])
-            hue_colors.append(bar_colors[bar_idx])
+            # Clip the KDE collection to the triangle
+            collection = tax.ax.collections[-1]
+            collection.set_clip_path(path, transform=tax.ax.transData)
 
-    # Convert to numpy arrays
-    all_x = np.array(all_x)
-    all_y = np.array(all_y)
-    all_hue = np.array(all_hue)
-
-    # Create color palette for hue
-    hue_palette = {i: color for i, color in enumerate(hue_colors)}
-
-    # Plot all KDEs at once using hue
-    triangle_vertices = [(0, 0), (100, 0), (50, 86.60254037844386)]
-    sns.kdeplot(
-        x=all_x,
-        y=all_y,
-        hue=all_hue,
-        ax=tax.ax,
-        palette=hue_palette,
-        alpha=0.7,
-        bw_adjust=0.4,
-        levels=10,
-        clip=(0, 100),
-        fill=True,
-    )
-    # Clip all KDE collections to the triangle
-    path = mpath.Path(triangle_vertices)
-    for collection in tax.ax.collections[-len(bar_points):]:  # Clip the last N collections (one per hue level)
-        collection.set_clip_path(path, transform=tax.ax.transData)
-
-    # for bar_idx, points_list in enumerate(bar_points):
-    #     if points_list:
-    #         tax.scatter(
-    #             points_list, marker="o", color=bar_colors[bar_idx], s=10, alpha=0.3
-    #         )
+    # Plot individual data points
+    for bar_idx, points_list in enumerate(bar_points):
+        if points_list:
+            tax.scatter(
+                points_list, marker="o", color=bar_colors[bar_idx], s=20, alpha=0.6
+            )
 
     # Create legend manually since seaborn hue doesn't always auto-create it
     legend_elements = []
-    for hue_idx, bar_label in enumerate(hue_labels):
+    for hue_idx, bar_label in enumerate(bar_labels):
         legend_elements.append(
             Patch(
-                facecolor=hue_colors[hue_idx],
+                facecolor=bar_colors[hue_idx],
                 label=bar_label,
                 alpha=1,
             )
@@ -315,7 +321,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--bars",
         nargs="*",
-        help="Bar specifications in format 'alg:sample_type:seeds' where seeds is comma-separated (e.g., 'DQN:slice_1000000_1000_500:0,1')",
+        help="Bar specifications in format 'alg:aperture|sample_type|seeds' or 'alg|sample_type|seeds' where seeds is comma-separated (e.g., 'DQN:9|end|' or 'DQN|end|0,1')",
     )
     parser.add_argument(
         "--filter-algs",
@@ -354,16 +360,44 @@ if __name__ == "__main__":
         bars = []
         for bar_spec in args.bars:
             parts = bar_spec.split("|")
-            if len(parts) != 3:
+            if len(parts) == 3:
+                # Could be old format or new with aperture in first part
+                first_part = parts[0]
+                if ":" in first_part:
+                    # New format: alg:aperture|sample_type|seeds
+                    alg_aperture, sample_type, seeds_str = parts
+                    if ":" in alg_aperture:
+                        alg, aperture_str = alg_aperture.split(":", 1)
+                        try:
+                            aperture = int(aperture_str)
+                        except ValueError:
+                            aperture = aperture_str
+                    else:
+                        alg = alg_aperture
+                        aperture = None
+                else:
+                    # Old format: alg|sample_type|seeds
+                    alg, sample_type, seeds_str = parts
+                    aperture = None
+            elif len(parts) == 4:
+                # New format: alg|aperture|sample_type|seeds
+                alg, aperture_str, sample_type, seeds_str = parts
+                if aperture_str.strip():
+                    try:
+                        aperture = int(aperture_str)
+                    except ValueError:
+                        aperture = aperture_str
+                else:
+                    aperture = None
+            else:
                 raise ValueError(
-                    f"Invalid bar spec: {bar_spec}. Expected format 'alg|sample_type|seeds'"
+                    f"Invalid bar spec: {bar_spec}. Expected 'alg:aperture|sample_type|seeds' or 'alg|sample_type|seeds'"
                 )
-            alg, sample_type, seeds_str = parts
             if seeds_str:
                 seeds = [int(s.strip()) for s in seeds_str.split(",")]
             else:
                 seeds = None
-            bars.append((alg, sample_type, seeds))
+            bars.append((alg, aperture, sample_type, seeds))
     elif args.filter_algs or args.filter_seeds or args.sample_type != "end":
         # Backward compatibility: construct bars from old args
         if not args.filter_algs:
@@ -373,7 +407,7 @@ if __name__ == "__main__":
         else:
             bars = []
             for alg in args.filter_algs:
-                bars.append((alg, args.sample_type, args.filter_seeds))
+                bars.append((alg, None, args.sample_type, args.filter_seeds))
 
     experiment_path = Path(args.path).resolve()
     main(

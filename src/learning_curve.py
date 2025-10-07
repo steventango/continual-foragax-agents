@@ -99,7 +99,7 @@ def main(
 
     type_keys = set(get_type_key(alg) for alg in all_color_keys)
     n_colors = len(type_keys)
-    color_list = select_colors(n_colors)
+    color_list = select_colors(n_colors, override="vibrant")
     type_to_color = dict(zip(sorted(type_keys), color_list, strict=True))
     COLORS = {alg: type_to_color[get_type_key(alg)] for alg in all_color_keys}
 

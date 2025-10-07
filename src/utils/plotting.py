@@ -456,8 +456,10 @@ def label_line(
     ax.annotate(label, xy=(x, y), **text_kwargs)
 
 
-def select_colors(n_colors: int):
+def select_colors(n_colors: int, override: str | None = None):
     """Select a color palette based on the number of colors needed."""
+    if override is not None:
+        return list(tc.colorsets[override])[:n_colors]
     if n_colors <= 3:
         color_list = list(tc.colorsets["high_contrast"][1 : n_colors + 1])
     elif n_colors <= 6:

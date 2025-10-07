@@ -123,7 +123,7 @@ def main(
     errors_lower = []
     errors_upper = []
 
-    colors = select_colors(len(bars))
+    colors = select_colors(len(bars), override="vibrant")
 
     for _i, (bar_alg, bar_aperture, bar_sample_type, bar_seeds) in enumerate(bars):
         # Generate label for this bar
@@ -195,7 +195,7 @@ def main(
         plot_name=plot_name or f"{env}_{metric}_bar",
         save_type=save_type,
         f=fig,
-        width=len(bar_labels),
+        width=2,
         height_ratio=2/len(bar_labels),
     )
 
