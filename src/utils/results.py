@@ -92,38 +92,43 @@ def read_metrics_from_data(
         if sample is None:
             continue
         n = len(df)
-        df = df.lazy()
+        df_lazy = df.lazy()
         sample_types = [sample_type] if isinstance(sample_type, str) else sample_type
         datas_run_id = []
         for st in sample_types:
+            df_sample = df_lazy.clone()
             if st == "every":
-                df = df.gather_every(max(1, n // sample))
-                df = df.with_columns(pl.lit(st).alias("sample_type"))
-                datas_run_id.append(df)
+                df_sample = df_sample.gather_every(max(1, n // sample))
+                df_sample = df_sample.with_columns(pl.lit(st).alias("sample_type"))
+                datas_run_id.append(df_sample)
             elif st == "random":
-                df = df.collect().sample(n=sample, seed=0).sort("frame").lazy()
-                df = df.with_columns(pl.lit(st).alias("sample_type"))
-                datas_run_id.append(df)
+                df_sample = (
+                    df_sample.collect().sample(n=sample, seed=0).sort("frame").lazy()
+                )
+                df_sample = df_sample.with_columns(pl.lit(st).alias("sample_type"))
+                datas_run_id.append(df_sample)
             elif isinstance(st, tuple):
-                if st[0] + st[1] > n:
+                if st[1] > n:
                     continue
-                df = df.slice(st[0], st[1] - st[0])
+                slice_length = st[1] - st[0]
+                df_sample = df_sample.slice(st[0], slice_length)
                 if len(st) > 2:
-                    step = n // st[2]
+                    # Take st[2] samples evenly spaced from the slice
+                    step = max(1, slice_length // st[2])
                     if step > 1:
-                        df = df.gather_every(max(1, step))
-                        df = df.with_columns(
+                        df_sample = df_sample.gather_every(step)
+                        df_sample = df_sample.with_columns(
                             pl.lit(f"{st[0]}:{st[1]}:{st[2]}").alias("sample_type")
                         )
                     else:
-                        df = df.with_columns(
+                        df_sample = df_sample.with_columns(
                             pl.lit(f"{st[0]}:{st[1]}").alias("sample_type")
                         )
                 else:
-                    df = df.with_columns(
+                    df_sample = df_sample.with_columns(
                         pl.lit(f"{st[0]}:{st[1]}").alias("sample_type")
                     )
-                datas_run_id.append(df)
+                datas_run_id.append(df_sample)
 
         df = pl.concat(datas_run_id, how="diagonal").collect()
         datas[run_id] = df
