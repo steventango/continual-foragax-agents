@@ -34,7 +34,6 @@ def calculate_mean_reward(df: pl.DataFrame):
         return df
 
     window_sizes = [10, 100, 1000, 10000, 100000, 1000000]
-    window_sizes = [w for w in window_sizes if w < len(df)]
 
     for window_size in window_sizes:
         df = df.with_columns(
@@ -89,7 +88,6 @@ def calculate_biome_occupancy(df: pl.DataFrame):
         return df
 
     window_sizes = [1, 10, 100, 1000, 10000, 100000, 1000000]
-    window_sizes = [w for w in window_sizes if w < len(df)]
 
     # Get biome id range from data
     min_id = df.select(pl.col("biome_id").min()).item()
