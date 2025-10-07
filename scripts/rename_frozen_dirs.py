@@ -43,19 +43,21 @@ def main():
             continue
         for root, dirs, _files in os.walk(base_path):
             for dir_name in dirs:
+                if "bak" in dir_name:
+                    continue
                 if "frozen" in dir_name:
                     dirs_to_rename.append(os.path.join(root, dir_name))
 
     if args.dry_run:
         print("DRY RUN - The following directories would be renamed:")
         for old_path in dirs_to_rename:
-            new_path = old_path + "_greedy"
+            new_path = old_path.replace("frozen", "greedy_frozen")
             print(f"  {old_path} -> {new_path}")
         print(f"Would rename {len(dirs_to_rename)} directories.")
     else:
         # Rename them
         for old_path in dirs_to_rename:
-            new_path = old_path + "_greedy"
+            new_path = old_path.replace("frozen", "greedy_frozen")
             print(f"Moving {old_path} to {new_path}")
             os.rename(old_path, new_path)
         print(f"Renamed {len(dirs_to_rename)} directories.")
