@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
-#SBATCH --job-name=E98-baselines-vs-recurrent_foragax_ForagaxTwoBiome-v13
-#SBATCH --mem-per-cpu=32G
-#SBATCH --ntasks=4
+#SBATCH --job-name=E98_process_data-baselines-vs-recurrent_foragax_ForagaxTwoBiome-v13
+#SBATCH --mem-per-cpu=8G
+#SBATCH --ntasks=16
 #SBATCH --output=../slurm-%j.out
 #SBATCH --time=01:00:00
 
