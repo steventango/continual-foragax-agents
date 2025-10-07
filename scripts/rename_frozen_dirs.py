@@ -43,7 +43,7 @@ def main():
             continue
         for root, dirs, _files in os.walk(base_path):
             for dir_name in dirs:
-                if "bak" in dir_name:
+                if "bak" in dir_name or "greedy_frozen" in dir_name:
                     continue
                 if "frozen" in dir_name:
                     dirs_to_rename.append(os.path.join(root, dir_name))
