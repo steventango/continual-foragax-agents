@@ -227,7 +227,7 @@ def main(
     fig, tax = ternary.figure(scale=100)
     tax.set_background_color("white")  # Make background white
     tax.boundary(linewidth=0.0)  # Remove the box around the ternary plot
-    tax.gridlines(multiple=20, color="gray", linewidth=0.5)
+    # tax.gridlines(multiple=20, color="gray", linewidth=0.5)  # Removed gridlines
 
     # Hide matplotlib axes border
     tax.ax.spines["top"].set_visible(False)
@@ -239,13 +239,13 @@ def main(
     tax.clear_matplotlib_ticks()
 
     # Use ternary ticks and labels
-    tax.ticks(axis="lbr", multiple=20, linewidth=0, tick_formats="%.0f%%", offset=0.03)
+    # tax.ticks(axis="lbr", multiple=20, linewidth=0, tick_formats="%.0f", offset=0.03)  # Removed ticks
 
     # Set axis labels
-    tax.set_title(f"{env} - Biome Occupancy", fontsize=16, pad=20)
-    tax.left_axis_label(biome_names[2], fontsize=12, offset=0.2)
-    tax.right_axis_label(biome_names[0], fontsize=12, offset=0.2)
-    tax.bottom_axis_label(biome_names[1], fontsize=12, offset=0.2)
+    tax.set_title(env, fontsize=16, pad=20)
+    tax.left_corner_label(biome_names[2], fontsize=12)
+    tax.right_corner_label(biome_names[0], fontsize=12)
+    tax.top_corner_label(biome_names[1], fontsize=12)
     # Plot KDEs separately for each bar that has multiple points
     triangle_vertices = [(0, 0), (100, 0), (50, 86.60254037844386)]
     path = mpath.Path(triangle_vertices)
@@ -261,8 +261,8 @@ def main(
                 y=y_coords,
                 ax=tax.ax,
                 color=bar_colors[bar_idx],
-                alpha=0.5,
-                bw_adjust=0.4,
+                alpha=0.7,
+                bw_adjust=0.6,
                 levels=10,
                 clip=(0, 100),
                 fill=True,
@@ -276,7 +276,7 @@ def main(
     for bar_idx, points_list in enumerate(bar_points):
         if points_list:
             tax.scatter(
-                points_list, marker="o", color=bar_colors[bar_idx], s=20, alpha=0.6
+                points_list, marker="o", color=bar_colors[bar_idx], s=2, alpha=0.2
             )
 
     # Create legend manually since seaborn hue doesn't always auto-create it
