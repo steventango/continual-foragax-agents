@@ -20,10 +20,10 @@ def process_alg_result(alg_result: Result, group, aperture):
     exp_path = Path(alg_result.exp_path)
     env = exp_path.parent.parent.name
     targets = [1_000_000, 5_000_000, 10_000_000]
-    intervals = [1_000, 10_000, 100_000, 1_000_000]
+    intervals = [1, 1_000, 10_000, 100_000, 1_000_000]
     n_samples = 500
 
-    sample_type = (
+    sample_types = (
         ["every"]
         + [
             (total - interval, interval, n_samples)
@@ -31,8 +31,9 @@ def process_alg_result(alg_result: Result, group, aperture):
         ]
         + [(total, interval, n_samples) for total, interval in product(targets, intervals)]
     )
+    print("\n".join(str(sample_type) for sample_type in sample_types))
 
-    df = alg_result.load(sample_type=sample_type)
+    df = alg_result.load(sample_type=sample_types)  # type: ignore
     if df is None:
         return None
 
