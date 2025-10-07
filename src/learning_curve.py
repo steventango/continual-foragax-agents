@@ -38,6 +38,7 @@ def main(
     ylim: tuple[float, float] | None = None,
     auto_label: bool = False,
     sample_type: str = "every",
+    metric: str = "ewm_reward",
 ):
     data_path = (
         Path("results")
@@ -99,8 +100,6 @@ def main(
     color_list = select_colors(n_colors)
     type_to_color = dict(zip(sorted(type_keys), color_list, strict=True))
     COLORS = {alg: type_to_color[get_type_key(alg)] for alg in all_color_keys}
-
-    metric = "ewm_reward"
 
     # Compute baseline_ys_dict for normalization
     baseline_ys_dict = {}
@@ -493,6 +492,12 @@ if __name__ == "__main__":
         default="every",
         help="Sample type to plot (default: every)",
     )
+    parser.add_argument(
+        "--metric",
+        type=str,
+        default="ewm_reward",
+        help="Metric to plot (default: ewm_reward)",
+    )
     args = parser.parse_args()
 
     experiment_path = Path(args.path).resolve()
@@ -505,4 +510,5 @@ if __name__ == "__main__":
         args.ylim,
         args.auto_label,
         args.sample_type,
+        args.metric,
     )
