@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
 #SBATCH --job-name=E96_process_data-search-limited-fov_foragax_ForagaxTwoBiome-v13
-#SBATCH --mem-per-cpu=32G
+#SBATCH --mem-per-cpu=64G
 #SBATCH --ntasks=4
 #SBATCH --output=../slurm-%j.out
 #SBATCH --time=01:00:00
