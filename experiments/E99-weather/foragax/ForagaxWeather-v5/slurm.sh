@@ -30,9 +30,9 @@ python scripts/slurm.py --cluster clusters/vulcan-cpu-1h.json --runs 30 --entry 
 python scripts/slurm.py --cluster clusters/vulcan-cpu-30m.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxWeather-v5/9/DQN_LN_frozen_1M.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-1h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxWeather-v5/9/DQN_LN_frozen_5M.json
 python scripts/slurm.py --cluster clusters/vulcan-cpu-1h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxWeather-v5/9/DQN_Reset_Head_frozen_1M.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu-1h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxWeather-v5/9/DQN_Reset_Head_frozen_5M.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu-30m.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxWeather-v5/9/DQN_Shrink_and_Perturb_frozen_1M.json
-python scripts/slurm.py --cluster clusters/vulcan-cpu-1h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxWeather-v5/9/DQN_Shrink_and_Perturb_frozen_5M.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-2h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxWeather-v5/9/DQN_Reset_Head_frozen_5M.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-2h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxWeather-v5/9/DQN_Shrink_and_Perturb_frozen_1M.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-2h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxWeather-v5/9/DQN_Shrink_and_Perturb_frozen_5M.json
 
 python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxWeather-v5/15/DQN_greedy_frozen_1M.json
 python scripts/slurm.py --cluster clusters/vulcan-gpu-mps-6h.json --runs 30 --entry src/continuing_main.py --force -e experiments/E99-weather/foragax/ForagaxWeather-v5/15/DQN_greedy_frozen_5M.json
