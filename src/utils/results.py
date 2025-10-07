@@ -64,6 +64,8 @@ def read_metrics_from_data(
         aligned = {}
         for k, arr in data_dict.items():
             n = arr.shape[0]
+            # if k == "object_collected_id" or k =="biome_id":
+            #     continue
             if n == base_len:
                 aligned[k] = arr
                 continue

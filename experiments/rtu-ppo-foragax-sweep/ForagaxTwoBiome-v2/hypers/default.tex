@@ -1,0 +1,23 @@
+\begin{tabular}{lllll}
+ & \bfseries world & \bfseries RealTimeActorCriticMLP & \bfseries world & \bfseries ActorCriticMLP \\
+Hyperparameter &  &  &  &  \\
+rollout_steps & 2048 & 2048 & 2048 & 2048 \\
+optimizer_actor.eps & $10^{-5}$ & $10^{-5}$ & $10^{-5}$ & $10^{-5}$ \\
+optimizer_actor.beta2 & 0.999 & 0.999 & 0.999 & 0.999 \\
+optimizer_actor.name & Adam & Adam & Adam & Adam \\
+num_mini_batch & 32 & 32 & 32 & 32 \\
+epochs & 4 & 4 & 4 & 4 \\
+max_grad_norm & 0.5 & 0.5 & 0.5 & 0.5 \\
+optimizer_critic.beta2 & 0.999 & 0.999 & 0.999 & 0.999 \\
+optimizer_critic.beta1 & 0.9 & 0.9 & 0.9 & 0.9 \\
+clip_eps & 0.2 & 0.2 & 0.2 & 0.2 \\
+vf_coef & 0.5 & 0.5 & 0.5 & 0.5 \\
+gradient_clipping & 1 & 1 & 1 & 1 \\
+Discount factor \gamma & 0.99 & 0.99 & 0.99 & 0.99 \\
+optimizer_critic.eps & $10^{-5}$ & $10^{-5}$ & $10^{-5}$ & $10^{-5}$ \\
+optimizer_critic.name & Adam & Adam & Adam & Adam \\
+optimizer_actor.beta1 & 0.9 & 0.9 & 0.9 & 0.9 \\
+environment.aperture_size & 15 & 15 & 15 & 15 \\
+representation.d_hidden & 192 & 192 & 192 & 192 \\
+environment.observation_type &  &  & world & world \\
+\end{tabular}

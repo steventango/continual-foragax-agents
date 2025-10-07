@@ -16,6 +16,7 @@ class RealTimeActorCriticMLP(nn.Module):
     activation: str = "tanh"
     cont: bool = False
     rtu_type: str = 'linear_rtu'
+    use_sinusoidal_encoding: bool = False
     @nn.compact
     def __call__(self, hidden, obs):
         '''
@@ -36,18 +37,22 @@ class RealTimeActorCriticMLP(nn.Module):
     
         (actor_hidden, critic_hidden) = hidden
 
-        (obs, last_action_encoded, last_reward) = obs
-        obs_hidden_size = self.hidden_size - last_action_encoded.shape[-1] - last_reward.shape[-1]
+        (obs, last_action_encoded, last_reward, sine, cosine) = obs
+        if self.use_sinusoidal_encoding:
+            last_reward_plus = jnp.concatenate((last_reward, sine, cosine), axis=-1)
+        else:
+            last_reward_plus = last_reward
+        obs_hidden_size = self.hidden_size - last_action_encoded.shape[-1] - last_reward_plus.shape[-1]
         obs = jnp.reshape(obs, (obs.shape[0], -1))
         
         actor_embedding = nn.Dense(obs_hidden_size, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="actor_dense1")(obs)
         actor_embedding = activation(actor_embedding)
-        actor_embedding = jnp.concatenate((actor_embedding, last_action_encoded, last_reward), axis=-1)
+        actor_embedding = jnp.concatenate((actor_embedding, last_action_encoded, last_reward_plus), axis=-1)
         actor_embedding_skip = actor_embedding
         
         critic_embedding = nn.Dense(obs_hidden_size, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="critic_dense1")(obs)
         critic_embedding = activation(critic_embedding)
-        critic_embedding = jnp.concatenate((critic_embedding, last_action_encoded, last_reward), axis=-1)
+        critic_embedding = jnp.concatenate((critic_embedding, last_action_encoded, last_reward_plus), axis=-1)
         critic_embedding_skip = critic_embedding
         
         actor_hidden, actor_embedding = seq_model(self.d_hidden,params_type='exp_exp', name="actor_rtu")(actor_hidden, actor_embedding)

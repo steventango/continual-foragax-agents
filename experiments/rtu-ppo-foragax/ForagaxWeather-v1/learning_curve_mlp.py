@@ -88,7 +88,7 @@ if __name__ == "__main__":
         if env_aperture_temp.endswith("-15"):
             for alg_result in sub_results_temp:
                 if alg_result.filename in SINGLE:
-                    df = alg_result.load()
+                    df = alg_result.load(end=9_980_000)
                     if df is not None:
                         cols = set(dd.hyper_cols).intersection(df.columns)
                         hyper_vals = {col: df[col][0] for col in cols}
@@ -124,7 +124,7 @@ if __name__ == "__main__":
             if alg not in SINGLE and aperture not in args.apertures:
                 continue
 
-            df = alg_result.load()
+            df = alg_result.load(end=9_980_000)
             if df is None:
                 continue
 

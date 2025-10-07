@@ -15,6 +15,7 @@ class ActorCriticMLP(nn.Module):
     hidden_size: int = 64
     activation: str = "tanh"
     cont: bool = False
+    use_sinusoidal_encoding: bool = False
     @nn.compact
     def __call__(self, hidden, obs):
         '''
@@ -26,17 +27,21 @@ class ActorCriticMLP(nn.Module):
         else:
             activation = nn.tanh
 
-        (obs, last_action_encoded, last_reward) = obs
-        obs_hidden_size = self.hidden_size - last_action_encoded.shape[-1] - last_reward.shape[-1]
+        (obs, last_action_encoded, last_reward, sine, cosine) = obs
+        if self.use_sinusoidal_encoding:
+            last_reward_plus = jnp.concatenate((last_reward, sine, cosine), axis=-1)
+        else:
+            last_reward_plus = last_reward
+        obs_hidden_size = self.hidden_size - last_action_encoded.shape[-1] - last_reward_plus.shape[-1]
         obs = jnp.reshape(obs, (obs.shape[0], -1))
         
         actor_embedding = nn.Dense(obs_hidden_size, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="actor_dense1")(obs)
         actor_embedding = activation(actor_embedding)
-        actor_embedding = jnp.concatenate((actor_embedding, last_action_encoded, last_reward), axis=-1)
+        actor_embedding = jnp.concatenate((actor_embedding, last_action_encoded, last_reward_plus), axis=-1)
         
         critic_embedding = nn.Dense(obs_hidden_size, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="critic_dense1")(obs)
         critic_embedding = activation(critic_embedding)
-        critic_embedding = jnp.concatenate((critic_embedding, last_action_encoded, last_reward), axis=-1)
+        critic_embedding = jnp.concatenate((critic_embedding, last_action_encoded, last_reward_plus), axis=-1)
         
         actor_embedding = nn.Dense(self.d_hidden, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="actor_dense2")(actor_embedding)
         critic_embedding = nn.Dense(self.d_hidden, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="critic_dense2")(critic_embedding)

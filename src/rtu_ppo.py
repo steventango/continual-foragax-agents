@@ -34,6 +34,8 @@ from flax.training.train_state import TrainState
 import argparse
 from foragax.registry import make
 
+PERIOD = 182500
+
 @struct.dataclass
 class LogEnvState:
     returned_returns: float
@@ -52,8 +54,13 @@ class TrainConfig:
     num_updates: int = struct.field(pytree_node=False)
     env_id: str = struct.field(pytree_node=False)
     aperture_size: int = struct.field(pytree_node=False)
+    observation_type: str = struct.field(pytree_node=False)
+    # nowrap: bool = struct.field(pytree_node=False)
+    use_sinusoidal_encoding: bool = struct.field(pytree_node=False)
     # ---- DYNAMIC (may vary per idx; arithmetic only) ----
     max_grad_norm: float
+    l2_reg_pi: float
+    l2_reg_vf: float
     alpha_pi: float
     alpha_vf: float
     adam_eps_pi: float
@@ -174,8 +181,8 @@ def loss_fn(params,agent_fn, traj_batch, gae, targets,init_hstate,clip_eps,vf_co
 
 @jax.jit
 def agent_step(last_obs,train_state,rng,hstate):
-    last_obs, last_action_encoded, last_reward = last_obs
-    rnn_in = (jnp.expand_dims(last_obs,0), jnp.expand_dims(last_action_encoded,0), jnp.expand_dims(last_reward,0))
+    last_obs, last_action_encoded, last_reward, sine, cosine = last_obs
+    rnn_in = (jnp.expand_dims(last_obs,0), jnp.expand_dims(last_action_encoded,0), jnp.expand_dims(last_reward,0), jnp.expand_dims(sine,0), jnp.expand_dims(cosine,0))
     last_hidden,pi, value = train_state.apply_fn(train_state.params, hstate,rnn_in)
     action = pi.sample(seed=rng)
     log_prob = pi.log_prob(action)
@@ -189,7 +196,9 @@ def env_step(runner_state,_):
     action_encoded = jnp.zeros((4,))
     action_encoded = action_encoded.at[last_action].set(1)
     last_reward_encoded = jnp.expand_dims(last_reward, 0)
-    last_obs_encoded = (last_obs, action_encoded, last_reward_encoded)
+    sine = jnp.expand_dims(jnp.sin(2 * jnp.pi * log_env_state.timestep / PERIOD), 0)
+    cosine = jnp.expand_dims(jnp.cos(2 * jnp.pi * log_env_state.timestep / PERIOD), 0)
+    last_obs_encoded = (last_obs, action_encoded, last_reward_encoded, sine, cosine)
                   
     action, log_prob, value, last_hidden = agent_step(last_obs_encoded,train_state,_rng,hstate)
     # STEP ENV
@@ -200,11 +209,12 @@ def env_step(runner_state,_):
     new_return = 0.999 * log_env_state.returned_returns + (1.0 - 0.999) * (reward)
 
     log_env_state = LogEnvState(returned_returns=new_return, timestep=step)
-    info = {}
+
     info["reward"] = reward
     info["moving_average"] = new_return
     info["timestep"] = log_env_state.timestep
     info["pos"] = env_state.pos
+
     ### Create transition
     transition = Transition(action.squeeze(), value.squeeze(), reward, log_prob.squeeze(), last_obs_encoded, info)
     ### Update runner state
@@ -289,7 +299,7 @@ def update_step(update_state):
 
 
 def experiment(rng, config: TrainConfig):
-    env = make(config.env_id, aperture_size=(config.aperture_size, config.aperture_size), observation_type="object")
+    env = make(config.env_id, aperture_size=(config.aperture_size, config.aperture_size), observation_type=config.observation_type) #, nowrap=config.nowrap)
 
     ### Initialize the environment states    
     log_env_state = LogEnvState(returned_returns=0,timestep=0)
@@ -308,11 +318,13 @@ def experiment(rng, config: TrainConfig):
         activation='tanh',
         hidden_size=config.hidden_size,
         d_hidden=config.d_hidden,
-        cont=False)
+        cont=False,
+        use_sinusoidal_encoding=config.use_sinusoidal_encoding
+    )
     
     
     rng, _rng = jax.random.split(rng)
-    init_x = (jnp.zeros((1, *obs.shape)), jnp.zeros((1, action_dim)), jnp.zeros((1, 1)))
+    init_x = (jnp.zeros((1, *obs.shape)), jnp.zeros((1, action_dim)), jnp.zeros((1, 1)), jnp.zeros((1, 1)), jnp.zeros((1, 1)))
     
     init_hstate = agent.initialize_memory(1, config.d_hidden, config.hidden_size)
     network_params = network.init(_rng, init_hstate, init_x)
@@ -335,21 +347,32 @@ def experiment(rng, config: TrainConfig):
     labels = make_label_tree(network_params)
 
     if config.gradient_clipping:
-        tx = optax.chain(
-            optax.clip_by_global_norm(config.max_grad_norm),
-            optax.partition(
-                {
-                    "pi": optax.adam(config.alpha_pi, eps=config.adam_eps_pi),
-                    "vf": optax.adam(config.alpha_vf, eps=config.adam_eps_vf),
-                },
-                labels,
-            ),
+        tx = optax.partition(
+            {
+                "pi": optax.chain(
+                    optax.clip_by_global_norm(config.max_grad_norm),
+                    optax.add_decayed_weights(config.l2_reg_pi),
+                    optax.adam(config.alpha_pi, eps=config.adam_eps_pi)
+                ),
+                "vf": optax.chain(
+                    optax.clip_by_global_norm(config.max_grad_norm),
+                    optax.add_decayed_weights(config.l2_reg_vf),
+                    optax.adam(config.alpha_vf, eps=config.adam_eps_vf)
+                ),
+            },
+            labels,
         )
     else:
         tx = optax.partition(
             {
-                "pi": optax.adam(config.alpha_pi, eps=config.adam_eps_pi),
-                "vf": optax.adam(config.alpha_vf, eps=config.adam_eps_vf),
+                "pi": optax.chain(
+                    optax.add_decayed_weights(config.l2_reg_pi),
+                    optax.adam(config.alpha_pi, eps=config.adam_eps_pi)
+                ),
+                "vf": optax.chain(
+                    optax.add_decayed_weights(config.l2_reg_vf),
+                    optax.adam(config.alpha_vf, eps=config.adam_eps_vf)
+                ),
             },
             labels,
         )
@@ -381,7 +404,9 @@ def experiment(rng, config: TrainConfig):
         action_encoded = jnp.zeros((4,))
         action_encoded = action_encoded.at[last_action].set(1)
         last_reward_encoded = jnp.expand_dims(last_reward, 0)
-        last_obs_encoded = (last_obs, action_encoded, last_reward_encoded)
+        sine = jnp.expand_dims(jnp.sin(2 * jnp.pi * log_env_state.timestep / PERIOD), 0)
+        cosine = jnp.expand_dims(jnp.cos(2 * jnp.pi * log_env_state.timestep / PERIOD), 0)
+        last_obs_encoded = (last_obs, action_encoded, last_reward_encoded, sine, cosine)
 
         # Bootstrap value at last state
         _, _, last_value, _ = agent_step(last_obs_encoded, train_state, rng, last_hstate)
@@ -413,9 +438,11 @@ def experiment(rng, config: TrainConfig):
         # Collect a scalar reward summary for this iteration (mean reward over rollout)
         rewards = traj_batch.reward
         pos = traj_batch.info["pos"]
+        biome_id = traj_batch.info["biome_id"]
+        object_collected_id = traj_batch.info["object_collected_id"]
 
         # Optional lightweight debug
-        return (env_step_state, train_state, rng), (rewards, pos, loss_info)
+        return (env_step_state, train_state, rng), (rewards, pos, loss_info, biome_id, object_collected_id)
 
     # Run training loop with lax.scan (collect per-iteration rewards)
     last_carry, info = jax.lax.scan(
@@ -423,15 +450,17 @@ def experiment(rng, config: TrainConfig):
         PBar(id=config.id, carry=(env_step_state, train_state, rng)),
         xs=jnp.arange(int(config.num_updates))
     )
-    rewards, pos, loss_info = info
+    rewards, pos, loss_info, biome_id, object_collected_id = info
     rewards = rewards.reshape((-1))
     pos = pos.reshape((-1, pos.shape[-1]))
     total_loss = jnp.mean(loss_info[0], axis=(-1, -2))
     value_loss = jnp.mean(loss_info[1][0], axis=(-1, -2))
     policy_loss = jnp.mean(loss_info[1][1], axis=(-1, -2))
     entropy = jnp.mean(loss_info[1][2], axis=(-1, -2))
+    biome_id = biome_id.reshape((-1))
+    object_collected_id = object_collected_id.reshape((-1))
     env_step_state, train_state, rng = last_carry.carry
-    return rewards, pos, (total_loss, (value_loss, policy_loss, entropy))
+    return rewards, pos, (total_loss, (value_loss, policy_loss, entropy)), biome_id, object_collected_id
     
 def main():
     parser = argparse.ArgumentParser()
@@ -515,7 +544,7 @@ def main():
         rngs.append(rng)
 
         # derive num_updates if not explicitly present
-        num_updates = int(hypers['num_updates']) if 'num_updates' in hypers else exp.total_steps // int(hypers['rollout_steps'])
+        num_updates = int(hypers['num_updates']) if 'num_updates' in hypers else (exp.total_steps // int(hypers['rollout_steps']) + 1)
         config = TrainConfig(
             d_hidden=int(hypers['representation']['d_hidden']),
             agent_type=exp.agent,
@@ -526,12 +555,17 @@ def main():
             gradient_clipping=bool(hypers['gradient_clipping']),
             max_grad_norm=float(hypers['max_grad_norm']),
             alpha_pi=float(hypers['optimizer_actor']['alpha']),
-            alpha_vf=float(hypers['optimizer_critic']['alpha']),
+            alpha_vf=float(hypers['optimizer_critic'].get('alpha', hypers['optimizer_critic'].get('lr_scale', jnp.nan) * hypers['optimizer_actor']['alpha'])),
             adam_eps_pi=float(hypers['optimizer_actor']['eps']),
             adam_eps_vf=float(hypers['optimizer_critic']['eps']),
+            l2_reg_pi=float(hypers.get('l2_reg_pi', hypers.get('l2_reg', 0.0))),
+            l2_reg_vf=float(hypers.get('l2_reg_vf', hypers.get('l2_reg', 0.0))),
+            use_sinusoidal_encoding=bool(hypers.get('use_sinusoidal_encoding', False)),
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
             env_id=hypers["environment"]["env_id"],
+            observation_type=hypers["environment"].get("observation_type", "object"),
+            # nowrap=hypers["environment"].get("nowrap", hypers.get("no_wrap", False)),
             gamma=float(hypers['gamma']),
             gae_lambda=float(hypers['gae_lambda']),
             clip_eps=float(hypers['clip_eps']),
@@ -542,12 +576,11 @@ def main():
         )
         configs.append(config)
 
-
     batch_experiment = jax.vmap(experiment, in_axes=(0, 0))
     rngs = jnp.stack(rngs)
     configs = tree_map(lambda *xs: jnp.stack(xs), *configs)
     results = batch_experiment(rngs, configs)
-    rewards, pos, (total_loss, (value_loss, policy_loss, entropy)) = results
+    rewards, pos, (total_loss, (value_loss, policy_loss, entropy)), biome_id, object_collected_id  = results
 
     # --------------------
     # -- Saving --
@@ -567,7 +600,8 @@ def main():
         run_value_loss = value_loss[i]
         run_policy_loss = policy_loss[i]
         run_entropy = entropy[i]
-
+        run_biome_id = biome_id[i]
+        run_object_collected_id = object_collected_id[i]
         start_time = time.time()
         # for reward in run_rewards:
         #     collector.next_frame()
@@ -586,7 +620,17 @@ def main():
         context.ensureExists(data_path, is_file=True)
 
         start_time = time.time()
-        np.savez_compressed(data_path, rewards=run_rewards, pos=run_pos, total_loss=run_total_loss, value_loss=run_value_loss, policy_loss=run_policy_loss, entropy=run_entropy)
+        np.savez_compressed(
+            data_path, 
+            rewards=run_rewards, 
+            pos=run_pos, 
+            total_loss=run_total_loss, 
+            value_loss=run_value_loss, 
+            policy_loss=run_policy_loss, 
+            entropy=run_entropy,
+            biome_id = run_biome_id,
+            object_collected_id = run_object_collected_id
+        )
         total_numpy_time += time.time() - start_time
 
         meta = getParamsAsDict(exp, idx)
