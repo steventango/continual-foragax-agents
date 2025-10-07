@@ -102,7 +102,7 @@ def read_metrics_from_data(
                 df = df.with_columns(pl.lit(st).alias("sample_type"))
                 datas_run_id.append(df)
             elif isinstance(st, tuple):
-                if st[0] + st[1] > len(datas[run_id]):
+                if st[1] > len(datas[run_id]):
                     continue
                 df = datas[run_id].slice(st[0], st[1] - st[0])
                 if len(st) > 2:
