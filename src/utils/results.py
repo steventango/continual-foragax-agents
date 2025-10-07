@@ -117,6 +117,7 @@ def read_metrics_from_data(
                 datas_run_id.append(df)
 
         df = pl.concat(datas_run_id, how="diagonal")
+        datas[run_id] = df
 
     if len(datas) == 0:
         return pl.DataFrame().lazy()
