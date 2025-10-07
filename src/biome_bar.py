@@ -27,6 +27,7 @@ def main(
     filter_algs: list[str] | None = None,
     plot_name: str | None = None,
     sample_type: str = "every",
+    filter_seeds: list[int] | None = None,
 ):
     data_path = (
         Path("results")
@@ -36,9 +37,14 @@ def main(
 
     # Load processed data
     all_df = pl.read_parquet(data_path)
-
+    print(list(all_df["sample_type"].unique()))
     # Filter by sample_type
     all_df = all_df.filter(pl.col("sample_type") == sample_type)
+
+    # Filter by seeds if specified
+    if filter_seeds:
+        print(f"Filtering to seeds: {filter_seeds}")
+        all_df = all_df.filter(pl.col("seed").is_in(filter_seeds))
 
     # Derive additional columns
     all_df = all_df.with_columns(
@@ -88,21 +94,23 @@ def main(
         zip([f"biome_{biome}" for biome in available_biomes], select_colors(len(available_biomes)), strict=True)
     )
 
-    # Filter data to last 1M steps
+    # Filter data to frame == target_frame (or max frame if less)
     max_frame = all_df.select(pl.col("frame").max()).item()
-    last_1m_start = max(max_frame - 1000000, 0)
-    filtered_df = all_df.filter(pl.col("frame") >= last_1m_start)
+    filtered_df = all_df.filter(pl.col("frame") == max_frame)
 
-    print(f"After filtering to last 1M steps (from {last_1m_start} to {max_frame}), unique alg_base: {sorted(filtered_df['alg_base'].unique())}")
+    print(
+        f"After filtering to frame {filtered_df['frame'].unique()[0] if len(filtered_df) > 0 else 'N/A'}, unique alg_base: {sorted(filtered_df['alg_base'].unique())}"
+    )
     print(f"Filtered df shape: {filtered_df.shape}")
 
-    # Compute mean occupancy for each alg, seed, and biome over last 1M steps
+    # Use pre-calculated biome_occupancy_{i}_1000000 metric
     agg_data = []
     for group_key, df in filtered_df.group_by(["alg_base", "aperture", "alg", "seed"]):
         alg_base, aperture, alg, seed = group_key
         for biome in available_biomes:
-            if "biome_id" in df.columns:
-                mean_val = (df["biome_id"] == biome).mean()
+            col_name = f"biome_{biome}_occupancy_1000000"
+            if col_name in df.columns:
+                mean_val = df[col_name].item()
                 if mean_val is not None and mean_val == mean_val:
                     agg_data.append({
                         "alg_base": alg_base,
@@ -141,6 +149,10 @@ def main(
                 mean_val = 0
                 lower_err = 0
                 upper_err = 0
+            elif len(seed_values) == 1:
+                mean_val = seed_values[0]
+                lower_err = np.nan
+                upper_err = np.nan
             else:
                 mean_val = np.mean(seed_values)
                 # Use scipy.stats.bootstrap for 95% confidence interval
@@ -196,7 +208,7 @@ def main(
 
     ax.set_xlabel("Algorithm")
     ax.set_ylabel("Proportion of Time in Biome")
-    ax.set_title(f"{env} - Biome Occupancy (Last 1M Steps)")
+    ax.set_title(f"{env} - Biome Occupancy")
     ax.set_xticks(x)
     ax.set_xticklabels(alg_labels)
     ax.legend(loc="upper right", frameon=False)
@@ -230,6 +242,12 @@ if __name__ == "__main__":
         help="Filter algorithms to plot (by alg_base)",
     )
     parser.add_argument(
+        "--filter-seeds",
+        nargs="*",
+        type=int,
+        help="Filter seeds to plot",
+    )
+    parser.add_argument(
         "--plot-name",
         type=str,
         default=None,
@@ -238,8 +256,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--sample-type",
         type=str,
-        default="every",
-        help="Sample type to plot (default: every)",
+        default="end",
+        help="Sample type to plot (default: end)",
     )
     args = parser.parse_args()
 
@@ -250,4 +268,5 @@ if __name__ == "__main__":
         args.filter_algs,
         args.plot_name,
         args.sample_type,
+        args.filter_seeds,
     )
