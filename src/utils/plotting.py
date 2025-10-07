@@ -458,8 +458,8 @@ def label_line(
 
 def select_colors(n_colors: int):
     """Select a color palette based on the number of colors needed."""
-    if n_colors <= 4:
-        color_list = list(tc.colorsets["high_contrast"][:n_colors])
+    if n_colors <= 3:
+        color_list = list(tc.colorsets["high_contrast"][1 : n_colors + 1])
     elif n_colors <= 6:
         color_list = list(tc.colorsets["medium_contrast"][1 : n_colors + 1])
     elif n_colors <= 9:
