@@ -30,7 +30,6 @@
         },
         "update_freq": 4,
         "lambda_l2": 1e-05,
-        "greedy_when_frozen": true,
         "freeze_steps": 1000000
     }
 }
