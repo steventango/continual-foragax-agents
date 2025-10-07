@@ -264,23 +264,6 @@ if __name__ == "__main__":
         help="Bar specifications in format 'alg:sample_type:seeds' where seeds is comma-separated (e.g., 'DQN:slice_1000000_1000_500:0,1')",
     )
     parser.add_argument(
-        "--filter-algs",
-        nargs="*",
-        help="Filter algorithms to plot (by alg_base) - for backward compatibility",
-    )
-    parser.add_argument(
-        "--filter-seeds",
-        nargs="*",
-        type=int,
-        help="Filter seeds to plot - for backward compatibility",
-    )
-    parser.add_argument(
-        "--sample-type",
-        type=str,
-        default="end",
-        help="Sample type to plot (default: end) - for backward compatibility",
-    )
-    parser.add_argument(
         "--plot-name",
         type=str,
         default=None,
@@ -310,16 +293,6 @@ if __name__ == "__main__":
             else:
                 seeds = None
             bars.append((alg, sample_type, seeds))
-    elif args.filter_algs or args.filter_seeds or args.sample_type != "end":
-        # Backward compatibility: construct bars from old args
-        if not args.filter_algs:
-            # If no filter_algs, use all
-            # But since we don't have all_df yet, we'll handle in main
-            pass
-        else:
-            bars = []
-            for alg in args.filter_algs:
-                bars.append((alg, args.sample_type, args.filter_seeds))
 
     experiment_path = Path(args.path).resolve()
     main(
