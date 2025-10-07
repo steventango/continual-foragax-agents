@@ -48,8 +48,10 @@ def main(
 
     # Load processed data
     all_df = pl.read_parquet(data_path)
+    print(all_df)
 
     # Filter by sample_type
+    print(all_df["sample_type"].unique())
     all_df = all_df.filter(pl.col("sample_type") == sample_type)
 
     # Derive additional columns
