@@ -95,6 +95,7 @@ def read_metrics_from_data(
         for st in sample_types:
             if st == "every":
                 df = datas[run_id].gather_every(max(1, len(datas[run_id]) // sample))
+                df = df.with_columns(pl.lit(st).alias("sample_type"))
                 datas_run_id.append(df)
             elif st == "random":
                 df = datas[run_id].sample(n=sample, seed=0).sort("frame")
@@ -115,7 +116,7 @@ def read_metrics_from_data(
                     )
                 datas_run_id.append(df)
 
-        df = pl.concat(datas_run_id)
+        df = pl.concat(datas_run_id, how="diagonal")
 
     if len(datas) == 0:
         return pl.DataFrame().lazy()
