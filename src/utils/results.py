@@ -54,69 +54,78 @@ def read_metrics_from_data(
         with np.load(path) as data:
             data_dict = {k: np.asarray(data[k]) for k in data.keys()}
         del data
-        datas[run_id] = pl.DataFrame(data_dict)
-        datas[run_id] = datas[run_id].with_columns(
+        df = pl.DataFrame(data_dict)
+        del data_dict
+        df = df.with_columns(
             pl.lit(run_id).alias("id"),
-            pl.lit(np.arange(len(datas[run_id]))).alias("frame"),
+            pl.lit(np.arange(len(df))).alias("frame"),
         )
-        if "rewards" in datas[run_id].columns and (
+        if "rewards" in df.columns and (
             metrics is None
             or not metrics
             or any(
                 m in ["ewm_reward", "mean_ewm_reward", "mean_reward"] for m in metrics
             )
         ):
-            datas[run_id] = calculate_ewm_reward(datas[run_id])
-            datas[run_id] = calculate_mean_reward(datas[run_id])
+            df = calculate_ewm_reward(df)
+            df = calculate_mean_reward(df)
 
         # Calculate object traces if requested
-        if "object_collected_id" in datas[run_id].columns and (
+        if "object_collected_id" in df.columns and (
             metrics is None
             or not metrics
             or any(m.startswith("object_trace_") for m in metrics)
         ):
-            datas[run_id] = calculate_object_traces(datas[run_id])
+            df = calculate_object_traces(df)
 
         # Calculate biome occupancy if requested
-        if "biome_id" in datas[run_id].columns and (
+        if "biome_id" in df.columns and (
             metrics is None
             or not metrics
             or any(m.startswith("biome_") for m in metrics)
         ):
-            datas[run_id] = calculate_biome_occupancy(datas[run_id])
+            df = calculate_biome_occupancy(df)
         if start is not None or end is not None:
             start_idx = start if start is not None else 0
             length = (end - start_idx) if end is not None else None
-            datas[run_id] = datas[run_id].slice(start_idx, length)
+            df = df.slice(start_idx, length)
         if sample is None:
             continue
+        n = len(df)
+        df = df.lazy()
         sample_types = [sample_type] if isinstance(sample_type, str) else sample_type
         datas_run_id = []
         for st in sample_types:
             if st == "every":
-                df = datas[run_id].gather_every(max(1, len(datas[run_id]) // sample))
+                df = df.gather_every(max(1, n // sample))
                 df = df.with_columns(pl.lit(st).alias("sample_type"))
                 datas_run_id.append(df)
             elif st == "random":
-                df = datas[run_id].sample(n=sample, seed=0).sort("frame")
+                df = df.collect().sample(n=sample, seed=0).sort("frame").lazy()
                 df = df.with_columns(pl.lit(st).alias("sample_type"))
                 datas_run_id.append(df)
             elif isinstance(st, tuple):
-                if st[0] + st[1] > len(datas[run_id]):
+                if st[0] + st[1] > n:
                     continue
-                df = datas[run_id].slice(st[0], st[1] - st[0])
+                df = df.slice(st[0], st[1] - st[0])
                 if len(st) > 2:
-                    df = df.gather_every(max(1, len(df) // st[2]))
-                    df = df.with_columns(
-                        pl.lit(f"{st[0]}:{st[1]}:{st[2]}").alias("sample_type")
-                    )
+                    step = n // st[2]
+                    if step > 1:
+                        df = df.gather_every(max(1, step))
+                        df = df.with_columns(
+                            pl.lit(f"{st[0]}:{st[1]}:{st[2]}").alias("sample_type")
+                        )
+                    else:
+                        df = df.with_columns(
+                            pl.lit(f"{st[0]}:{st[1]}").alias("sample_type")
+                        )
                 else:
                     df = df.with_columns(
                         pl.lit(f"{st[0]}:{st[1]}").alias("sample_type")
                     )
                 datas_run_id.append(df)
 
-        df = pl.concat(datas_run_id, how="diagonal")
+        df = pl.concat(datas_run_id, how="diagonal").collect()
         datas[run_id] = df
 
     if len(datas) == 0:
