@@ -68,6 +68,8 @@ def _calculate_cost(
             continue
 
         other_x, other_y = other_line.get_data()
+        other_x = np.asarray(other_x)
+        other_y = np.asarray(other_y)
         other_mask = np.isfinite(other_y)
         if not np.any(other_mask):
             continue
@@ -148,6 +150,8 @@ def _calculate_crowdedness(lines_to_consider, ax):
     interpolated_lines = {}
     for line in lines_to_consider:
         xdata, ydata = line.get_data()
+        xdata = np.asarray(xdata)
+        ydata = np.asarray(ydata)
         mask = np.isfinite(ydata)
         if np.any(mask):
             y_interp = np.interp(
@@ -234,6 +238,8 @@ def label_lines(ax, align=False, xvals=None, offset_range=(6, 48), **kwargs):
     for line in sorted_lines:
         xdata = line.get_xdata()
         ydata = line.get_ydata()
+        xdata = np.asarray(xdata)
+        ydata = np.asarray(ydata)
 
         # Get the visible x-range of the plot
         xlim = ax.get_xlim()
@@ -343,6 +349,8 @@ def _get_label_info(line, x, align, offset_perp, offset_parallel=0, **kwargs):
     """Helper function to calculate label position and bbox without drawing."""
     ax = line.axes
     xdata, ydata = line.get_xdata(), line.get_ydata()
+    xdata = np.asarray(xdata)
+    ydata = np.asarray(ydata)
 
     # Interpolate y
     index = np.searchsorted(xdata, x)
@@ -401,6 +409,8 @@ def label_line(
     ax = line.axes
     xdata = line.get_xdata()
     ydata = line.get_ydata()
+    xdata = np.asarray(xdata)
+    ydata = np.asarray(ydata)
 
     if x is None:
         xlim = ax.get_xlim()
