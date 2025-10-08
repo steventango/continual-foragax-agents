@@ -30,6 +30,19 @@ sys.path.append(os.getcwd())
 # ---------------------------------
 sns.set_palette(tc.tol_cset("vibrant"))
 
+# Set font
+plt.rcParams.update({
+    "text.usetex": False, # Don't use LaTeX
+    "font.family": "serif", # Use a serif font
+    "font.serif": ["Linux Libertine O"], # Specifically, use Linux Libertine
+    "font.sans-serif": ["Linux Biolinum O"], # Use Linux Biolinum for sans-serif
+    "mathtext.fontset": "custom", # Use custom math fonts
+    "mathtext.rm": "Linux Libertine O", # Roman text in math
+    "mathtext.it": "Linux Libertine O:italic", # Italic text in math
+    "mathtext.bf": "Linux Libertine O:bold", # Bold text in math
+    "axes.unicode_minus": False, # Ensure minus signs are rendered correctly
+})
+
 # Set font sizes for better readability in papers
 FONTSIZE = 20
 plt.rcParams["axes.labelsize"] = FONTSIZE  # Axis labels
