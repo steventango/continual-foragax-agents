@@ -19,8 +19,8 @@
         "gradient_clipping": true,
         "max_grad_norm": 0.5,
         "vf_coef": 0.5,
-        "entropy_coef": 0.01,
-        "l2_reg": 1e-06,
+        "entropy_coef": 0.001,
+        "l2_reg": 1e-05,
         "optimizer_actor": {
             "name": "Adam",
             "alpha": 0.0003,

@@ -174,7 +174,7 @@ if __name__ == "__main__":
                 return
             ar = found
             print(ar.filename)
-            df = ar.load(start=9_500_000, end=10_000_000)
+            df = ar.load(end=10_000_000)
             if df is None:
                 return
             cols = set(dd.hyper_cols).intersection(df.columns)
@@ -245,7 +245,7 @@ if __name__ == "__main__":
                     continue
             print(name)
             # We have a match; plot it and return
-            df = ar.load(start=9_500_000, end=10_000_000)
+            df = ar.load(end=10_000_000)
             if df is None:
                 return
             cols = set(dd.hyper_cols).intersection(df.columns)
@@ -300,7 +300,7 @@ if __name__ == "__main__":
     ax.set_xlabel("Time steps")
     ax.set_ylabel("Average Reward")
     ax.set_title(f"{env} — Baselines & FOV 9/15")
-    ax.set_ylim(-1,1)
+    ax.set_ylim(-1.5,1.5)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.legend(ncol=1, loc="best", frameon=False, fontsize=12)
@@ -319,7 +319,7 @@ if __name__ == "__main__":
     ax.set_xlabel("Time steps")
     ax.set_ylabel("Average Reward")
     ax.set_title(f"{env} — Baselines Extra Info & FOV 9/15")
-    ax.set_ylim(-1,1)
+    ax.set_ylim(-1.5,1.5)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.legend(ncol=1, loc="best", frameon=False, fontsize=12)
@@ -336,7 +336,7 @@ if __name__ == "__main__":
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.legend(ncol=1, loc="best", frameon=False, fontsize=12)
-    ax.set_ylim(-1,1)
+    ax.set_ylim(-1.5,1.5)
 
     # ---------------- Subplot 3 ----------------
     ax = axes[0][3]
@@ -350,7 +350,7 @@ if __name__ == "__main__":
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.legend(ncol=1, loc="best", frameon=False, fontsize=12)
-    ax.set_ylim(-1,1)
+    ax.set_ylim(-1.5,1.5)
 
     # # ---------------- Subplot 4 ----------------
     # ax = axes[1][0]
