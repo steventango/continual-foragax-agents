@@ -33,7 +33,7 @@ def main(
     experiment_path: Path,
     normalize: str | None,
     save_type: str = "pdf",
-    filter_algs: list[str] | None = None,
+    filter_alg_apertures: list[str] | None = None,
     plot_name: str | None = None,
     ylim: tuple[float, float] | None = None,
     auto_label: bool = False,
@@ -51,7 +51,7 @@ def main(
     print(all_df)
 
     # Filter by sample_type
-    print(all_df["sample_type"].unique())
+    print(list(all_df["sample_type"].unique()))
     all_df = all_df.filter(pl.col("sample_type") == sample_type)
 
     # Derive additional columns
@@ -64,11 +64,30 @@ def main(
     )
 
     algs = all_df["alg"].unique()
-    print("Algs:", algs)
+    print("Algs:", list(algs))
 
-    # Filter algorithms if specified
-    if filter_algs:
-        all_df = all_df.filter(pl.col("alg").is_in(filter_algs))
+    # Filter algorithms and apertures jointly if specified
+    if filter_alg_apertures:
+        conditions = []
+        for pair in filter_alg_apertures:
+            if ":" in pair:
+                alg, aperture_str = pair.split(":", 1)
+                # Try to convert aperture to int if possible
+                try:
+                    aperture = int(aperture_str)
+                except ValueError:
+                    aperture = aperture_str
+                conditions.append(
+                    (pl.col("alg") == alg) & (pl.col("aperture") == aperture)
+                )
+            else:
+                # If no :, just filter on alg
+                conditions.append(pl.col("alg") == pair)
+        if conditions:
+            combined_condition = conditions[0]
+            for cond in conditions[1:]:
+                combined_condition = combined_condition | cond
+            all_df = all_df.filter(combined_condition)
 
     # Compute metadata from df
     main_algs = sorted(
@@ -465,10 +484,10 @@ if __name__ == "__main__":
         help="File format to save the plots (default: pdf)",
     )
     parser.add_argument(
-        "--filter-algs",
+        "--filter-alg-apertures",
         nargs="*",
         default=None,
-        help="List of algorithms to show (default: all)",
+        help="List of algorithm:aperture pairs to show (default: all). Use 'alg' for alg-only filtering.",
     )
     parser.add_argument(
         "--plot-name",
@@ -507,7 +526,7 @@ if __name__ == "__main__":
         experiment_path,
         args.normalize,
         args.save_type,
-        args.filter_algs,
+        args.filter_alg_apertures,
         args.plot_name,
         args.ylim,
         args.auto_label,
