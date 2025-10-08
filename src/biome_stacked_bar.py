@@ -12,6 +12,7 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+from matplotlib.axes import Axes
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 
@@ -38,6 +39,7 @@ def main(
     ylim: tuple[float, float] | None = None,
     auto_label: bool = False,
     window: int = 1000,
+    sort_seeds: bool = False,
 ):
     data_path = (
         Path("results")
@@ -236,11 +238,34 @@ def main(
     # Plot the stacked bars
     for i, (alg, aperture) in enumerate(main_alg_apertures):
         for j, sample_type_val in enumerate(sample_types_list):
-            ax = axs[i, j]
+            ax: Axes = axs[i, j]
             key = ((alg, aperture), sample_type_val)
             if key in aggregated_data:
                 seed_data = aggregated_data[key]
-                sorted_seeds = sorted(seed_data.keys())
+                sorted_seeds = seed_data
+                if sort_seeds and ("TwoBiome" in env or "Weather" in env):
+                    if "TwoBiome" in env:
+                        # Sort by highest to lowest morel, lowest to highest oyster
+                        morel_metric = f"biome_0_occupancy_{window}"
+                        oyster_metric = f"biome_1_occupancy_{window}"
+                        sorted_seeds = sorted(
+                            seed_data.keys(),
+                            key=lambda s: (
+                                -seed_data[s].get(morel_metric, 0.0),  # descending morel
+                                seed_data[s].get(oyster_metric, 0.0),  # ascending oyster
+                            ),
+                        )
+                    elif "Weather" in env:
+                        # Sort by highest to lowest hot, lowest to highest cold
+                        hot_metric = f"biome_0_occupancy_{window}"
+                        cold_metric = f"biome_1_occupancy_{window}"
+                        sorted_seeds = sorted(
+                            seed_data.keys(),
+                            key=lambda s: (
+                                -seed_data[s].get(hot_metric, 0.0),  # descending hot
+                                seed_data[s].get(cold_metric, 0.0),  # ascending cold
+                            ),
+                        )
                 for seed_idx, seed in enumerate(sorted_seeds):
                     metrics = seed_data[seed]
                     values = [metrics.get(metric, 0.0) for metric in biome_metrics]
@@ -372,6 +397,11 @@ if __name__ == "__main__":
         default=1000,
         help="Window size for biome occupancy metric (default: 1000)",
     )
+    parser.add_argument(
+        "--sort-seeds",
+        action="store_true",
+        help="Sort seeds by highest to lowest morel, lowest to highest oyster (TwoBiome) or highest to lowest hot, lowest to highest cold (Weather)",
+    )
     args = parser.parse_args()
 
     experiment_path = Path(args.path).resolve()
@@ -385,4 +415,5 @@ if __name__ == "__main__":
         args.ylim,
         args.auto_label,
         args.window,
+        args.sort_seeds,
     )
