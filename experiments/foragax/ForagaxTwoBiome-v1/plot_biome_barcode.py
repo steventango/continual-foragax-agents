@@ -11,7 +11,7 @@ from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 
 from experiment.ExperimentModel import ExperimentModel
-from utils.constants import BIOME_COLORS, BIOME_DEFINITIONS, ENV_MAP
+from utils.constants import BIOME_DEFINITIONS, ENV_MAP, TWO_BIOME_COLORS
 from utils.metrics import calculate_biome_occupancy
 from utils.results import ResultCollection
 
@@ -40,7 +40,7 @@ def plot_biome_barcode_on_ax(ax, df, biomes, seed, env, aperture):
         biome_indices.append(biome_idx)
 
     biome_indices = np.array(biome_indices).reshape(1, -1)
-    colors = [BIOME_COLORS.get(name, 'gray') for name in biome_names]
+    colors = [TWO_BIOME_COLORS.get(name, "gray") for name in biome_names]
     cmap = ListedColormap(colors)
 
     ax.imshow(biome_indices, cmap=cmap, aspect='auto', origin='lower', extent=[0, len(biome_indices[0]), 0, 1])
@@ -149,7 +149,7 @@ if __name__ == "__main__":
                     plot_biome_barcode_on_ax(ax, df, biomes, seed, env, aperture)
 
             handles, labels = [], []
-            for name, color in BIOME_COLORS.items():
+            for name, color in TWO_BIOME_COLORS.items():
                 handles.append(Rectangle((0, 0), 1, 1, color=color))
                 labels.append(name)
 

@@ -20,9 +20,11 @@ from utils.plotting import select_colors
 setDefaultConference("jmlr")
 setFonts(20)
 
+
 def format_metric_name(metric: str) -> str:
     """Format metric name for display (e.g., 'mean_reward' -> 'Mean Reward')."""
-    return metric.replace('_', ' ').title()
+    return metric.replace("_", " ").title()
+
 
 def main(
     experiment_path: Path,
@@ -30,6 +32,7 @@ def main(
     bars: list[tuple[str, int | None, str, list[int] | None]] | None = None,
     plot_name: str | None = None,
     metric: str = "mean_reward",
+    sort_by_metric: bool = False,
 ):
     data_path = (
         Path("results")
@@ -79,7 +82,7 @@ def main(
         filtered_df = bar_df.filter(pl.col("frame") == max_frame)
 
         print(
-            f"For bar {bar_alg} aperture {bar_aperture} {bar_sample_type} seeds {bar_seeds}: filtered df shape {filtered_df.shape}"
+            f"For bar {bar_alg} FOV {bar_aperture} {bar_sample_type} seeds {bar_seeds}: filtered df shape {filtered_df.shape}"
         )
 
         # Aggregate mean_reward for this bar
@@ -99,7 +102,9 @@ def main(
                             if bar_seeds
                             else "",
                             "bar_aperture": bar_aperture,
-                            "bar_aperture_str": str(bar_aperture) if bar_aperture else "",
+                            "bar_aperture_str": str(bar_aperture)
+                            if bar_aperture
+                            else "",
                             "alg_base": alg_base,
                             "aperture": aperture,
                             "alg": alg,
@@ -129,7 +134,7 @@ def main(
         # Generate label for this bar
         alg_label = str(LABEL_MAP.get(bar_alg, bar_alg))
         if bar_aperture is not None:
-            alg_label += f"\n(aperture {bar_aperture})"
+            alg_label += f"\nFOV {bar_aperture}"
         if bar_seeds is not None and len(bar_seeds) == 1:
             alg_label += f"\n(seed {bar_seeds[0]})"
         elif bar_seeds is not None:
@@ -157,7 +162,9 @@ def main(
         else:
             mean_val = np.mean(seed_values)
             # Use scipy.stats.bootstrap for 95% confidence interval
-            boot_result = bootstrap((seed_values,), np.mean, confidence_level=0.95, n_resamples=1000)
+            boot_result = bootstrap(
+                (seed_values,), np.mean, confidence_level=0.95, n_resamples=1000
+            )
             ci_lower = boot_result.confidence_interval.low
             ci_upper = boot_result.confidence_interval.high
             lower_err = mean_val - ci_lower
@@ -166,6 +173,18 @@ def main(
         mean_rewards.append(mean_val)
         errors_lower.append(lower_err)
         errors_upper.append(upper_err)
+
+    # Sort by metric if requested
+    if sort_by_metric:
+        # Create list of (mean_reward, index) and sort descending
+        sorted_indices = sorted(
+            range(len(mean_rewards)), key=lambda i: mean_rewards[i], reverse=True
+        )
+        bars = [bars[i] for i in sorted_indices]
+        bar_labels = [bar_labels[i] for i in sorted_indices]
+        mean_rewards = [mean_rewards[i] for i in sorted_indices]
+        errors_lower = [errors_lower[i] for i in sorted_indices]
+        errors_upper = [errors_upper[i] for i in sorted_indices]
 
     # Plot bar chart
     fig, ax = plt.subplots(layout="constrained")
@@ -179,7 +198,7 @@ def main(
         width,
         color=colors,
         yerr=[errors_lower, errors_upper],
-        capsize=3
+        capsize=3,
     )
 
     ax.set_xlabel("Configuration")
@@ -195,8 +214,8 @@ def main(
         plot_name=plot_name or f"{env}_{metric}_bar",
         save_type=save_type,
         f=fig,
-        width=2,
-        height_ratio=2/len(bar_labels),
+        width=len(bar_labels) / 2,
+        height_ratio=1 / 3 / len(bar_labels),
     )
 
 
@@ -228,6 +247,11 @@ if __name__ == "__main__":
         default="mean_reward",
         help="Metric to plot (default: mean_reward)",
     )
+    parser.add_argument(
+        "--sort-by-metric",
+        action="store_true",
+        help="Sort bars by metric value in descending order",
+    )
     args = parser.parse_args()
 
     # Parse bars
@@ -258,4 +282,5 @@ if __name__ == "__main__":
         bars,
         args.plot_name,
         args.metric,
+        args.sort_by_metric,
     )

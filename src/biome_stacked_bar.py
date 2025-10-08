@@ -12,10 +12,11 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+from matplotlib.axes import Axes
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 
-from utils.constants import LABEL_MAP
+from utils.constants import LABEL_MAP, TWO_BIOME_COLORS, WEATHER_BIOME_COLORS
 from utils.plotting import select_colors
 
 setDefaultConference("jmlr")
@@ -38,6 +39,7 @@ def main(
     ylim: tuple[float, float] | None = None,
     auto_label: bool = False,
     window: int = 1000,
+    sort_seeds: bool = False,
 ):
     data_path = (
         Path("results")
@@ -119,13 +121,37 @@ def main(
         unique_biomes = sorted(all_df["biome_id"].unique())
         available_biomes = unique_biomes
 
+    # Reorder biomes: morel (0), neither (-1), oyster (1) for TwoBiome; hot (0), neither (-1), cold (1) for Weather
+    if "TwoBiome" in env and set(available_biomes) == {-1, 0, 1}:
+        available_biomes = [0, -1, 1]
+    elif "Weather" in env and set(available_biomes) == {-1, 0, 1}:
+        available_biomes = [0, -1, 1]
+
     biome_metrics = [f"biome_{biome}_occupancy_{window}" for biome in available_biomes]
     biome_names = [
         biome_mapping.get(biome, f"Biome {biome}") for biome in available_biomes
     ]
-    metric_colors = dict(
-        zip(biome_metrics, select_colors(len(biome_metrics)), strict=True)
-    )
+    # Use specific biome colors: red for morel, blue for neither, yellow for oyster; or for weather: hot, neither, cold
+    if "TwoBiome" in env and set(available_biomes) == {-1, 0, 1}:
+        # available_biomes is now [0, -1, 1] -> [morel, neither, oyster]
+        biome_colors = [
+            TWO_BIOME_COLORS["Morel"],
+            TWO_BIOME_COLORS["Neither"],
+            TWO_BIOME_COLORS["Oyster"],
+        ]
+        metric_colors = dict(zip(biome_metrics, biome_colors, strict=True))
+    elif "Weather" in env and set(available_biomes) == {-1, 0, 1}:
+        # available_biomes is now [0, -1, 1] -> [hot, neither, cold]
+        biome_colors = [
+            WEATHER_BIOME_COLORS["Hot"],
+            WEATHER_BIOME_COLORS["Neither"],
+            WEATHER_BIOME_COLORS["Cold"],
+        ]
+        metric_colors = dict(zip(biome_metrics, biome_colors, strict=True))
+    else:
+        metric_colors = dict(
+            zip(biome_metrics, select_colors(len(biome_metrics)), strict=True)
+        )
 
     dd = data_definition(
         hyper_cols=[],
@@ -212,18 +238,48 @@ def main(
     # Plot the stacked bars
     for i, (alg, aperture) in enumerate(main_alg_apertures):
         for j, sample_type_val in enumerate(sample_types_list):
-            ax = axs[i, j]
+            ax: Axes = axs[i, j]
             key = ((alg, aperture), sample_type_val)
             if key in aggregated_data:
                 seed_data = aggregated_data[key]
-                sorted_seeds = sorted(seed_data.keys())
+                sorted_seeds = seed_data
+                if sort_seeds and ("TwoBiome" in env or "Weather" in env):
+                    if "TwoBiome" in env:
+                        # Sort by highest to lowest morel, lowest to highest oyster
+                        morel_metric = f"biome_0_occupancy_{window}"
+                        oyster_metric = f"biome_1_occupancy_{window}"
+                        sorted_seeds = sorted(
+                            seed_data.keys(),
+                            key=lambda s: (
+                                -seed_data[s].get(morel_metric, 0.0),  # descending morel
+                                seed_data[s].get(oyster_metric, 0.0),  # ascending oyster
+                            ),
+                        )
+                    elif "Weather" in env:
+                        # Sort by highest to lowest hot, lowest to highest cold
+                        hot_metric = f"biome_0_occupancy_{window}"
+                        cold_metric = f"biome_1_occupancy_{window}"
+                        sorted_seeds = sorted(
+                            seed_data.keys(),
+                            key=lambda s: (
+                                -seed_data[s].get(hot_metric, 0.0),  # descending hot
+                                seed_data[s].get(cold_metric, 0.0),  # ascending cold
+                            ),
+                        )
                 for seed_idx, seed in enumerate(sorted_seeds):
                     metrics = seed_data[seed]
                     values = [metrics.get(metric, 0.0) for metric in biome_metrics]
                     colors = [metric_colors[metric] for metric in biome_metrics]
                     left = 0
                     for value, color in zip(values, colors, strict=True):
-                        ax.barh(seed_idx, value, left=left, color=color, height=0.8)
+                        ax.barh(
+                            seed_idx,
+                            value,
+                            left=left,
+                            color=color,
+                            height=1.0,
+                            edgecolor=color,
+                        )
                         left += value
                 # Remove y ticks
                 ax.set_yticks([])
@@ -259,7 +315,7 @@ def main(
     if ylim is not None:
         xlim = ylim
     else:
-        xlim = [0, 1]
+        xlim = (0.0, 1.0)
     for ax in axs.flatten():
         ax.set_xlim(xlim)
 
@@ -279,7 +335,7 @@ def main(
 
     save(
         save_path=f"{experiment_path}/plots",
-        plot_name=f"{base_name}_biome_occupancy_bars",
+        plot_name=base_name,
         save_type=save_type,
         f=fig,
         width=ncols if ncols > 1 else (1 if auto_label else 2),
@@ -341,6 +397,11 @@ if __name__ == "__main__":
         default=1000,
         help="Window size for biome occupancy metric (default: 1000)",
     )
+    parser.add_argument(
+        "--sort-seeds",
+        action="store_true",
+        help="Sort seeds by highest to lowest morel, lowest to highest oyster (TwoBiome) or highest to lowest hot, lowest to highest cold (Weather)",
+    )
     args = parser.parse_args()
 
     experiment_path = Path(args.path).resolve()
@@ -354,4 +415,5 @@ if __name__ == "__main__":
         args.ylim,
         args.auto_label,
         args.window,
+        args.sort_seeds,
     )

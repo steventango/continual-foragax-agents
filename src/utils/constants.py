@@ -45,10 +45,17 @@ ENV_MAP = {"ForagaxTwoBiomeSmall": "ForagaxTwoBiomeSmall-v2"}
 
 # Color scheme for plotting
 colorset = tc.colorsets["high_contrast"]
+sunset_colormap = tc.sunset
 
 # Biome colors for plotting
-BIOME_COLORS = {
-    "Morel": colorset.blue,
-    "Oyster": colorset.red,
-    "Neither": colorset.yellow,
+TWO_BIOME_COLORS = {
+    "Morel": colorset.red,
+    "Oyster": colorset.yellow,
+    "Neither": colorset.blue,
+}
+
+WEATHER_BIOME_COLORS = {
+    "Cold": sunset_colormap(0.),
+    "Neither": sunset_colormap(0.5),
+    "Hot": sunset_colormap(1.),
 }

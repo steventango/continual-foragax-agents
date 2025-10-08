@@ -13,7 +13,7 @@ from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 
 from experiment.ExperimentModel import ExperimentModel
-from utils.constants import BIOME_COLORS, BIOME_DEFINITIONS, ENV_MAP
+from utils.constants import BIOME_DEFINITIONS, ENV_MAP, TWO_BIOME_COLORS
 from utils.metrics import calculate_biome_occupancy
 from utils.results import ResultCollection
 
@@ -34,7 +34,7 @@ def plot_biome_occupancy_on_ax(ax, df, biomes, seed, env, aperture, alg):
         occupancy_col = f"{biome_name}_occupancy"
         if occupancy_col in seed_df.columns:
             occupancy = seed_df[occupancy_col]
-            color = BIOME_COLORS.get(biome_name)
+            color = TWO_BIOME_COLORS.get(biome_name)
             ax.plot(frames, occupancy, color=color, linewidth=1.0)
 
     ax.set_xlabel("Time")
@@ -161,7 +161,7 @@ if __name__ == "__main__":
                     ax.set_ylabel(f"{alg}\nFOV {aperture}")
 
         handles, labels = [], []
-        for name, color in BIOME_COLORS.items():
+        for name, color in TWO_BIOME_COLORS.items():
             handles.append(Rectangle((0, 0), 1, 1, color=color))
             labels.append(name)
 

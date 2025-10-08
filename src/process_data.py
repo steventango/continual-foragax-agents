@@ -19,7 +19,7 @@ def process_alg_result(alg_result: Result, group, aperture):
 
     exp_path = Path(alg_result.exp_path)
     env = exp_path.parent.parent.name
-    targets = [1_000_000, 5_000_000, 10_000_000]
+    targets = [0, 1_000_000, 5_000_000, 10_000_000]
     intervals = [1_000, 10_000, 100_000, 500_000, 1_000_000]
     n_samples = 500
 

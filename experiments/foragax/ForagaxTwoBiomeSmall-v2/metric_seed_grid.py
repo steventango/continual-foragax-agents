@@ -10,7 +10,7 @@ from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 
 from experiment.ExperimentModel import ExperimentModel
-from utils.constants import BIOME_COLORS
+from utils.constants import TWO_BIOME_COLORS
 from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
@@ -88,7 +88,7 @@ def plot_metric_seed_grid(ax, dfs, metric, seed_val, env, aperture):
                     frames,
                     values,
                     linewidth=1.0,
-                    color=BIOME_COLORS[color_key],
+                    color=TWO_BIOME_COLORS[color_key],
                     label=color_key,
                 )
             else:

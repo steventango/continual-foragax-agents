@@ -1,4 +1,6 @@
+python src/learning_bar.py experiments/E99-weather/foragax/ForagaxWeather-v5 --plot-name fig4c --sort-by-metric --bars "DQN_CReLU|9|every|" "DQN_Hare_and_Tortoise|9|every|" "DQN_L2_Init|9|every|" "DQN_L2|9|every|" "DQN_LN|9|every|" "DQN_privileged|15|every|" "DQN_Reset_Head|9|every|" "DQN_Shrink_and_Perturb|9|every|" "DQN_world|15|every|" "DQN|9|every|" "DQN|15|every|" "Search-Nearest||every|" "Search-Oracle||every|" &
 python src/learning_curve.py experiments/E99-weather/foragax/ForagaxWeather-v5 --plot-name fig4a --sample-type every --auto-label &
-python src/learning_curve.py experiments/E99-weather/foragax/ForagaxWeather-v5 --plot-name fig4b --sample-type 9950000:11000000 --auto-label &
-python src/learning_bar.py experiments/E99-weather/foragax/ForagaxWeather-v5 --plot-name fig4c --bars "DQN|9|every|" "DQN_L2|9|every|" "DQN_frozen_5M|9|every|" "Search-Oracle||every|" &
+python src/learning_curve.py experiments/E99-weather/foragax/ForagaxWeather-v5 --plot-name fig4b --filter-alg-apertures  DQN_L2_Init:9 DQN_L2:9 DQN_LN:9 DQN:9 Search-Oracle --sample-type 9500000:10000000:500 &
+python src/learning_curve.py experiments/E99-weather/foragax/ForagaxWeather-v5 --plot-name fig4e --filter-alg-apertures  DQN_L2_Init:9 DQN_L2:9 DQN_LN:9 DQN:9 Search-Oracle --normalize Search-Oracle --sample-type 9500000:10000000:500 &
+python src/biome_stacked_bar.py experiments/E99-weather/foragax/ForagaxWeather-v5 --plot-name fig1d --filter-alg-apertures DQN:9 DQN_L2:9 DQN_frozen_5M:9 DQN_privileged:15 Search-Oracle Search-Nearest --sample-types 999000:1000000:500 4999000:5000000:500 9999000:10000000:500 --window 100000
 wait
