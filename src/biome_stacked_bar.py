@@ -4,6 +4,7 @@ import numpy as np
 import polars as pl
 
 from plotting_utils import (
+    FONTSIZE,
     LABEL_MAP,
     TWO_BIOME_COLORS,
     WEATHER_BIOME_COLORS,
@@ -213,9 +214,9 @@ def main():
     fig.legend(
         handles=legend_elements,
         loc="outside upper center",
-        bbox_to_anchor=(0.5, 1.05),
         frameon=False,
         ncol=len(biome_names),
+        fontsize=FONTSIZE,
     )
 
     plot_name = args.plot_name or f"{env}_biome_stacked_bar"
