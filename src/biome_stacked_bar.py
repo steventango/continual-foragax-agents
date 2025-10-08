@@ -247,7 +247,14 @@ def main(
                     colors = [metric_colors[metric] for metric in biome_metrics]
                     left = 0
                     for value, color in zip(values, colors, strict=True):
-                        ax.barh(seed_idx, value, left=left, color=color, height=0.8)
+                        ax.barh(
+                            seed_idx,
+                            value,
+                            left=left,
+                            color=color,
+                            height=1.0,
+                            edgecolor=color,
+                        )
                         left += value
                 # Remove y ticks
                 ax.set_yticks([])
