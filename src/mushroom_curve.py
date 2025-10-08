@@ -5,338 +5,117 @@ import os
 import sys
 from pathlib import Path
 
+from annotate_plot import annotate_plot
+
 sys.path.append(os.getcwd() + "/src")
 
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import numpy as np
 import polars as pl
-from matplotlib.lines import Line2D
-from PyExpPlotting.matplot import save, setDefaultConference, setFonts
-from rlevaluation.config import data_definition
-from rlevaluation.statistics import Statistic
-from rlevaluation.temporal import (
-    curve_percentile_bootstrap_ci,
+import seaborn as sns
+
+from plotting_utils import (
+    PlottingArgumentParser,
+    despine,
+    load_data,
+    parse_plotting_args,
+    save_plot,
 )
 
-from utils.constants import LABEL_MAP
-from utils.plotting import select_colors
 
-setDefaultConference("jmlr")
-setFonts(20)
-
-
-def main(
-    experiment_path: Path,
-    trace_exponent: int,
-    save_type: str = "pdf",
-    sample_type: str = "every",
-):
-    data_path = (
-        Path("results")
-        / experiment_path.relative_to(Path("experiments").resolve())
-        / "data.parquet"
-    )
-
-    # Load processed data
-    all_df = pl.read_parquet(data_path)
-
-    # Filter by sample_type
-    all_df = all_df.filter(pl.col("sample_type") == sample_type)
-
-    # Derive additional columns
-    all_df = all_df.with_columns(
-        pl.col("alg").str.replace(r"_frozen_.*", "").alias("alg_base"),
-        pl.when(pl.col("alg").str.contains("_frozen"))
-        .then(pl.col("alg").str.extract(r"_frozen_(.*)", 1))
-        .otherwise(None)
-        .alias("freeze_steps_str"),
-    )
-
-    # Compute metadata from df
-    main_algs = sorted(all_df["alg_base", "aperture"].unique().iter_rows(named=False))
-    print("Main algs:", main_algs)
-    env = all_df["env"][0]
-
-    # Determine object mappings based on environment
-    if "TwoBiome" in env:
-        object_mapping = {1: "Morel", 2: "Oyster", 3: "Deathcap", 4: "Fake"}
-    elif "Weather" in env:
-        object_mapping = {1: "Hot", 2: "Cold"}
-    else:
-        # Fallback - use generic names
-        object_mapping = {}
-        if "object_collected_id" in all_df.columns:
-            unique_objects = sorted(all_df["object_collected_id"].unique())
-            unique_objects = [
-                obj for obj in unique_objects if obj != -1
-            ]  # Exclude no collection
-            object_mapping = {obj: f"Object {obj}" for obj in unique_objects}
-
-    # Get available object traces from data
-    available_objects = []
-    if "object_collected_id" in all_df.columns:
-        unique_objects = sorted(all_df["object_collected_id"].unique())
-        available_objects = [
-            obj for obj in unique_objects if obj != -1
-        ]  # Exclude no collection
-
-    trace_metrics = [
-        f"object_trace_{obj}_{trace_exponent}" for obj in available_objects
-    ]
-    mushroom_names = [
-        object_mapping.get(obj, f"Object {obj}") for obj in available_objects
-    ]
-    metric_colors = dict(
-        zip(trace_metrics, select_colors(len(trace_metrics)), strict=True)
-    )
-
-    linestyle_map = {"1M": "--", "5M": ":"}
-
-    dd = data_definition(
-        hyper_cols=[],
-        seed_col="seed",
-        time_col="frame",
-        environment_col=None,
-        algorithm_col=None,
-        make_global=True,
-    )
-
-    num_seeds = all_df.select(pl.col(dd.seed_col).max()).item() + 1
-
-    ncols = max(len(main_algs), 1)
-    # Calculate nrows and ncols for mean plots to be close to square
-    n_plots = len(main_algs)
-    if n_plots == 0:
-        nrows_mean = 1
-        ncols_mean = 1
-    else:
-        nrows_mean = int(math.sqrt(n_plots))
-        ncols_mean = math.ceil(n_plots / nrows_mean)
-
-    # Create separate figures for mean and seeds
-    fig_mean, axs_mean = plt.subplots(
-        nrows_mean,
-        ncols_mean,
-        sharex=True,
-        sharey="all",
-        layout="constrained",
-        squeeze=False,
-    )
-    fig_seeds, axs_seeds = plt.subplots(
-        num_seeds, ncols, sharex=True, sharey="all", layout="constrained", squeeze=False
-    )
-
-    for group_key, df in all_df.group_by(["alg_base", "aperture", "alg"]):
-        alg_base, aperture, alg = group_key
-        print(f"Plotting: {alg}")
-
-        if "sweep" in str(experiment_path):
-            # Check if best configuration exists
-            if aperture is not None:
-                best_configuration_path = (
-                    experiment_path / "hypers" / str(aperture) / f"{alg}.json"
-                )
-            else:
-                continue
-            if best_configuration_path.exists():
-                with open(best_configuration_path) as f:
-                    best_configuration = json.load(f)
-
-                # Filter df to only include rows matching best configuration
-                for param, value in best_configuration.items():
-                    if param in df.columns:
-                        df = df.filter(pl.col(param) == value)
-
-        freeze_steps_str = alg.split("_frozen")[1] if "_frozen" in alg else None
-
-        if freeze_steps_str:
-            linestyle = linestyle_map.get(freeze_steps_str, "--")
-        else:
-            linestyle = "-"
-
-        for metric in trace_metrics:
-            metric_df = (
-                df.sort(dd.seed_col).group_by(dd.seed_col).agg(dd.time_col, metric)
-            )
-            if metric_df.is_empty() or metric_df[metric].is_null().all():
-                continue
-
-            try:
-                xs = np.stack(metric_df["frame"].to_list()).astype(np.int64)
-            except Exception as e:
-                print(f"Skipping {alg} for metric {metric} due to error: {e}")
-                continue
-
-            # Handle null values in the metric data
-            metric_lists = metric_df[metric].to_list()
-            # Check if any list contains null values
-            has_nulls = any(any(pl.Series(lst).is_null().any() for lst in metric_lists if lst is not None) for lst in metric_lists)
-
-            if has_nulls:
-                print(f"Warning: {metric} contains null values, filling with 0")
-                # Fill nulls in each list
-                cleaned_lists = []
-                for lst in metric_lists:
-                    if lst is not None:
-                        series = pl.Series(lst)
-                        filled = series.fill_null(0)
-                        cleaned_lists.append(filled.to_list())
-                    else:
-                        cleaned_lists.append([])
-                ys = np.stack(cleaned_lists).astype(np.float64)
-            else:
-                ys = np.stack(metric_lists).astype(np.float64)
-            mask = xs[0] > 1000
-            xs, ys = xs[:, mask], ys[:, mask]
-
-            # Skip if we don't have enough data after filtering
-            if ys.shape[1] < 10:
-                print(f"Skipping {alg} for metric {metric}: insufficient data after filtering")
-                continue
-
-            res = curve_percentile_bootstrap_ci(
-                rng=np.random.default_rng(0),
-                y=ys,
-                statistic=Statistic.mean,
-                iterations=10000,
-            )
-
-            color = metric_colors[metric]
-
-            col_linear = main_algs.index((alg_base, aperture))
-            row = col_linear // ncols_mean
-            col = col_linear % ncols_mean
-
-            # Plot mean on mean figure
-            ax = axs_mean[row, col]
-            ax.plot(
-                xs[0],
-                res.sample_stat,
-                color=color,
-                linewidth=1.0,
-                linestyle=linestyle,
-            )
-            if len(ys) >= 5:
-                ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
-
-            # Plot each seed on seeds figure
-            for i in range(len(ys)):
-                ax = axs_seeds[i, col_linear]
-                ax.plot(
-                    xs[0], ys[i], color=color, linewidth=0.5, linestyle=linestyle
-                )
-
-    # Set titles and formatting for mean plot
-    for i, (alg_base, aperture_val) in enumerate(main_algs):
-        alg_label = LABEL_MAP.get(alg_base, alg_base)
-        row = i // ncols_mean
-        col = i % ncols_mean
-        title = (
-            f"{alg_label} ({aperture_val})" if aperture_val is not None else alg_label
-        )
-        axs_mean[row, col].set_title(title)
-
-    # Set titles and formatting for seeds plot
-    for i, (alg_base, aperture_val) in enumerate(main_algs):
-        alg_label = LABEL_MAP.get(alg_base, alg_base)
-        title = (
-            f"{alg_label} ({aperture_val})" if aperture_val is not None else alg_label
-        )
-        axs_seeds[0, i].set_title(title)
-
-    # Format mean axes
-    for row in range(nrows_mean):
-        for col in range(ncols_mean):
-            ax = axs_mean[row, col]
-            ax.ticklabel_format(
-                axis="x", style="sci", scilimits=(0, 0), useMathText=True
-            )
-            if col == 0:
-                ax.set_ylabel(f"Object Trace (1e-{trace_exponent})")
-            if row == nrows_mean - 1:
-                ax.set_xlabel("Time steps")
-            ax.spines["top"].set_visible(False)
-            ax.spines["right"].set_visible(False)
-
-    # Format seeds axes
-    for i in range(num_seeds):
-        for j in range(ncols):
-            ax = axs_seeds[i, j]
-            ax.ticklabel_format(
-                axis="x", style="sci", scilimits=(0, 0), useMathText=True
-            )
-            if j == 0:
-                ax.set_ylabel(f"Object Trace (1e-{trace_exponent})")
-            if i == num_seeds - 1:
-                ax.set_xlabel("Time steps")
-            ax.spines["top"].set_visible(False)
-            ax.spines["right"].set_visible(False)
-
-    for ax in axs_mean.flatten():
-        if not ax.get_lines():
-            ax.set_visible(False)
-
-    for ax in axs_seeds.flatten():
-        if not ax.get_lines():
-            ax.set_visible(False)
-
-    legend_elements = [
-        Line2D([0], [0], color=metric_colors[m], lw=2, label=n)
-        for m, n in zip(trace_metrics, mushroom_names, strict=True)
-    ]
-    fig_mean.suptitle(f"{env}")
-    fig_mean.legend(handles=legend_elements, loc="outside center right", frameon=False)
-
-    fig_seeds.suptitle(f"{env} - Individual Seeds")
-    fig_seeds.legend(handles=legend_elements, loc="outside center right", frameon=False)
-
-    save(
-        save_path=f"{experiment_path}/plots",
-        plot_name=f"{env}_object_trace_e{trace_exponent}",
-        save_type=save_type,
-        f=fig_mean,
-        width=ncols_mean if ncols_mean > 1 else 2,
-        height_ratio=2 / 3 * nrows_mean / ncols_mean
-        if ncols_mean > 1
-        else nrows_mean / 3,
-    )
-    save(
-        save_path=f"{experiment_path}/plots",
-        plot_name=f"{env}_object_trace_seeds_e{trace_exponent}",
-        save_type=save_type,
-        f=fig_seeds,
-        width=ncols if ncols > 1 else 2,
-        height_ratio=(num_seeds / ncols) * (2 / 3) if ncols > 1 else num_seeds / 3,
-    )
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Plot object trace metrics from processed data"
-    )
-    parser.add_argument("path", type=str, help="Path to the experiment directory")
+def main():
+    parser = PlottingArgumentParser(description="Plot object trace metrics.")
     parser.add_argument(
         "--trace-exponent",
         type=int,
-        default=1,
-        help="The exponent for the trace metric (e.g., 1 for 1e-1)",
-    )
-    parser.add_argument(
-        "--save-type",
-        type=str,
-        default="pdf",
-        help="File format to save the plots (default: pdf)",
+        required=True,
+        help="Exponent for the object trace metric.",
     )
     parser.add_argument(
         "--sample-type",
         type=str,
         default="every",
-        help="Sample type to plot (default: every)",
+        help="Sample type to filter from the data.",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--auto-label", action="store_true", help="Enable auto-labeling."
+    )
 
-    experiment_path = Path(args.path).resolve()
-    main(experiment_path, args.trace_exponent, args.save_type, args.sample_type)
+    args = parse_plotting_args(parser)
+
+    df = load_data(args.experiment_path)
+    df = df.filter(pl.col("sample_type") == args.sample_type)
+
+    if args.filter_algs:
+        df = df.filter(pl.col("alg").is_in(args.filter_algs))
+
+    if args.filter_seeds:
+        df = df.filter(pl.col("seed").is_in(args.filter_seeds))
+
+    env = df["env"][0]
+
+    if "TwoBiome" in env:
+        object_mapping = {0: "Morel", 1: "Oyster"}
+    elif "Weather" in env:
+        object_mapping = {0: "Hot", 1: "Cold"}
+    else:
+        if "object_collected_id" in df.columns:
+            object_mapping = {
+                obj_id: f"Object {obj_id}"
+                for obj_id in df["object_collected_id"].unique()
+                if obj_id is not None
+            }
+        else:
+            object_mapping = {}
+
+    available_objects = sorted([k for k in object_mapping.keys()])
+
+    trace_metrics = [
+        f"object_trace_{obj}_{args.trace_exponent}" for obj in available_objects
+    ]
+    mushroom_names = [object_mapping[obj] for obj in available_objects]
+
+    df_melted = df.melt(
+        id_vars=["frame", "alg", "seed"],
+        value_vars=trace_metrics,
+        variable_name="metric",
+        value_name="value",
+    )
+
+    metric_to_name = dict(zip(trace_metrics, mushroom_names, strict=True))
+    df_melted = df_melted.with_columns(
+        pl.col("metric").replace(metric_to_name).alias("Object")
+    )
+
+    g = sns.relplot(
+        data=df_melted.to_pandas(),
+        x="frame",
+        y="value",
+        hue="Object",
+        col="alg",
+        kind="line",
+        errorbar=("ci", 95),
+        col_wrap=min(len(df["alg"].unique()), 3),
+        facet_kws=dict(sharey=True),
+    )
+
+    g.set_axis_labels("Time steps", "Trace Value")
+    g.set_titles(col_template="{col_name}")
+    g.fig.suptitle(f"{env} - Object Traces (e={args.trace_exponent})", y=1.03)
+
+    for ax in g.axes.flatten():
+        despine(ax)
+        ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+        if args.auto_label:
+            annotate_plot(ax)
+
+    if not args.auto_label:
+        g.add_legend(title=None, frameon=False)
+
+    plot_name = args.plot_name or f"{env}_object_trace_e{args.trace_exponent}"
+    save_plot(g.fig, args.experiment_path, plot_name, args.save_type)
+
+if __name__ == "__main__":
+    main()
