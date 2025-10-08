@@ -118,8 +118,11 @@ def annotate_plot(ax: Axes, label_map: Optional[Dict[str, str]] = None):
             Note: labelLines centers text at the given position, so we need to
             account for text width extending both left and right of x_label.
             """
-            width = len(label_text) * FONTSIZE * 0.8 * x_data_per_point
-            height = text_height
+            lines = label_text.split("\n")
+            max_line_length = max(len(line) for line in lines)
+            num_lines = len(lines)
+            width = max_line_length * FONTSIZE * 0.8 * x_data_per_point
+            height = num_lines * text_height
             return (
                 x_label - width / 2,  # Center the text horizontally
                 x_label + width / 2,
@@ -208,9 +211,13 @@ def annotate_plot(ax: Axes, label_map: Optional[Dict[str, str]] = None):
 
             # Calculate label width to adjust search bounds
             # Since labels are centered, we need half-width margin on each side
-            label_width = len(label_text) * FONTSIZE * 0.6 * x_data_per_point
+            lines = label_text.split("\n")
+            max_line_length = max(len(line) for line in lines)
+            num_lines = len(lines)
+            label_width = max_line_length * FONTSIZE * 0.6 * x_data_per_point
+            label_height = num_lines * text_height
             half_width = label_width / 2
-            half_height = text_height / 2
+            half_height = label_height / 2
 
             # Adjust search space to ensure label bbox stays within bounds
             # Label center must be at least half_width/half_height away from edges
@@ -237,7 +244,7 @@ def annotate_plot(ax: Axes, label_map: Optional[Dict[str, str]] = None):
             logger.info(
                 f"  Search space: x=[{x_min_search_adjusted:.1f}, {x_max_search_adjusted:.1f}], "
                 f"y=[{y_min_search_adjusted:.3f}, {y_max_search_adjusted:.3f}] "
-                f"(label_width={label_width:.1f}, label_height={text_height:.3f})"
+                f"(label_width={label_width:.1f}, label_height={label_height:.3f})"
             )
             logger.info(
                 f"  X candidates: {len(x_candidates)}, Y candidates: {len(y_candidates)}"
