@@ -41,7 +41,7 @@ def main():
         raise ValueError(f"Unknown biome colors for environment: {env}")
 
     # Filter to the last frame for the given sample type
-    if args.sample_type == 'end':
+    if args.sample_type == "end":
         df = df.filter(pl.col('frame') == pl.col('frame').max().over(['alg', 'aperture', 'seed']))
     else:
         df = df.filter(pl.col('sample_type') == args.sample_type)
