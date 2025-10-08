@@ -53,6 +53,12 @@ plt.rcParams["ytick.labelsize"] = FONTSIZE  # Y-tick labels
 # Constants
 # ---------------------
 LABEL_MAP: Dict[str, str] = {
+    "ActorCriticMLP": "PPO",
+    "ActorCriticMLP-l2": "PPO (L2)",
+    "ActorCriticMLP-world": "PPO (World)",
+    "RealTimeActorCriticMLP": "RTU",
+    "RealTimeActorCriticMLP-l2": "RTU (L2)",
+    "RealTimeActorCriticMLP-world": "RTU (World)",
     "DQN": "DQN",
     "DQN_CReLU": "DQN (CReLU)",
     "DQN_L2": "DQN (L2)",
