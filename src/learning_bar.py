@@ -82,7 +82,7 @@ def main(
         filtered_df = bar_df.filter(pl.col("frame") == max_frame)
 
         print(
-            f"For bar {bar_alg} aperture {bar_aperture} {bar_sample_type} seeds {bar_seeds}: filtered df shape {filtered_df.shape}"
+            f"For bar {bar_alg} FOV {bar_aperture} {bar_sample_type} seeds {bar_seeds}: filtered df shape {filtered_df.shape}"
         )
 
         # Aggregate mean_reward for this bar
@@ -134,7 +134,7 @@ def main(
         # Generate label for this bar
         alg_label = str(LABEL_MAP.get(bar_alg, bar_alg))
         if bar_aperture is not None:
-            alg_label += f"\n(aperture {bar_aperture})"
+            alg_label += f"\nFOV {bar_aperture}"
         if bar_seeds is not None and len(bar_seeds) == 1:
             alg_label += f"\n(seed {bar_seeds[0]})"
         elif bar_seeds is not None:
