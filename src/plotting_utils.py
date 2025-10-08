@@ -15,8 +15,6 @@ from matplotlib.lines import Line2D
 
 def save(save_path: str, plot_name: str, save_type: str, f: Figure, **kwargs):
     """Save matplotlib figure to file."""
-    from pathlib import Path
-
     save_dir = Path(save_path)
     save_dir.mkdir(parents=True, exist_ok=True)
 
