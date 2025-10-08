@@ -1,6 +1,5 @@
 import argparse
 import json
-import math
 import os
 import sys
 from itertools import chain
@@ -17,10 +16,7 @@ import polars as pl
 from matplotlib.lines import Line2D
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
-from rlevaluation.statistics import Statistic
-from rlevaluation.temporal import (
-    curve_percentile_bootstrap_ci,
-)
+from scipy.stats import bootstrap
 
 from utils.constants import LABEL_MAP
 from utils.plotting import label_lines, select_colors
@@ -98,31 +94,30 @@ def main(
     print("Main algs:", main_algs)
     env = all_df["env"][0]
 
-    # Collect all color keys and assign colors based on algorithm type
-    all_color_keys = set(all_df["alg"].unique())
-
-    def get_type_key(alg):
-        alg_base = alg.split("_frozen")[0] if "_frozen" in alg else alg
-        if alg_base.startswith("Search"):
-            return alg
-        elif "_frozen" in alg:
-            freeze_steps_str = alg.split("_frozen_")[1]
-            if freeze_steps_str == "1M":
-                return "frozen_1M"
-            elif freeze_steps_str == "5M":
-                return "frozen_5M"
-            else:
-                return "frozen_other"
-        else:
-            return "base"
-
-    type_keys = set(get_type_key(alg) for alg in all_color_keys)
-    n_colors = len(type_keys)
-    color_list = select_colors(n_colors, override="vibrant")
-    type_to_color = dict(zip(sorted(type_keys), color_list, strict=True))
-    COLORS = {alg: type_to_color[get_type_key(alg)] for alg in all_color_keys}
-
-    # Compute baseline_ys_dict for normalization
+    # Assign unique colors to each (alg, aperture) combination
+    alg_aperture_df = (
+        all_df.filter(pl.col("aperture").is_not_null())
+        .select("alg", "aperture")
+        .unique()
+        .sort(["alg", "aperture"])
+    )
+    pairs_list = list(alg_aperture_df.iter_rows(named=False))
+    
+    # For baselines without aperture
+    baseline_algs = all_df.filter(pl.col("aperture").is_null())["alg"].unique()
+    baseline_pairs = [(alg, None) for alg in baseline_algs]
+    
+    # All unique combinations
+    all_pairs = pairs_list + baseline_pairs
+    n_colors = len(all_pairs)
+    if n_colors > 0:
+        color_list = select_colors(n_colors, override="vibrant")
+        pair_to_color = dict(zip(all_pairs, color_list, strict=True))
+    else:
+        pair_to_color = {}
+    
+    # Assign COLORS
+    COLORS = pair_to_color
     baseline_ys_dict = {}
     normalized = False
     if normalize is not None:
@@ -154,15 +149,10 @@ def main(
 
     num_seeds = all_df.select(pl.col(dd.seed_col).max()).item() + 1
 
-    ncols = max(len(main_algs), 1)
-    # Calculate nrows and ncols for mean plots to be close to square
-    n_plots = len(main_algs)
-    if n_plots == 0:
-        nrows_mean = 1
-        ncols_mean = 1
-    else:
-        nrows_mean = int(math.sqrt(n_plots))
-        ncols_mean = math.ceil(n_plots / nrows_mean)
+    ncols = 1
+    # Single subplot for mean plots
+    nrows_mean = 1
+    ncols_mean = 1
     # Create separate figures for mean and seeds
     fig_mean, axs_mean = plt.subplots(
         nrows_mean,
@@ -221,26 +211,29 @@ def main(
                     baseline = baseline_ys_dict[seed][mask]
                     ys[i] /= baseline
 
-        res = curve_percentile_bootstrap_ci(
-            rng=np.random.default_rng(0),
-            y=ys,
-            statistic=Statistic.mean,
-            iterations=10000,
+        # Compute bootstrap statistics using scipy on the entire array
+        sample_stat = np.mean(ys, axis=0)
+        bs_result = bootstrap(
+            (ys,),
+            lambda x, axis=0: np.mean(x, axis=axis),
+            axis=0,
+            confidence_level=0.95,
+            n_resamples=10000,
         )
+        ci_low = bs_result.confidence_interval.low
+        ci_high = bs_result.confidence_interval.high
 
         # Clip res to [-2, 2] for normalized plots
         if normalized:
             sample_stat = np.where(
-                (res.sample_stat >= -2) & (res.sample_stat <= 2),
-                res.sample_stat,
+                (sample_stat >= -2) & (sample_stat <= 2),
+                sample_stat,
                 np.nan,
             )
-            ci_low = np.where((res.ci[0] >= -2) & (res.ci[0] <= 2), res.ci[0], np.nan)
-            ci_high = np.where((res.ci[1] >= -2) & (res.ci[1] <= 2), res.ci[1], np.nan)
+            ci_low = np.where((ci_low >= -2) & (ci_low <= 2), ci_low, np.nan)
+            ci_high = np.where((ci_high >= -2) & (ci_high <= 2), ci_high, np.nan)
         else:
-            sample_stat = res.sample_stat
-            ci_low = res.ci[0]
-            ci_high = res.ci[1]
+            pass  # no clipping needed
 
         freeze_steps_str = alg.split("_frozen")[1] if "_frozen" in alg else None
 
@@ -248,19 +241,18 @@ def main(
 
         # Create label for auto-labeling
         alg_label = str(LABEL_MAP.get(alg_base, alg_base))
+        plot_label_parts = [alg_label]
         if freeze_steps_str:
-            plot_label = f"{alg_label} (Frozen @ {freeze_steps_str.lstrip('_')})"
-        else:
-            plot_label = alg_label
+            plot_label_parts.append(f"(Frozen @ {freeze_steps_str.lstrip('_')})")
+        if aperture is not None:
+            plot_label_parts.append(f"(FOV {aperture})")
+        plot_label = " ".join(plot_label_parts)
 
         # Plot
         if aperture is not None:
-            col_linear = main_algs.index((alg_base, aperture))
-            row = col_linear // ncols_mean
-            col = col_linear % ncols_mean
-            color = COLORS[alg]
+            color = COLORS[(alg, aperture)]
             # Plot mean on mean figure
-            ax = axs_mean[row, col]
+            ax = axs_mean[0, 0]
             ax.plot(
                 xs[0],
                 sample_stat,
@@ -273,7 +265,7 @@ def main(
                 ax.fill_between(xs[0], ci_low, ci_high, color=color, alpha=0.2)
             # Plot each seed on seeds figure
             for i in range(len(ys)):
-                ax = axs_seeds[i, col_linear]
+                ax = axs_seeds[i, 0]
                 ax.plot(
                     xs[0],
                     ys[i],
@@ -283,99 +275,69 @@ def main(
                     label=plot_label,
                 )
         else:
-            # Plot mean on mean figure, all subplots
-            color = COLORS[alg]
-            for row in range(nrows_mean):
-                for col in range(ncols_mean):
-                    ax = axs_mean[row, col]
-                    if alg_base == "Search-Oracle" and normalized:
-                        ax.axhline(
-                            1,
-                            color=color,
-                            linestyle=linestyle,
-                            linewidth=1.0,
-                            label=plot_label,
-                        )
-                    else:
-                        ax.plot(
-                            xs[0],
-                            sample_stat,
-                            color=color,
-                            linewidth=1.0,
-                            linestyle=linestyle,
-                            label=plot_label,
-                        )
-                        if len(ys) >= 5:
-                            ax.fill_between(
-                                xs[0], ci_low, ci_high, color=color, alpha=0.2
-                            )
-            # Plot each seed on seeds figure, all columns
-            color = COLORS[alg]
+            color = COLORS[(alg, None)]
+            # Plot mean on mean figure
+            ax = axs_mean[0, 0]
+            if alg_base == "Search-Oracle" and normalized:
+                ax.axhline(
+                    1,
+                    color=color,
+                    linestyle=linestyle,
+                    linewidth=1.0,
+                    label=plot_label,
+                )
+            else:
+                ax.plot(
+                    xs[0],
+                    sample_stat,
+                    color=color,
+                    linewidth=1.0,
+                    linestyle=linestyle,
+                    label=plot_label,
+                )
+                if len(ys) >= 5:
+                    ax.fill_between(xs[0], ci_low, ci_high, color=color, alpha=0.2)
+            # Plot each seed on seeds figure
+            color = COLORS[(alg, None)]
             for i in range(len(ys)):
-                for col in range(ncols):
-                    ax = axs_seeds[i, col]
-                    if alg_base == "Search-Oracle" and normalized:
-                        ax.axhline(
-                            1,
-                            color=color,
-                            linestyle=linestyle,
-                            linewidth=0.5,
-                            label=plot_label,
-                        )
-                    else:
-                        ax.plot(
-                            xs[0],
-                            ys[i],
-                            color=color,
-                            linewidth=0.5,
-                            linestyle=linestyle,
-                            label=plot_label,
-                        )
-
-    # Set titles and formatting
-    for i, (alg_base, aperture_val) in enumerate(main_algs):
-        alg_label = LABEL_MAP.get(alg_base, alg_base)
-        if alg_label is None:
-            alg_label = alg_base
-        row = i // ncols_mean
-        col = i % ncols_mean
-        # Title for mean figure
-        title = alg_label
-        if aperture_val is not None:
-            title += f" ({aperture_val})"
-        axs_mean[row, col].set_title(title)
-        # Title for seeds figure (first row)
-        axs_seeds[0, i].set_title(title)
+                ax = axs_seeds[i, 0]
+                if alg_base == "Search-Oracle" and normalized:
+                    ax.axhline(
+                        1,
+                        color=color,
+                        linestyle=linestyle,
+                        linewidth=0.5,
+                        label=plot_label,
+                    )
+                else:
+                    ax.plot(
+                        xs[0],
+                        ys[i],
+                        color=color,
+                        linewidth=0.5,
+                        linestyle=linestyle,
+                        label=plot_label,
+                    )
 
     # Format mean axes
     ylabel = "Normalized Average Reward" if normalized else "Average Reward"
-    for row in range(nrows_mean):
-        for col in range(ncols_mean):
-            ax = axs_mean[row, col]
-            ax.ticklabel_format(
-                axis="x", style="sci", scilimits=(0, 0), useMathText=True
-            )
-            if col == 0:  # Only leftmost columns get ylabel
-                ax.set_ylabel(ylabel)
-            if row == nrows_mean - 1:  # Only bottom row gets xlabel
-                ax.set_xlabel("Time steps")
-            ax.spines["top"].set_visible(False)
-            ax.spines["right"].set_visible(False)
+    ax = axs_mean[0, 0]
+    ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel("Time steps")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
     # Format seeds axes
     ylabel = "Normalized Average Reward" if normalized else "Average Reward"
     for i in range(num_seeds):
-        for j in range(ncols):
-            ax = axs_seeds[i, j]
-            ax.ticklabel_format(
-                axis="x", style="sci", scilimits=(0, 0), useMathText=True
-            )
-            if j == 0:
-                ax.set_ylabel(ylabel)
-            if i == num_seeds - 1:
-                ax.set_xlabel("Time steps")
-            ax.spines["top"].set_visible(False)
-            ax.spines["right"].set_visible(False)
+        ax = axs_seeds[i, 0]
+        ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+        ax.set_ylabel(ylabel)
+        if i == num_seeds - 1:
+            ax.set_xlabel("Time steps")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
     for ax in chain(axs_mean.flatten(), axs_seeds.flatten()):
         if not ax.get_lines():
@@ -383,34 +345,58 @@ def main(
             continue
 
     # Collect unique algorithms for legend
-    unique_algs = sorted(all_df["alg"].unique())
     label_to_color = {}
-    for alg in unique_algs:
-        type_key = get_type_key(alg)
-        if type_key in ["base", "frozen_1M", "frozen_5M"]:
-            label = {
-                "base": "Base Algorithm",
-                "frozen_1M": "Frozen @ 1M",
-                "frozen_5M": "Frozen @ 5M",
-            }[type_key]
-            label_to_color[label] = COLORS[alg]
-        elif type_key == "baseline":
-            label = LABEL_MAP.get(alg, alg)
-            label_to_color[label] = COLORS[alg]
+    # Collect from groups
+    for group_key, _ in all_df.group_by(["alg_base", "aperture", "alg"]):
+        alg_base = group_key[0]
+        aperture = group_key[1]
+        alg = group_key[2]
+        freeze_steps_str = alg.split("_frozen")[1] if "_frozen" in alg else None
+        alg_label = str(LABEL_MAP.get(alg_base, alg_base))
+        plot_label_parts = [alg_label]
+        if freeze_steps_str:
+            plot_label_parts.append(f"(Frozen @ {freeze_steps_str.lstrip('_')})")
+        if aperture is not None:
+            plot_label_parts.append(f"(FOV {aperture})")
+        plot_label = " ".join(plot_label_parts)
+        if aperture is not None:
+            color = COLORS[(alg, aperture)]
         else:
-            label = LABEL_MAP.get(alg, alg)
-            label_to_color[label] = COLORS[alg]
+            color = COLORS[(alg, None)]
+        label_to_color[plot_label] = color
+
+    # Order legend elements according to filter_alg_apertures if provided
+    if filter_alg_apertures:
+        ordered_labels = []
+        for pair in filter_alg_apertures:
+            if ":" in pair:
+                alg, aperture_str = pair.split(":", 1)
+                try:
+                    aperture = int(aperture_str)
+                except ValueError:
+                    aperture = aperture_str
+                label = f"{LABEL_MAP.get(alg, alg)} (FOV {aperture})"
+            else:
+                label = LABEL_MAP.get(pair, pair)
+            if label in label_to_color:
+                ordered_labels.append(label)
+        # Add any remaining labels not in filter_alg_apertures
+        for label in label_to_color:
+            if label not in ordered_labels:
+                ordered_labels.append(label)
+    else:
+        ordered_labels = sorted(label_to_color.keys())
 
     legend_elements = [
         Line2D(
             [0],
             [0],
-            color=color,
+            color=label_to_color[label],
             lw=2,
             label=label,
             linestyle="-",
         )
-        for label, color in sorted(label_to_color.items())
+        for label in ordered_labels
     ]
 
     # Set ylim if provided
@@ -421,12 +407,16 @@ def main(
 
     # Handle legend or auto labeling
     if auto_label:
-        # Use automatic label annotation instead of legend
-        for ax in chain(axs_mean.flatten(), axs_seeds.flatten()):
+        # Use automatic label annotation instead of legend for mean plot
+        for ax in axs_mean.flatten():
             if ax.get_lines():
                 label_lines(ax, offset_range=(12, 18))
         fig_mean.suptitle(env)
+        # Use legend for seeds plot
         fig_seeds.suptitle(f"{env} - Individual Seeds")
+        fig_seeds.legend(
+            handles=legend_elements, loc="outside center right", frameon=False
+        )
     else:
         fig_mean.suptitle(env)
         fig_mean.legend(

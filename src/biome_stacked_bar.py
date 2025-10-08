@@ -335,7 +335,7 @@ def main(
 
     save(
         save_path=f"{experiment_path}/plots",
-        plot_name=f"{base_name}_biome_occupancy_bars",
+        plot_name=base_name,
         save_type=save_type,
         f=fig,
         width=ncols if ncols > 1 else (1 if auto_label else 2),
