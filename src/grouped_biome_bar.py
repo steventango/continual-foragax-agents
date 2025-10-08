@@ -44,7 +44,7 @@ def main():
     if args.sample_type == "end":
         df = df.filter(pl.col('frame') == pl.col('frame').max().over(['alg', 'aperture', 'seed']))
     else:
-        df = df.filter(pl.col('sample_type') == args.sample_type)
+        df = df.filter(pl.col("sample_type") == args.sample_type)
 
 
     # Reshape data to be long-form for seaborn
