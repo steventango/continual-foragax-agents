@@ -193,7 +193,6 @@ def main():
         else:
             temp_label = alg
         label = get_mapped_label(temp_label, LABEL_MAP)
-        label = label.replace(" (", "\n(")
 
         if label:
             axs[i, 0].set_ylabel(label, rotation=0, ha="right", va="center")

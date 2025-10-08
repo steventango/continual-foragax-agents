@@ -242,7 +242,13 @@ def get_mapped_label(label: str, label_map: Optional[Dict[str, str]] = None) -> 
     if ":" in label:
         alg, aperture = label.split(":", 1)
         base_label = label_map.get(alg, alg) if label_map else alg
-        return f"{base_label} (FOV {aperture})"
+        if "Frozen" in base_label:
+            # For frozen variants, put FOV inline with DQN and Frozen on new line
+            dqn_part = base_label.split(" (")[0]
+            frozen_part = base_label.split(" (", 1)[1]
+            return f"{dqn_part} (FOV {aperture})\n({frozen_part}"
+        else:
+            return f"{base_label} (FOV {aperture})"
     return label
 
 
