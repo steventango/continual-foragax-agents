@@ -32,6 +32,7 @@ def main(
     bars: list[tuple[str, int | None, str, list[int] | None]] | None = None,
     plot_name: str | None = None,
     metric: str = "mean_reward",
+    sort_by_metric: bool = False,
 ):
     data_path = (
         Path("results")
@@ -173,6 +174,16 @@ def main(
         errors_lower.append(lower_err)
         errors_upper.append(upper_err)
 
+    # Sort by metric if requested
+    if sort_by_metric:
+        # Create list of (mean_reward, index) and sort descending
+        sorted_indices = sorted(range(len(mean_rewards)), key=lambda i: mean_rewards[i], reverse=True)
+        bars = [bars[i] for i in sorted_indices]
+        bar_labels = [bar_labels[i] for i in sorted_indices]
+        mean_rewards = [mean_rewards[i] for i in sorted_indices]
+        errors_lower = [errors_lower[i] for i in sorted_indices]
+        errors_upper = [errors_upper[i] for i in sorted_indices]
+
     # Plot bar chart
     fig, ax = plt.subplots(layout="constrained")
 
@@ -234,6 +245,11 @@ if __name__ == "__main__":
         default="mean_reward",
         help="Metric to plot (default: mean_reward)",
     )
+    parser.add_argument(
+        "--sort-by-metric",
+        action="store_true",
+        help="Sort bars by metric value in descending order",
+    )
     args = parser.parse_args()
 
     # Parse bars
@@ -264,4 +280,5 @@ if __name__ == "__main__":
         bars,
         args.plot_name,
         args.metric,
+        args.sort_by_metric,
     )
