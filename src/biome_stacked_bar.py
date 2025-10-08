@@ -20,9 +20,9 @@ from plotting_utils import (
 
 # Mappings
 SAMPLE_TYPE_MAP = {
-    "999000:1000000:500": "Early learning",
-    "4999000:5000000:500": "Mid learning",
-    "9999000:10000000:500": "Late learning",
+    "999000:1000000:500": "Early",
+    "4999000:5000000:500": "Middle",
+    "9999000:10000000:500": "Late",
 }
 
 
