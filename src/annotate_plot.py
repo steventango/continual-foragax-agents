@@ -4,7 +4,7 @@ from typing import Dict, Optional
 import numpy as np
 from matplotlib.axes import Axes
 
-from plotting_utils import fontsize, get_mapped_label
+from plotting_utils import FONTSIZE, get_mapped_label
 
 
 def annotate_plot(ax: Axes, label_map: Optional[Dict[str, str]] = None):
@@ -99,7 +99,7 @@ def annotate_plot(ax: Axes, label_map: Optional[Dict[str, str]] = None):
         y_data_per_point = y_range / fig_height_points
         x_data_per_point = (xlim[1] - xlim[0]) / fig_width_points
 
-        text_height = fontsize * y_data_per_point
+        text_height = FONTSIZE * y_data_per_point
         margin = text_height * 1.0
 
         # X offsets and Y offsets
@@ -118,7 +118,7 @@ def annotate_plot(ax: Axes, label_map: Optional[Dict[str, str]] = None):
             Note: labelLines centers text at the given position, so we need to
             account for text width extending both left and right of x_label.
             """
-            width = len(label_text) * fontsize * 0.8 * x_data_per_point
+            width = len(label_text) * FONTSIZE * 0.8 * x_data_per_point
             height = text_height
             return (
                 x_label - width / 2,  # Center the text horizontally
@@ -208,7 +208,7 @@ def annotate_plot(ax: Axes, label_map: Optional[Dict[str, str]] = None):
 
             # Calculate label width to adjust search bounds
             # Since labels are centered, we need half-width margin on each side
-            label_width = len(label_text) * fontsize * 0.6 * x_data_per_point
+            label_width = len(label_text) * FONTSIZE * 0.6 * x_data_per_point
             half_width = label_width / 2
             half_height = text_height / 2
 
@@ -439,7 +439,7 @@ def annotate_plot(ax: Axes, label_map: Optional[Dict[str, str]] = None):
                 label_info["y"],
                 label_info["text"],
                 color=label_info["color"],
-                fontsize=fontsize,
+                fontsize=FONTSIZE,
                 ha="center",  # Horizontal alignment: center
                 va="center",  # Vertical alignment: center
                 clip_on=False,  # Allow labels to extend beyond plot bounds if needed

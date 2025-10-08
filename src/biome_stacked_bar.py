@@ -4,6 +4,7 @@ import numpy as np
 import polars as pl
 
 from plotting_utils import (
+    FONTSIZE,
     LABEL_MAP,
     TWO_BIOME_COLORS,
     WEATHER_BIOME_COLORS,
@@ -19,9 +20,9 @@ from plotting_utils import (
 
 # Mappings
 SAMPLE_TYPE_MAP = {
-    "999000:1000000:500": "Early learning",
-    "4999000:5000000:500": "Mid learning",
-    "9999000:10000000:500": "Late learning",
+    "999000:1000000:500": "Early",
+    "4999000:5000000:500": "Middle",
+    "9999000:10000000:500": "Late",
 }
 
 
@@ -192,7 +193,6 @@ def main():
         else:
             temp_label = alg
         label = get_mapped_label(temp_label, LABEL_MAP)
-        label = label.replace(" (", "\n(")
 
         if label:
             axs[i, 0].set_ylabel(label, rotation=0, ha="right", va="center")
@@ -213,9 +213,9 @@ def main():
     fig.legend(
         handles=legend_elements,
         loc="outside upper center",
-        bbox_to_anchor=(0.5, 1.05),
         frameon=False,
         ncol=len(biome_names),
+        fontsize=FONTSIZE,
     )
 
     plot_name = args.plot_name or f"{env}_biome_stacked_bar"

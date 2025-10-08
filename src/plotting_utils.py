@@ -30,11 +30,24 @@ sys.path.append(os.getcwd())
 # ---------------------------------
 sns.set_palette(tc.tol_cset("vibrant"))
 
+# Set font
+plt.rcParams.update({
+    "text.usetex": False, # Don't use LaTeX
+    "font.family": "serif", # Use a serif font
+    "font.serif": ["Linux Libertine O"], # Specifically, use Linux Libertine
+    "font.sans-serif": ["Linux Biolinum O"], # Use Linux Biolinum for sans-serif
+    "mathtext.fontset": "custom", # Use custom math fonts
+    "mathtext.rm": "Linux Libertine O", # Roman text in math
+    "mathtext.it": "Linux Libertine O:italic", # Italic text in math
+    "mathtext.bf": "Linux Libertine O:bold", # Bold text in math
+    "axes.unicode_minus": False, # Ensure minus signs are rendered correctly
+})
+
 # Set font sizes for better readability in papers
-fontsize = 14
-plt.rcParams["axes.labelsize"] = fontsize  # Axis labels
-plt.rcParams["xtick.labelsize"] = fontsize - 2  # X-tick labels
-plt.rcParams["ytick.labelsize"] = fontsize - 2  # Y-tick labels
+FONTSIZE = 20
+plt.rcParams["axes.labelsize"] = FONTSIZE  # Axis labels
+plt.rcParams["xtick.labelsize"] = FONTSIZE - 2  # X-tick labels
+plt.rcParams["ytick.labelsize"] = FONTSIZE - 2  # Y-tick labels
 
 # ---------------------
 # Constants
@@ -229,7 +242,13 @@ def get_mapped_label(label: str, label_map: Optional[Dict[str, str]] = None) -> 
     if ":" in label:
         alg, aperture = label.split(":", 1)
         base_label = label_map.get(alg, alg) if label_map else alg
-        return f"{base_label} (FOV {aperture})"
+        if "Frozen" in base_label:
+            # For frozen variants, put FOV inline with DQN and Frozen on new line
+            dqn_part = base_label.split(" (")[0]
+            frozen_part = base_label.split(" (", 1)[1]
+            return f"{dqn_part} (FOV {aperture})\n({frozen_part}"
+        else:
+            return f"{base_label} (FOV {aperture})"
     return label
 
 
