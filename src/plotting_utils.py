@@ -31,10 +31,10 @@ sys.path.append(os.getcwd())
 sns.set_palette(tc.tol_cset("vibrant"))
 
 # Set font sizes for better readability in papers
-fontsize = 14
-plt.rcParams["axes.labelsize"] = fontsize  # Axis labels
-plt.rcParams["xtick.labelsize"] = fontsize - 2  # X-tick labels
-plt.rcParams["ytick.labelsize"] = fontsize - 2  # Y-tick labels
+FONTSIZE = 14
+plt.rcParams["axes.labelsize"] = FONTSIZE  # Axis labels
+plt.rcParams["xtick.labelsize"] = FONTSIZE - 2  # X-tick labels
+plt.rcParams["ytick.labelsize"] = FONTSIZE - 2  # Y-tick labels
 
 # ---------------------
 # Constants
