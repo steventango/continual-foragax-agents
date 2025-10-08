@@ -54,8 +54,6 @@ class TrainConfig:
     num_updates: int = struct.field(pytree_node=False)
     env_id: str = struct.field(pytree_node=False)
     aperture_size: int = struct.field(pytree_node=False)
-    observation_type: str = struct.field(pytree_node=False)
-    # nowrap: bool = struct.field(pytree_node=False)
     use_sinusoidal_encoding: bool = struct.field(pytree_node=False)
     # ---- DYNAMIC (may vary per idx; arithmetic only) ----
     max_grad_norm: float
@@ -299,7 +297,7 @@ def update_step(update_state):
 
 
 def experiment(rng, config: TrainConfig):
-    env = make(config.env_id, aperture_size=(config.aperture_size, config.aperture_size), observation_type=config.observation_type) #, nowrap=config.nowrap)
+    env = make(config.env_id, aperture_size=(config.aperture_size, config.aperture_size))
 
     ### Initialize the environment states    
     log_env_state = LogEnvState(returned_returns=0,timestep=0)
@@ -564,8 +562,6 @@ def main():
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
             env_id=hypers["environment"]["env_id"],
-            observation_type=hypers["environment"].get("observation_type", "object"),
-            # nowrap=hypers["environment"].get("nowrap", hypers.get("no_wrap", False)),
             gamma=float(hypers['gamma']),
             gae_lambda=float(hypers['gae_lambda']),
             clip_eps=float(hypers['clip_eps']),
