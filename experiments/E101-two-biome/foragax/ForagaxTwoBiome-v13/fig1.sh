@@ -1,6 +1,6 @@
-python src/learning_curve.py experiments/E101-two-biome/foragax/ForagaxTwoBiome-v13 --plot-name fig1a_2biome_dqn_vs_search --filter-alg-apertures Search-Oracle Search-Brown-Avoid-Green DQN:9 DQN:15 DQN_world:15 --ylim 0 1 &
-python src/learning_curve.py experiments/E101-two-biome/foragax/ForagaxTwoBiome-v13 --plot-name fig1b_2biome_dqn_frozen --filter-alg-apertures DQN_frozen_5M:9 DQN_frozen_5M:15 DQN:9 DQN:15 DQN_world:15 --ylim 0 1 &
-python src/biome_stacked_bar.py experiments/E101-two-biome/foragax/ForagaxTwoBiome-v13 --plot-name fig1c_2biome_dqn_biome_occupancy --sort-seeds --filter-alg-apertures DQN:9 DQN_frozen_5M:9 DQN:15 DQN_frozen_5M:15 DQN_world:15 Search-Oracle --sample-types 999000:1000000:500 4999000:5000000:500 9999000:10000000:500 &
+python src/learning_curve.py experiments/E101-two-biome/foragax/ForagaxTwoBiome-v13 --plot-name fig1a_2biome_dqn_vs_search --filter-alg-apertures Search-Oracle Search-Brown-Avoid-Green DQN:9 DQN:15 --ylim 0 1 &
+python src/learning_curve.py experiments/E101-two-biome/foragax/ForagaxTwoBiome-v13 --plot-name fig1b_2biome_dqn_frozen --filter-alg-apertures DQN_frozen_5M:9 DQN_frozen_5M:15 DQN:9 DQN:15 --ylim 0 1 &
+python src/biome_stacked_bar.py experiments/E101-two-biome/foragax/ForagaxTwoBiome-v13 --plot-name fig1c_2biome_dqn_biome_occupancy --sort-seeds --filter-alg-apertures DQN:9 DQN_frozen_5M:9 DQN:15 DQN_frozen_5M:15 Search-Oracle --sample-types 999000:1000000:500 4999000:5000000:500 9999000:10000000:500 &
 wait
 
 # python src/biome_ternary.py experiments/E101-two-biome/foragax/ForagaxTwoBiome-v13 --plot-name afig1a --bars "DQN|9|999000:1000000:500|" "DQN_L2|9|999000:1000000:500|" "DQN_frozen_5M|9|999000:1000000:500|" "DQN_greedy_frozen_5M|9|999000:1000000:500|" "Search-Oracle||999000:1000000:500|" &
