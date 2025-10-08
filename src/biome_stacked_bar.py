@@ -290,7 +290,7 @@ def main(
     if ylim is not None:
         xlim = ylim
     else:
-        xlim = [0, 1]
+        xlim = (0.0, 1.0)
     for ax in axs.flatten():
         ax.set_xlim(xlim)
 
