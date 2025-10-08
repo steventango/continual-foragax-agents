@@ -15,7 +15,7 @@ import polars as pl
 from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 
-from utils.constants import LABEL_MAP
+from utils.constants import LABEL_MAP, TWO_BIOME_COLORS, WEATHER_BIOME_COLORS
 from utils.plotting import select_colors
 
 setDefaultConference("jmlr")
@@ -119,13 +119,37 @@ def main(
         unique_biomes = sorted(all_df["biome_id"].unique())
         available_biomes = unique_biomes
 
+    # Reorder biomes: morel (0), neither (-1), oyster (1) for TwoBiome; hot (0), neither (-1), cold (1) for Weather
+    if "TwoBiome" in env and set(available_biomes) == {-1, 0, 1}:
+        available_biomes = [0, -1, 1]
+    elif "Weather" in env and set(available_biomes) == {-1, 0, 1}:
+        available_biomes = [0, -1, 1]
+
     biome_metrics = [f"biome_{biome}_occupancy_{window}" for biome in available_biomes]
     biome_names = [
         biome_mapping.get(biome, f"Biome {biome}") for biome in available_biomes
     ]
-    metric_colors = dict(
-        zip(biome_metrics, select_colors(len(biome_metrics)), strict=True)
-    )
+    # Use specific biome colors: red for morel, blue for neither, yellow for oyster; or for weather: hot, neither, cold
+    if "TwoBiome" in env and set(available_biomes) == {-1, 0, 1}:
+        # available_biomes is now [0, -1, 1] -> [morel, neither, oyster]
+        biome_colors = [
+            TWO_BIOME_COLORS["Morel"],
+            TWO_BIOME_COLORS["Neither"],
+            TWO_BIOME_COLORS["Oyster"],
+        ]
+        metric_colors = dict(zip(biome_metrics, biome_colors, strict=True))
+    elif "Weather" in env and set(available_biomes) == {-1, 0, 1}:
+        # available_biomes is now [0, -1, 1] -> [hot, neither, cold]
+        biome_colors = [
+            WEATHER_BIOME_COLORS["Hot"],
+            WEATHER_BIOME_COLORS["Neither"],
+            WEATHER_BIOME_COLORS["Cold"],
+        ]
+        metric_colors = dict(zip(biome_metrics, biome_colors, strict=True))
+    else:
+        metric_colors = dict(
+            zip(biome_metrics, select_colors(len(biome_metrics)), strict=True)
+        )
 
     dd = data_definition(
         hyper_cols=[],
