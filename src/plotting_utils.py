@@ -44,15 +44,21 @@ plt.rcParams.update({
 })
 
 # Set font sizes for better readability in papers
-FONTSIZE = 20
+FONTSIZE = 24
 plt.rcParams["axes.labelsize"] = FONTSIZE  # Axis labels
-plt.rcParams["xtick.labelsize"] = FONTSIZE - 2  # X-tick labels
-plt.rcParams["ytick.labelsize"] = FONTSIZE - 2  # Y-tick labels
+plt.rcParams["xtick.labelsize"] = FONTSIZE  # X-tick labels
+plt.rcParams["ytick.labelsize"] = FONTSIZE  # Y-tick labels
 
 # ---------------------
 # Constants
 # ---------------------
 LABEL_MAP: Dict[str, str] = {
+    "ActorCriticMLP": "PPO",
+    "ActorCriticMLP-l2": "PPO (L2)",
+    "ActorCriticMLP-world": "PPO (World)",
+    "RealTimeActorCriticMLP": "RTU",
+    "RealTimeActorCriticMLP-l2": "RTU (L2)",
+    "RealTimeActorCriticMLP-world": "RTU (World)",
     "DQN": "DQN",
     "DQN_CReLU": "DQN (CReLU)",
     "DQN_L2": "DQN (L2)",
@@ -64,7 +70,7 @@ LABEL_MAP: Dict[str, str] = {
     "DQN_privileged": "DQN (Privileged)",
     "DQN_world": "DQN (World)",
     "Search-Brown": "Search (Brown)",
-    "Search-Brown-Avoid-Green": "Search (Brown, Avoid Green)",
+    "Search-Brown-Avoid-Green": "Search (+B-G)",
     "Search-Morel": "Search (Morel)",
     "Search-Morel-Avoid-Green": "Search (Morel, Avoid Green)",
     "Search-Nearest": "Search (Nearest)",
