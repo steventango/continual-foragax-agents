@@ -195,8 +195,8 @@ def main(
         plot_name=plot_name or f"{env}_{metric}_bar",
         save_type=save_type,
         f=fig,
-        width=2,
-        height_ratio=2/len(bar_labels),
+        width=len(bar_labels) / 2,
+        height_ratio=1 / 3 / len(bar_labels),
     )
 
 
