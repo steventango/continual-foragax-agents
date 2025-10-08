@@ -246,9 +246,14 @@ def main(
     tax.left_corner_label(biome_names[2], fontsize=12)
     tax.right_corner_label(biome_names[0], fontsize=12)
     tax.top_corner_label(biome_names[1], fontsize=12)
-    # Plot KDEs separately for each bar that has multiple points
+    # Plot KDEs with a single kdeplot call
     triangle_vertices = [(0, 0), (100, 0), (50, 86.60254037844386)]
     path = mpath.Path(triangle_vertices)
+
+    all_x_coords = []
+    all_y_coords = []
+    hue_values = []
+    bar_indices_with_kde = []
 
     for bar_idx, points_list in enumerate(bar_points):
         if len(points_list) > 1:
@@ -256,20 +261,37 @@ def main(
             x_coords = cartesian[:, 0]
             y_coords = cartesian[:, 1]
 
-            sns.kdeplot(
-                x=x_coords,
-                y=y_coords,
-                ax=tax.ax,
-                color=bar_colors[bar_idx],
-                alpha=0.7,
-                bw_adjust=0.6,
-                levels=10,
-                clip=(0, 100),
-                fill=True,
-            )
+            all_x_coords.extend(x_coords)
+            all_y_coords.extend(y_coords)
+            hue_values.extend([bar_idx] * len(x_coords))
+            bar_indices_with_kde.append(bar_idx)
 
-            # Clip the KDE collection to the triangle
-            collection = tax.ax.collections[-1]
+    if all_x_coords:  # Only plot if there's data
+        # Create a DataFrame for seaborn
+        import pandas as pd
+
+        kde_df = pd.DataFrame({"x": all_x_coords, "y": all_y_coords, "hue": hue_values})
+
+        # Create color palette as a dict mapping hue values to colors
+        palette = {idx: bar_colors[idx] for idx in bar_indices_with_kde}
+
+        sns.kdeplot(
+            data=kde_df,
+            x="x",
+            y="y",
+            hue="hue",
+            ax=tax.ax,
+            palette=palette,
+            alpha=0.7,
+            bw_adjust=0.6,
+            levels=10,
+            clip=(0, 100),
+            fill=True,
+            legend=False,  # We'll handle legend manually
+        )
+
+        # Clip all KDE collections to the triangle
+        for collection in tax.ax.collections[-len(bar_indices_with_kde) :]:
             collection.set_clip_path(path, transform=tax.ax.transData)
 
     # Plot individual data points
