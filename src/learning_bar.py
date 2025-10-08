@@ -20,9 +20,11 @@ from utils.plotting import select_colors
 setDefaultConference("jmlr")
 setFonts(20)
 
+
 def format_metric_name(metric: str) -> str:
     """Format metric name for display (e.g., 'mean_reward' -> 'Mean Reward')."""
-    return metric.replace('_', ' ').title()
+    return metric.replace("_", " ").title()
+
 
 def main(
     experiment_path: Path,
@@ -99,7 +101,9 @@ def main(
                             if bar_seeds
                             else "",
                             "bar_aperture": bar_aperture,
-                            "bar_aperture_str": str(bar_aperture) if bar_aperture else "",
+                            "bar_aperture_str": str(bar_aperture)
+                            if bar_aperture
+                            else "",
                             "alg_base": alg_base,
                             "aperture": aperture,
                             "alg": alg,
@@ -157,7 +161,9 @@ def main(
         else:
             mean_val = np.mean(seed_values)
             # Use scipy.stats.bootstrap for 95% confidence interval
-            boot_result = bootstrap((seed_values,), np.mean, confidence_level=0.95, n_resamples=1000)
+            boot_result = bootstrap(
+                (seed_values,), np.mean, confidence_level=0.95, n_resamples=1000
+            )
             ci_lower = boot_result.confidence_interval.low
             ci_upper = boot_result.confidence_interval.high
             lower_err = mean_val - ci_lower
@@ -179,7 +185,7 @@ def main(
         width,
         color=colors,
         yerr=[errors_lower, errors_upper],
-        capsize=3
+        capsize=3,
     )
 
     ax.set_xlabel("Configuration")
