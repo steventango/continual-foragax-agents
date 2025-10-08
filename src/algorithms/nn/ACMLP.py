@@ -1,0 +1,67 @@
+# Modified from esraaelelimy/continuing_ppo
+import flax.linen as nn 
+from typing import Optional, Tuple, Union, Any, Sequence, Dict
+from flax.linen.initializers import constant, orthogonal
+import jax.numpy as jnp
+import numpy as np
+import distrax
+import functools
+from algorithms.nn.rtus.rtus import *
+
+
+class ActorCriticMLP(nn.Module):
+    action_dim: int
+    d_hidden: int = 192
+    hidden_size: int = 64
+    activation: str = "tanh"
+    cont: bool = False
+    use_sinusoidal_encoding: bool = False
+    @nn.compact
+    def __call__(self, hidden, obs):
+        '''
+        hidden: Any
+        obs: ((batch_size, obs_dim), (batch_size, action_dim), (batch_size, 1))
+        '''
+        if self.activation == "relu":
+            activation = nn.relu
+        else:
+            activation = nn.tanh
+
+        (obs, last_action_encoded, last_reward, sine, cosine) = obs
+        if self.use_sinusoidal_encoding:
+            last_reward_plus = jnp.concatenate((last_reward, sine, cosine), axis=-1)
+        else:
+            last_reward_plus = last_reward
+        obs_hidden_size = self.hidden_size - last_action_encoded.shape[-1] - last_reward_plus.shape[-1]
+        obs = jnp.reshape(obs, (obs.shape[0], -1))
+        
+        actor_embedding = nn.Dense(obs_hidden_size, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="actor_dense1")(obs)
+        actor_embedding = activation(actor_embedding)
+        actor_embedding = jnp.concatenate((actor_embedding, last_action_encoded, last_reward_plus), axis=-1)
+        
+        critic_embedding = nn.Dense(obs_hidden_size, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="critic_dense1")(obs)
+        critic_embedding = activation(critic_embedding)
+        critic_embedding = jnp.concatenate((critic_embedding, last_action_encoded, last_reward_plus), axis=-1)
+        
+        actor_embedding = nn.Dense(self.d_hidden, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="actor_dense2")(actor_embedding)
+        critic_embedding = nn.Dense(self.d_hidden, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="critic_dense2")(critic_embedding)
+        
+        actor_mean = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="actor_dense3")(actor_embedding)
+        actor_mean = activation(actor_mean)
+        actor_mean = nn.Dense(self.action_dim, kernel_init=orthogonal(0.01), bias_init=constant(0.0), name="actor_mean")(actor_mean)
+        #actor_mean: (batch_size, action_dim)
+        if self.cont:
+            actor_logtstd = self.param("log_std", nn.initializers.zeros, (self.action_dim,))
+            pi = distrax.MultivariateNormalDiag(actor_mean, jnp.exp(actor_logtstd))
+        else:
+            pi = distrax.Categorical(logits=actor_mean)
+
+        critic = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="critic_dense3")(critic_embedding)
+        critic = activation(critic)
+        critic = nn.Dense(1, kernel_init=orthogonal(1.0), bias_init=constant(0.0), name="critic_value")(critic)
+        #critic: (batch_size, 1)
+        return hidden, pi, jnp.squeeze(critic, axis=-1)
+    
+    @staticmethod
+    def initialize_memory(batch_size, d_hidden, d_input):
+        return None

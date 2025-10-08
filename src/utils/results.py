@@ -54,7 +54,28 @@ def read_metrics_from_data(
         with np.load(path) as data:
             data_dict = {k: np.asarray(data[k]) for k in data.keys()}
         del data
-        datas[run_id] = pl.DataFrame(data_dict)
+
+        lengths = {k: v.shape[0] for k, v in data_dict.items()}
+        if len(lengths) == 0:
+            continue
+        base_key = 'rewards' if 'rewards' in lengths else max(lengths, key=lambda k: lengths[k])
+        base_len = lengths[base_key]
+
+        aligned = {}
+        for k, arr in data_dict.items():
+            n = arr.shape[0]
+            # if k == "object_collected_id" or k =="biome_id":
+            #     continue
+            if n == base_len:
+                aligned[k] = arr
+                continue
+
+            if base_len != n:
+                ratio = base_len // n
+                aligned[k] = np.repeat(arr, ratio, axis=0)
+                continue
+
+        datas[run_id] = pl.DataFrame(aligned)
         datas[run_id] = datas[run_id].with_columns(
             pl.lit(run_id).alias("id"),
             pl.lit(np.arange(len(datas[run_id]))).alias("frame"),
