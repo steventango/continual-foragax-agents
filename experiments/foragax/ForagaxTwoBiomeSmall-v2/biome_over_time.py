@@ -10,7 +10,7 @@ from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 
 from experiment.ExperimentModel import ExperimentModel
-from utils.constants import BIOME_COLORS, BIOME_DEFINITIONS, ENV_MAP
+from utils.constants import BIOME_DEFINITIONS, ENV_MAP, TWO_BIOME_COLORS
 from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
@@ -31,7 +31,7 @@ def plot_biome_occupancy_on_ax(ax, df, biomes, alg, env, aperture):
             occupancy_col = f"{biome_name}_occupancy"
             if occupancy_col in seed_df.columns:
                 occupancy = seed_df[occupancy_col]
-                color = BIOME_COLORS.get(biome_name)
+                color = TWO_BIOME_COLORS.get(biome_name)
                 ax.plot(frames, occupancy, color=color, alpha=0.2, linewidth=0.2)
 
     # Aggregate and plot mean
@@ -47,7 +47,7 @@ def plot_biome_occupancy_on_ax(ax, df, biomes, alg, env, aperture):
         if mean_col in agg_df.columns:
             frames = agg_df["frame"]
             means = agg_df[mean_col]
-            color = BIOME_COLORS.get(biome_name)
+            color = TWO_BIOME_COLORS.get(biome_name)
             ax.plot(frames, means, color=color, linewidth=1.0)
 
     ax.set_xlabel("Time")
@@ -152,7 +152,7 @@ if __name__ == "__main__":
                 plot_biome_occupancy_on_ax(ax, df, biomes, alg, env, aperture)
 
         handles, labels = [], []
-        for name, color in BIOME_COLORS.items():
+        for name, color in TWO_BIOME_COLORS.items():
             handles.append(Rectangle((0, 0), 1, 1, color=color))
             labels.append(name)
 

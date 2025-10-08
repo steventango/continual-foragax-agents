@@ -8,7 +8,7 @@ from PyExpPlotting.matplot import save, setDefaultConference, setFonts
 from rlevaluation.config import data_definition
 
 from experiment.ExperimentModel import ExperimentModel
-from utils.constants import BIOME_COLORS, ENV_MAP
+from utils.constants import ENV_MAP, TWO_BIOME_COLORS
 from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
@@ -97,7 +97,7 @@ if __name__ == "__main__":
                     lambda x: x[0],
                     avg_percentages.values()
                 ))
-                colors = [BIOME_COLORS.get(label) for label in labels]
+                colors = [TWO_BIOME_COLORS.get(label) for label in labels]
 
                 ax.pie(
                     sizes,
@@ -110,7 +110,7 @@ if __name__ == "__main__":
                 ax.axis("equal")
 
         handles, labels = [], []
-        for name, color in BIOME_COLORS.items():
+        for name, color in TWO_BIOME_COLORS.items():
             handles.append(Rectangle((0, 0), 1, 1, color=color))
             labels.append(name)
 
