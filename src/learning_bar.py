@@ -177,7 +177,9 @@ def main(
     # Sort by metric if requested
     if sort_by_metric:
         # Create list of (mean_reward, index) and sort descending
-        sorted_indices = sorted(range(len(mean_rewards)), key=lambda i: mean_rewards[i], reverse=True)
+        sorted_indices = sorted(
+            range(len(mean_rewards)), key=lambda i: mean_rewards[i], reverse=True
+        )
         bars = [bars[i] for i in sorted_indices]
         bar_labels = [bar_labels[i] for i in sorted_indices]
         mean_rewards = [mean_rewards[i] for i in sorted_indices]
