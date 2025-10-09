@@ -11,6 +11,7 @@
             "seed_offset": 0
         },
         "freeze_after_steps": 1000000,
+        "use_sinusoidal_encoding": true,
         "gamma": 0.99,
         "gae_lambda": 0.95,
         "rollout_steps": 2048,
