@@ -11,6 +11,7 @@
             "seed_offset": 0
         },
         "freeze_after_steps": 5000000,
+        "use_sinusoidal_encoding": true,
         "gamma": 0.99,
         "gae_lambda": 0.95,
         "rollout_steps": 2048,
@@ -20,7 +21,7 @@
         "gradient_clipping": true,
         "max_grad_norm": 0.5,
         "vf_coef": 0.5,
-        "entropy_coef": 0.01,
+        "entropy_coef": 0.001,
         "optimizer_actor": {
             "name": "Adam",
             "alpha": 0.0003,

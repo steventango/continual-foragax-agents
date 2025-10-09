@@ -23,5 +23,6 @@
     "representation.d_hidden": 192,
     "representation.hidden": 64,
     "rollout_steps": 2048,
+    "use_sinusoidal_encoding": 1,
     "vf_coef": 0.5
 }
