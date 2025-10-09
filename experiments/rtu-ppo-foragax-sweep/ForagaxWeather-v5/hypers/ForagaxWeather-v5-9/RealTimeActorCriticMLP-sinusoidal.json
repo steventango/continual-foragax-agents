@@ -1,6 +1,6 @@
 {
     "clip_eps": 0.2,
-    "entropy_coef": 0.01,
+    "entropy_coef": 0.001,
     "environment.aperture_size": 9,
     "environment.env_id": "ForagaxWeather-v5",
     "epochs": 4,
@@ -23,5 +23,6 @@
     "representation.d_hidden": 192,
     "representation.hidden": 64,
     "rollout_steps": 2048,
+    "use_sinusoidal_encoding": 1,
     "vf_coef": 0.5
 }
