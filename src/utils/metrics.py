@@ -60,7 +60,7 @@ def calculate_object_traces(df: pl.DataFrame):
 
     max_obj = df.select(pl.col("object_collected_id").max()).item()
 
-    for i in range(max_obj + 1):
+    for i in range(1, max_obj + 1):
         df = df.with_columns(
             (pl.col("object_collected_id") == i)
             .cast(pl.Float32)
