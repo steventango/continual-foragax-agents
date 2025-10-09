@@ -131,6 +131,36 @@ def get_object_mapping(env: str) -> Dict[int, str]:
     raise ValueError(f"Unknown object mapping for environment: {env}")
 
 
+def get_ylabel_mapping(env: str) -> Dict[str, str]:
+    """Get environment-specific ylabel mappings for metrics."""
+    base_mapping = {
+        "Ewm Reward": "Average Reward",
+    }
+
+    if "Weather" in env:
+        weather_mapping = {
+            "Object Trace 1 2": r"Hot Trace ($10^{-2}$)",
+            "Object Trace 2 2": r"Cold Trace ($10^{-2}$)",
+            "Object Trace 1 1": r"Hot Trace ($10^{-1}$)",
+            "Object Trace 2 1": r"Cold Trace ($10^{-1}$)",
+        }
+        base_mapping.update(weather_mapping)
+    elif "TwoBiome" in env:
+        twobiome_mapping = {
+            "Object Trace 1 2": r"Morel Trace ($10^{-2}$)",
+            "Object Trace 2 2": r"Oyster Trace ($10^{-2}$)",
+            "Object Trace 3 2": r"Deathcap Trace ($10^{-1}$)",
+            "Object Trace 4 2": r"Fake Trace ($10^{-1}$)",
+            "Object Trace 1 1": r"Morel Trace ($10^{-1}$)",
+            "Object Trace 2 1": r"Oyster Trace ($10^{-1}$)",
+            "Object Trace 3 1": r"Deathcap Trace ($10^{-1}$)",
+            "Object Trace 4 1": r"Fake Trace ($10^{-1}$)",
+        }
+        base_mapping.update(twobiome_mapping)
+
+    return base_mapping
+
+
 # ---------------------
 # Data Loading
 # ---------------------
