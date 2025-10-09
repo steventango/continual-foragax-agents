@@ -23,14 +23,14 @@ def process_alg_result(alg_result: Result, group, aperture):
     intervals = [1_000, 10_000, 100_000, 500_000, 1_000_000]
     n_samples = 500
 
-    sample_types = (
-        ["every"]
-        + [
-            (total - interval, total, n_samples)
-            for total, interval in product(targets, intervals)
-        ]
-        + [(total, total + interval, n_samples) for total, interval in product(targets, intervals)]
-    )
+    sample_types = []
+    sample_types.append("empty")
+    for total, interval in product(targets, intervals):
+        start, end = total - interval, total
+        if start >= 0:
+            sample_types.append((start, end, n_samples))
+        start, end = total, total + interval
+        sample_types.append((start, end, n_samples))
 
     df = alg_result.load(sample_type=sample_types)  # type: ignore
     if df is None:

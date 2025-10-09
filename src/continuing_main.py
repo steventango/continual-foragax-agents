@@ -153,6 +153,7 @@ n = exp.total_steps
 if args.video:
     n = 1_000
     from gymnasium.utils.save_video import save_video
+
     first_glue = glues[0]
     first_idx = indices[0]
     first_state = first_glue._start(first_glue.state)[0]
@@ -173,11 +174,15 @@ if args.video:
 
     @scan_tqdm(n)
     def maybe_video_step(state, _):
-        state, _ = jax.lax.scan(no_video_step, state, jnp.arange(video_every - video_length))
+        state, _ = jax.lax.scan(
+            no_video_step, state, jnp.arange(video_every - video_length)
+        )
         state, frames = jax.lax.scan(video_step, state, jnp.arange(video_length))
         return state, frames
 
-    _, framess = jax.lax.scan(maybe_video_step, first_state, jnp.arange(0, n, video_every))
+    _, framess = jax.lax.scan(
+        maybe_video_step, first_state, jnp.arange(0, n, video_every)
+    )
 
     framess = np.asarray(framess)
     for i, frames in enumerate(framess):
@@ -235,6 +240,11 @@ if isinstance(glues[0].environment, Foragax):
     datas["pos"] = np.empty((len(indices), n, 2), dtype=np.int32)
     datas["biome_id"] = np.empty((len(indices), n), dtype=np.int32)
     datas["object_collected_id"] = np.empty((len(indices), n), dtype=np.int32)
+    if "Weather" in glues[0].environment.env.name:
+        datas["temperatures"] = np.empty(
+            (len(indices), len(glues[0].environment.env.objects)), dtype=np.float16
+        )
+
     def get_data(carry, interaction):
         weight_change, squared_td_error, abs_td_error, loss = get_agent_metrics(
             carry.agent_state, interaction.reward.shape
@@ -249,6 +259,8 @@ if isinstance(glues[0].environment, Foragax):
             "abs_td_error": abs_td_error,
             "loss": loss,
         }
+        if "Weather" in carry.environment.env.name:
+            data["temperatures"] = interaction.extra["temperatures"]
         return data
 else:
     def get_data(carry, interaction):
@@ -287,13 +299,17 @@ for i, idx in enumerate(indices):
                         datas[key][i, : len(data_idx[key])] = data_idx[key]
             except Exception:
                 traceback.print_exc()
-                logger.warning(f"Failed to load checkpoint for index {idx}, starting fresh")
+                logger.warning(
+                    f"Failed to load checkpoint for index {idx}, starting fresh"
+                )
                 start_step = None
                 save_every = 1_000_000
                 datas = {}
                 datas["rewards"] = np.empty((len(indices), n), dtype=np.float16)
                 datas["weight_change"] = np.empty((len(indices), n), dtype=np.float16)
-                datas["squared_td_error"] = np.empty((len(indices), n), dtype=np.float16)
+                datas["squared_td_error"] = np.empty(
+                    (len(indices), n), dtype=np.float16
+                )
                 datas["abs_td_error"] = np.empty((len(indices), n), dtype=np.float16)
                 datas["loss"] = np.empty((len(indices), n), dtype=np.float16)
                 if isinstance(glues[0].environment, Foragax):
@@ -302,6 +318,11 @@ for i, idx in enumerate(indices):
                     datas["object_collected_id"] = np.empty(
                         (len(indices), n), dtype=np.int32
                     )
+                    if "Weather" in glues[0].environment.env.name:
+                        datas["temperatures"] = np.empty(
+                            (len(indices), len(glues[0].environment.env.objects)),
+                            dtype=np.float16,
+                        )
 
 if len(glues) > 1:
     # combine states
@@ -360,9 +381,7 @@ for current_step in range(start_step, n, save_every):
         else:
             glue_state_idx = glue_states
 
-        data_to_save = tree_map(
-            lambda d: d[i, : current_step + steps_in_iter], datas
-        )
+        data_to_save = tree_map(lambda d: d[i, : current_step + steps_in_iter], datas)
 
         # Write temporary files
         with lzma.open(glue_state_path_tmp, "wb") as f:
