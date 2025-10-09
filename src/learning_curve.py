@@ -167,7 +167,7 @@ def main():
     ax.set_xlabel(r"Time steps $(\times 10^6)$")
     ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=1))
     ax.xaxis.set_major_formatter(
-        ticker.FuncFormatter(lambda x, _: f"{int(x // 1000000)}")
+        ticker.FuncFormatter(lambda x, _: f"{x / 1000000:g}")
     )
     despine(ax)
 
