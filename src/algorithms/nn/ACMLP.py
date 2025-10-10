@@ -16,6 +16,7 @@ class ActorCriticMLP(nn.Module):
     activation: str = "tanh"
     cont: bool = False
     use_sinusoidal_encoding: bool = False
+    use_reward_trace: bool = False
     @nn.compact
     def __call__(self, hidden, obs):
         '''
@@ -27,11 +28,13 @@ class ActorCriticMLP(nn.Module):
         else:
             activation = nn.tanh
 
-        (obs, last_action_encoded, last_reward, sine, cosine) = obs
+        (obs, last_action_encoded, last_reward, sine, cosine, reward_trace) = obs
+        last_reward_plus = last_reward
         if self.use_sinusoidal_encoding:
-            last_reward_plus = jnp.concatenate((last_reward, sine, cosine), axis=-1)
-        else:
-            last_reward_plus = last_reward
+            last_reward_plus = jnp.concatenate((last_reward_plus, sine, cosine), axis=-1)
+        if self.use_reward_trace:
+            last_reward_plus = jnp.concatenate((last_reward_plus, reward_trace), axis=-1)
+
         obs_hidden_size = self.hidden_size - last_action_encoded.shape[-1] - last_reward_plus.shape[-1]
         obs = jnp.reshape(obs, (obs.shape[0], -1))
         
