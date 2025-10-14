@@ -242,7 +242,7 @@ if isinstance(glues[0].environment, Foragax):
     datas["object_collected_id"] = np.empty((len(indices), n), dtype=np.int32)
     if "Weather" in glues[0].environment.env.name:
         datas["temperatures"] = np.empty(
-            (len(indices), len(glues[0].environment.env.objects)), dtype=np.float16
+            (len(indices), n, len(glues[0].environment.env.objects)), dtype=np.float16
         )
 
     def get_data(carry, interaction):
@@ -259,7 +259,7 @@ if isinstance(glues[0].environment, Foragax):
             "abs_td_error": abs_td_error,
             "loss": loss,
         }
-        if "Weather" in carry.environment.env.name:
+        if "Weather" in glues[0].environment.env.name:
             data["temperatures"] = interaction.extra["temperatures"]
         return data
 else:
@@ -320,7 +320,7 @@ for i, idx in enumerate(indices):
                     )
                     if "Weather" in glues[0].environment.env.name:
                         datas["temperatures"] = np.empty(
-                            (len(indices), len(glues[0].environment.env.objects)),
+                            (len(indices), n, len(glues[0].environment.env.objects)),
                             dtype=np.float16,
                         )
 

@@ -16,10 +16,8 @@ class EnvState:
 
 class Foragax(BaseEnvironment):
     def __init__(self, seed: int, **env_params):
-        privileged = env_params.pop("privileged", False)
         self.env = make(**env_params)
         self.seed = seed
-        self.privileged = privileged
         self.state = EnvState(state=None, key=jax.random.key(seed))
 
     def start(self) -> jax.Array:
@@ -43,6 +41,4 @@ class Foragax(BaseEnvironment):
     def _step(self, state: EnvState, action: jax.Array):
         state.key, env_step_key = jax.random.split(state.key)
         obs, state.state, reward, done, info = self.env.step(env_step_key, state.state, action)
-        if self.privileged:
-            obs = obs * info["temperature"]
         return state, (obs, reward, done, done, info)
