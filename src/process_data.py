@@ -24,7 +24,7 @@ def process_alg_result(alg_result: Result, group, aperture):
     n_samples = 500
 
     sample_types = []
-    sample_types.append("empty")
+    sample_types.append("every")
     for total, interval in product(targets, intervals):
         start, end = total - interval, total
         if start >= 0:

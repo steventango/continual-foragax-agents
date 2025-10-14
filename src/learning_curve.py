@@ -81,12 +81,14 @@ def main():
     # Load and filter data
     df = load_data(args.experiment_path)
     logger.info(f"After load_data: {df.select('alg').unique().to_pandas()}")
+    logger.info(f"DataFrame columns: {df.columns}")
 
     df = filter_by_alg_aperture(df, args.filter_alg_apertures)
     logger.info(
         f"After filter_by_alg_aperture: {df.select('alg').unique().to_pandas()}"
     )
 
+    logger.info(f"Sample types present: {df.select('sample_type').unique().to_pandas()}")
     df = df.filter(pl.col("sample_type") == args.sample_type)
     logger.info(f"After sample_type filter: {df.select('alg').unique().to_pandas()}")
 
@@ -110,6 +112,12 @@ def main():
         df = df.filter(pl.col("seed").is_in(args.filter_seeds))
 
     df = df.filter(pl.col("frame") >= args.start_frame)
+
+    # # Patch temperature data for Weather environments (after filtering to reduce memory usage)
+    env = df["env"][0]
+    # if "Weather" in env:
+    #     df = patch_temperature_data(df)
+    #     logger.info("Patched temperature data into dataframe")
 
     logger.info(f"Final df shape: {df.shape}")
     logger.info(f"Final unique {hue_col}: {df.select(hue_col).unique().to_pandas()}")

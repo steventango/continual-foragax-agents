@@ -1,6 +1,6 @@
 from dataclasses import replace
 from functools import partial
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import jax
 import jax.numpy as jnp
@@ -29,7 +29,7 @@ class SearchAgent(BaseAgent):
         self.state = AgentState(
             key=self.key,
         )
-        self.channel_priorities = params["channel_priorities"]
+        self.channel_priorities = params.get("channel_priorities", {})
         self.channel_priorities = {
             int(k): v for k, v in self.channel_priorities.items()
         }
@@ -39,9 +39,16 @@ class SearchAgent(BaseAgent):
         self.priorities_array = jnp.array(
             [self.channel_priorities.get(i, 0) for i in range(max_channel + 1)]
         )
-        self.max_priority = max(self.channel_priorities.values())
+        self.temperature_prioritization = params.get(
+            "temperature_prioritization", False
+        )
+        if len(self.channel_priorities):
+            self.max_priority = max(self.channel_priorities.values())
+        else:
+            self.max_priority = observations[-1]
         self.mode = params.get("mode", "aperture")
         self.nowrap = params.get("nowrap", False)
+        # new option: use temperatures from extra to determine priorities
         # priorities:
         # higher values = higher priority
         # zero = ignore
@@ -66,10 +73,8 @@ class SearchAgent(BaseAgent):
         self,
         state: AgentState,
         obs: jax.Array,
+        extra: Optional[Dict[str, jax.Array]] = None,
     ) -> tuple[AgentState, jax.Array]:
-        is_negative = jnp.any(obs < 0)
-        obs = (obs != 0).astype(jnp.int32)
-
         height, width, num_channels = obs.shape
 
         if self.mode == "world":
@@ -82,15 +87,21 @@ class SearchAgent(BaseAgent):
         # Create priority map: higher values = higher priority
         priority_map = jnp.zeros((height, width))
 
-        priorities = self.priorities_array[:num_channels]
-        flipped_priorities = -priorities
-        use_priorities = jax.lax.cond(
-            is_negative, lambda: flipped_priorities, lambda: priorities
-        )
+        if self.temperature_prioritization and extra is not None:
+            # Skip temperature of empty object
+            temps = extra["temperatures"][1:]
+            # Assign descending integer priorities (highest temp -> largest priority)
+            order = jnp.argsort(temps, descending=True)
+            priorities = jnp.zeros(num_channels, dtype=jnp.int32)
+            priorities = priorities.at[order].set(jnp.arange(num_channels, 0, -1))
+            # If negative temperature, set priority to -1 (obstacle)
+            priorities = jnp.where(temps < 0, -1, priorities)
+        else:
+            priorities = self.priorities_array[:num_channels]
 
         # For each channel (object type), add its priority to locations where that object exists
         for channel in range(num_channels):
-            channel_priority = use_priorities[channel]
+            channel_priority = priorities[channel]
             priority_map += obs[:, :, channel] * channel_priority
 
         # Find the best target using BFS
@@ -302,7 +313,7 @@ class SearchAgent(BaseAgent):
         obs: jax.Array,
         extra: Dict[str, jax.Array],
     ):
-        return self.act(state, obs)
+        return self.act(state, obs, extra)
 
     def end(self, reward: jax.Array, extra: Dict[str, jax.Array]):
         self.state = self._end(self.state, reward, extra)
