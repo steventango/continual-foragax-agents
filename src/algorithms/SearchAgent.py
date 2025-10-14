@@ -88,6 +88,7 @@ class SearchAgent(BaseAgent):
         priority_map = jnp.zeros((height, width))
 
         if self.temperature_prioritization and extra is not None:
+            # Skip temperature of empty object
             temps = extra["temperatures"][1:]
             # Assign descending integer priorities (highest temp -> largest priority)
             order = jnp.argsort(temps, descending=True)
