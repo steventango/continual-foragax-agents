@@ -151,16 +151,24 @@ n = exp.total_steps
 
 # render video of first env
 if args.video:
-    n = 1_000
     from gymnasium.utils.save_video import save_video
 
     first_glue = glues[0]
     first_idx = indices[0]
     first_state = first_glue._start(first_glue.state)[0]
 
-    video_length = 100
-    video_every = 100
+    video_length = 1_000
+    video_every = 1_000_000
 
+    @scan_tqdm(
+        video_every - video_length,
+        print_rate=min((video_every - video_length) // 20, 10000),
+    )
+    def no_video_step(state, _):
+        next_state, _ = first_glue._step(state)
+        return next_state, None
+
+    @scan_tqdm(video_length, print_rate=min(video_length // 20, 10000))
     def video_step(state, _):
         frame = first_glue.environment.env.render(
             state.env_state.state, None, render_mode="world"
@@ -168,31 +176,21 @@ if args.video:
         next_state, _ = first_glue._step(state)
         return next_state, frame
 
-    def no_video_step(state, _):
-        next_state, _ = first_glue._step(state)
-        return next_state, None
+    state = first_state
 
-    @scan_tqdm(n)
-    def maybe_video_step(state, _):
+    for i in jnp.arange(n // video_every):
         state, _ = jax.lax.scan(
             no_video_step, state, jnp.arange(video_every - video_length)
         )
         state, frames = jax.lax.scan(video_step, state, jnp.arange(video_length))
-        return state, frames
-
-    _, framess = jax.lax.scan(
-        maybe_video_step, first_state, jnp.arange(0, n, video_every)
-    )
-
-    framess = np.asarray(framess)
-    for i, frames in enumerate(framess):
-        frames = [frames[i] for i in range(frames.shape[0])]
+        frames = np.asarray(frames)
 
         context = exp.buildSaveContext(first_idx, base=args.save_path)
         start_frame = video_every * (i + 1) - video_length
         end_frame = start_frame + video_length
         video_path = context.resolve(f"videos/{first_idx}")
         context.ensureExists(video_path, is_file=True)
+        frames = [frames[i] for i in range(video_length)]
         save_video(
             frames,
             video_path,
