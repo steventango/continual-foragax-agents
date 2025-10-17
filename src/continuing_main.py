@@ -302,20 +302,24 @@ for current_step in range(start_step, n, save_every):
     if steps_in_iter <= 0:
         break
 
+    no_video_steps_count = max(steps_in_iter - video_length, 0)
+
     @scan_tqdm(n, print_rate=min(n // 20, 10000), initial=current_step)
     def step(carry, _):
         carry, interaction = v_step(carry)
         data = get_data(carry, interaction)
         return carry, data
 
-    @scan_tqdm(n, print_rate=min(n // 20, 10000), initial=current_step + no_video_steps)
+    @scan_tqdm(
+        n, print_rate=min(n // 20, 10000), initial=current_step + no_video_steps_count
+    )
     def video_step(carry, _):
         frame = v_render(carry)
         carry, interaction = v_step(carry)
         data = get_data(carry, interaction)
         return carry, (data, frame)
 
-    no_video_steps = jnp.arange(max(steps_in_iter - video_length, 0))
+    no_video_steps = jnp.arange(no_video_steps_count)
     glue_states, data_chunk = jax.lax.scan(step, glue_states, no_video_steps, unroll=1)
     video_steps = jnp.arange(video_length)
     glue_states, (data_chunk_video, frames) = jax.lax.scan(video_step, glue_states, video_steps, unroll=1)
