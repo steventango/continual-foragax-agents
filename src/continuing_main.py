@@ -13,6 +13,7 @@ import traceback
 import jax
 import jax.numpy as jnp
 import numpy as np
+from gymnasium.utils.save_video import save_video
 from jax.tree_util import tree_map
 from jax_tqdm.scan_pbar import scan_tqdm
 from ml_instrumentation.Collector import Collector
@@ -37,7 +38,6 @@ parser.add_argument("--save_path", type=str, default="./")
 parser.add_argument("--checkpoint_path", type=str, default="./checkpoints/")
 parser.add_argument("--silent", action="store_true", default=False)
 parser.add_argument("--gpu", action="store_true", default=False)
-parser.add_argument("--video", action="store_true", default=False)
 
 args = parser.parse_args()
 
@@ -132,13 +132,22 @@ for idx in indices:
     glue = chk.build("glue", lambda: RlGlue(agent, env))
     glues.append(glue)
 
+assert first_hypers is not None
+
+def render(carry):
+    return glues[0].environment.env.render(
+        carry.env_state.state, None, render_mode="world"
+    )
+
 if len(glues) > 1:
     # vmap glue methods
     v_start = jax.vmap(glues[0]._start)
     v_step = jax.vmap(glues[0]._step)
+    v_render = jax.vmap(render)
 else:
     v_start = glues[0]._start
     v_step = glues[0]._step
+    v_render = render
 
 total_setup_time = time.time() - start_time
 num_indices = len(indices)
@@ -149,62 +158,17 @@ logger.debug(
 
 n = exp.total_steps
 
-# render video of first env
-if args.video:
-    from gymnasium.utils.save_video import save_video
-
-    first_glue = glues[0]
-    first_idx = indices[0]
-    first_state = first_glue._start(first_glue.state)[0]
-
-    video_length = 1_000
-    video_every = 1_000_000
-
-    @scan_tqdm(
-        video_every - video_length,
-        print_rate=min((video_every - video_length) // 20, 10000),
-    )
-    def no_video_step(state, _):
-        next_state, _ = first_glue._step(state)
-        return next_state, None
-
-    @scan_tqdm(video_length, print_rate=min(video_length // 20, 10000))
-    def video_step(state, _):
-        frame = first_glue.environment.env.render(
-            state.env_state.state, None, render_mode="world"
-        )
-        next_state, _ = first_glue._step(state)
-        return next_state, frame
-
-    state = first_state
-
-    for i in jnp.arange(n // video_every):
-        state, _ = jax.lax.scan(
-            no_video_step, state, jnp.arange(video_every - video_length)
-        )
-        state, frames = jax.lax.scan(video_step, state, jnp.arange(video_length))
-        frames = np.asarray(frames)
-
-        context = exp.buildSaveContext(first_idx, base=args.save_path)
-        start_frame = video_every * (i + 1) - video_length
-        end_frame = start_frame + video_length
-        video_path = context.resolve(f"videos/{first_idx}")
-        context.ensureExists(video_path, is_file=True)
-        frames = [frames[i] for i in range(video_length)]
-        save_video(
-            frames,
-            video_path,
-            name_prefix=f"{start_frame}_{end_frame}",
-            fps=8,
-        )
-    exit(0)
+record_video = first_hypers.get("experiment", {}).get("record_video", True)
+video_length = first_hypers.get("experiment", {}).get("video_length", 1_000)
+if not record_video:
+    v_render = v_step
 
 # --------------------
 # -- Batch Execution --
 # --------------------
 
 start_step = None
-save_every = 1_000_000
+save_every = first_hypers.get("experiment", {}).get("save_every", 1_000_000)
 datas = {}
 datas["rewards"] = np.empty((len(indices), n), dtype=np.float16)
 datas["weight_change"] = np.empty((len(indices), n), dtype=np.float16)
@@ -301,7 +265,6 @@ for i, idx in enumerate(indices):
                     f"Failed to load checkpoint for index {idx}, starting fresh"
                 )
                 start_step = None
-                save_every = 1_000_000
                 datas = {}
                 datas["rewards"] = np.empty((len(indices), n), dtype=np.float16)
                 datas["weight_change"] = np.empty((len(indices), n), dtype=np.float16)
@@ -345,9 +308,19 @@ for current_step in range(start_step, n, save_every):
         data = get_data(carry, interaction)
         return carry, data
 
-    steps = jnp.arange(steps_in_iter)
-    glue_states, data_chunk = jax.lax.scan(step, glue_states, steps, unroll=1)
-    # data_chunk is dict of (steps, batch, ...)
+    @scan_tqdm(n, print_rate=min(n // 20, 10000), initial=current_step + no_video_steps)
+    def video_step(carry, _):
+        frame = v_render(carry)
+        carry, interaction = v_step(carry)
+        data = get_data(carry, interaction)
+        return carry, (data, frame)
+
+    no_video_steps = jnp.arange(max(steps_in_iter - video_length, 0))
+    glue_states, data_chunk = jax.lax.scan(step, glue_states, no_video_steps, unroll=1)
+    video_steps = jnp.arange(video_length)
+    glue_states, (data_chunk_video, frames) = jax.lax.scan(video_step, glue_states, video_steps, unroll=1)
+    data_chunk = tree_map(lambda a, b: jnp.concatenate([a, b], axis=0), data_chunk, data_chunk_video)
+    frames = np.asarray(frames)
 
     # checkpointing
     checkpoint_start_time = time.time()
@@ -398,6 +371,21 @@ for current_step in range(start_step, n, save_every):
         os.rename(glue_state_path_tmp, final_glue_state_path)
         os.rename(data_path_tmp, final_data_path)
         os.rename(step_path_tmp, final_step_path)
+
+        # Save video
+        end_frame = current_step + save_every * (i + 1)
+        start_frame = end_frame - video_length
+        video_context = exp.buildSaveContext(idx, base=args.save_path)
+        video_path = video_context.resolve(f"videos/{idx}")
+        video_context.ensureExists(video_path, is_file=True)
+        frames = [frames[i] for i in range(video_length)]
+        logger.debug(f"Saving {start_frame}_{end_frame} video to {video_path}")
+        save_video(
+            frames,
+            video_path,
+            name_prefix=f"{start_frame}_{end_frame}",
+            fps=8,
+        )
     checkpoint_time = time.time() - checkpoint_start_time
     logger.debug(
         f"Checkpointed at {current_step + steps_in_iter} in {checkpoint_time:.4f}s"
