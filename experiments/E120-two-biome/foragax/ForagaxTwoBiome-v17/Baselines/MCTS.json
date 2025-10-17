@@ -1,0 +1,20 @@
+{
+    "agent": "MCTS",
+    "problem": "Foragax",
+    "total_steps": 50,
+    "episode_cutoff": -1,
+    "metaParameters": {
+        "environment": {
+            "env_id": "ForagaxTwoBiome-v17",
+            "aperture_size": -1,
+            "observation_type": "object"
+        },
+        "experiment": {
+            "seed_offset": 0,
+            "save_every": 50
+        },
+        "num_simulations": 100,
+        "max_depth": 10,
+        "dirichlet_fraction": 0
+    }
+}
