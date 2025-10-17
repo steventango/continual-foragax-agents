@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import matplotlib.pyplot as plt
-import numpy as np
 import polars as pl
 import seaborn as sns
 import tol_colors as tc
@@ -181,43 +180,6 @@ def load_data(experiment_path: Path) -> pl.DataFrame:
         .otherwise(None)
         .alias("freeze_steps_str"),
     )
-    return df
-
-
-def patch_temperature_data(
-    df: pl.DataFrame, file_index: int = 0, repeat: int = 500
-) -> pl.DataFrame:
-    """Patch temperature data into the dataframe for Weather environments.
-
-    Args:
-        df: DataFrame to patch temperature into
-        file_index: Index of the weather file to use (default: 0)
-        repeat: How many steps each temperature value repeats for (default: 500)
-
-    Returns:
-        DataFrame with added 'temperature' column
-    """
-    # Import weather functions here to avoid circular imports
-    try:
-        from foragax.weather import FILE_PATHS
-        from foragax.weather import load_data as load_weather_data
-    except ImportError:
-        # If foragax is not available, skip patching
-        return df
-
-    # Load temperature data
-    weather_data = load_weather_data(FILE_PATHS[file_index])
-
-    # Vectorized temperature calculation
-    frames = df["frame"].to_numpy()
-    indices = (frames // repeat) % len(weather_data)
-    temperatures = weather_data[indices]
-
-    # Convert JAX array to numpy for Polars compatibility
-    temperatures_np = np.asarray(temperatures)
-
-    # Add temperature column
-    df = df.with_columns(pl.Series("temperature", temperatures_np, dtype=pl.Float32))
     return df
 
 
