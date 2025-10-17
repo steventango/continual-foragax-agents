@@ -304,12 +304,6 @@ for current_step in range(start_step, n, save_every):
 
     no_video_steps_count = max(steps_in_iter - video_length, 0)
 
-    @scan_tqdm(n, print_rate=min(n // 20, 10000), initial=current_step)
-    def step(carry, _):
-        carry, interaction = v_step(carry)
-        data = get_data(carry, interaction)
-        return carry, data
-
     @scan_tqdm(
         n, print_rate=min(n // 20, 10000), initial=current_step + no_video_steps_count
     )
@@ -319,11 +313,23 @@ for current_step in range(start_step, n, save_every):
         data = get_data(carry, interaction)
         return carry, (data, frame)
 
-    no_video_steps = jnp.arange(no_video_steps_count)
-    glue_states, data_chunk = jax.lax.scan(step, glue_states, no_video_steps, unroll=1)
-    video_steps = jnp.arange(video_length)
+    data_chunk = None
+    if no_video_steps_count > 0:
+        @scan_tqdm(n, print_rate=min(n // 20, 10000), initial=current_step)
+        def step(carry, _):
+            carry, interaction = v_step(carry)
+            data = get_data(carry, interaction)
+            return carry, data
+        no_video_steps = jnp.arange(no_video_steps_count)
+        glue_states, data_chunk = jax.lax.scan(step, glue_states, no_video_steps, unroll=1)
+
+    video_steps = jnp.arange(min(steps_in_iter, video_length))
     glue_states, (data_chunk_video, frames) = jax.lax.scan(video_step, glue_states, video_steps, unroll=1)
-    data_chunk = tree_map(lambda a, b: jnp.concatenate([a, b], axis=0), data_chunk, data_chunk_video)
+    if data_chunk is None:
+        data_chunk = data_chunk_video
+    else:
+        data_chunk = tree_map(lambda a, b: jnp.concatenate([a, b], axis=0), data_chunk, data_chunk_video)
+
     frames = np.asarray(frames)
 
     # checkpointing
@@ -378,11 +384,11 @@ for current_step in range(start_step, n, save_every):
 
         # Save video
         end_frame = current_step + save_every * (i + 1)
-        start_frame = end_frame - video_length
+        start_frame = max(end_frame - video_length, 0)
         video_context = exp.buildSaveContext(idx, base=args.save_path)
         video_path = video_context.resolve(f"videos/{idx}")
         video_context.ensureExists(video_path, is_file=True)
-        frames = [frames[i] for i in range(video_length)]
+        frames = [frames[i] for i in range(len(frames))]
         logger.debug(f"Saving {start_frame}_{end_frame} video to {video_path}")
         save_video(
             frames,
