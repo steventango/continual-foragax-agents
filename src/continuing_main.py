@@ -305,7 +305,7 @@ for current_step in range(start_step, n, save_every):
     no_video_steps_count = max(steps_in_iter - video_length, 0)
 
     @scan_tqdm(
-        n, print_rate=min(n // 20, 10000), initial=current_step + no_video_steps_count
+        n, print_rate=max(min(n // 20, 10000), 1), initial=current_step + no_video_steps_count
     )
     def video_step(carry, _):
         frame = v_render(carry)

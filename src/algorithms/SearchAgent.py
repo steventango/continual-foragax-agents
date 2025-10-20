@@ -62,6 +62,51 @@ class SearchAgent(BaseAgent):
             ]
         )
 
+    def get_valid_actions(
+        self,
+        obs: jax.Array,
+        priority_map: jax.Array,
+        center_y: jax.Array,
+        center_x: jax.Array,
+    ) -> jax.Array:
+        """Returns a boolean mask of valid actions (those that don't lead to obstacles).
+
+        Args:
+            obs: The observation array
+            priority_map: Priority map where negative values indicate obstacles
+            center_y: Agent's y position
+            center_x: Agent's x position
+
+        Returns:
+            Boolean array of shape (4,) where True means the action is valid
+        """
+        height, width = obs.shape[0], obs.shape[1]
+        next_positions = jnp.array([center_y, center_x]) + self.directions
+
+        if not self.nowrap:
+            next_positions = next_positions % jnp.array([height, width])
+            next_priorities = priority_map[next_positions[:, 0], next_positions[:, 1]]
+            valid_mask = next_priorities >= 0
+        else:
+            in_bounds = (
+                (next_positions[:, 0] >= 0)
+                & (next_positions[:, 0] < height)
+                & (next_positions[:, 1] >= 0)
+                & (next_positions[:, 1] < width)
+            )
+            # For in-bounds positions, check priority; for out-of-bounds, mark as invalid
+            next_priorities = jnp.where(
+                in_bounds,
+                priority_map[
+                    jnp.clip(next_positions[:, 0], 0, height - 1),
+                    jnp.clip(next_positions[:, 1], 0, width - 1),
+                ],
+                -1,
+            )
+            valid_mask = in_bounds & (next_priorities >= 0)
+
+        return valid_mask
+
     def _get_world_position(self, obs: jax.Array) -> Tuple[jax.Array, jax.Array]:
         """Get agent position from the last channel (world mode)."""
         agent_channel = obs[:, :, -1]

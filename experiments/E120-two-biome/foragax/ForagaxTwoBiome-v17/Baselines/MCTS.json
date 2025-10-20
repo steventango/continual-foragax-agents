@@ -13,8 +13,21 @@
             "seed_offset": 0,
             "save_every": 50
         },
-        "num_simulations": 100,
-        "max_depth": 10,
-        "dirichlet_fraction": 0
+        "num_simulations": 200,
+        "max_depth": 100,
+        "pb_c_init": 8,
+        "dirichlet_fraction": 0,
+        "temperature": 0,
+        "gamma": 0.9,
+        "search_params": {
+            "mode": "world",
+            "nowrap": false,
+            "channel_priorities": {
+                "0": 2,
+                "1": 1,
+                "2": -1,
+                "3": 0
+            }
+        }
     }
 }
