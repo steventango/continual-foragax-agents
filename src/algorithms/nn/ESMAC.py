@@ -60,21 +60,14 @@ class ESMAC(nn.Module):
 
         obs = jnp.reshape(obs, (obs.shape[0], -1))
         obs = jnp.concatenate((obs, last_action_encoded, last_reward_plus), axis=-1)
-        
-        input_embedding = nn.Dense(self.hidden_size,
-                                   kernel_init=orthogonal(np.sqrt(2)),
-                                   use_bias=False, name="frozen_input_embedding_encoder")(obs)
+
         input_embedding = nn.Dense(self.d_hidden,
                                    kernel_init=orthogonal(np.sqrt(2)),
-                                   use_bias=False, name="frozen_input_embedding_decoder")(input_embedding)
-        hidden_embedding = nn.Dense(self.hidden_size,
-                                    kernel_init=orthogonal(np.sqrt(2)),
-                                    # kernel_init=sparse_init(sparsity=0.95, spectral_radius=0.99),
-                                    use_bias=False, name="frozen_hidden_embedding_encoder")(hidden)
+                                   use_bias=False, name="frozen_input_embedding_decoder")(obs)
         hidden_embedding = nn.Dense(self.d_hidden,
                                     kernel_init=orthogonal(np.sqrt(2)),
                                     # kernel_init=sparse_init(sparsity=0.95, spectral_radius=0.99),
-                                    use_bias=False, name="frozen_hidden_embedding_decoder")(hidden_embedding)
+                                    use_bias=False, name="frozen_hidden_embedding_decoder")(hidden)
         
         state_embedding = jax.lax.stop_gradient(activation(input_embedding + hidden_embedding))
 
