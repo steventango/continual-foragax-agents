@@ -66,6 +66,16 @@ def main():
         default=None,
         help="Algorithm to normalize against.",
     )
+    parser.add_argument(
+        "--plot-all-seeds",
+        action="store_true",
+        help="Plot all individual seeds as separate lines instead of confidence intervals.",
+    )
+    parser.add_argument(
+        "--subplot-by-seed",
+        action="store_true",
+        help="Create a grid of subplots, one per seed.",
+    )
 
     args = parse_plotting_args(parser)
 
@@ -143,7 +153,27 @@ def main():
 
     # Plotting
     num_metrics = len(args.metrics)
-    if num_metrics == 1:
+
+    # Determine subplot layout
+    if args.subplot_by_seed:
+        unique_seeds = df.select("seed").unique().sort("seed").to_series().to_list()
+        num_seeds = len(unique_seeds)
+
+        # Calculate grid dimensions
+        import math
+
+        ncols = math.ceil(math.sqrt(num_seeds))
+        nrows = math.ceil(num_seeds / ncols)
+
+        fig, axes = plt.subplots(
+            nrows, ncols, layout="constrained", figsize=(6 * ncols, 4 * nrows)
+        )
+        # Flatten axes array for easier indexing
+        if num_seeds == 1:
+            axes = [axes]
+        else:
+            axes = axes.flatten() if nrows > 1 or ncols > 1 else [axes]
+    elif num_metrics == 1:
         fig, axes = plt.subplots(1, 1, layout="constrained")
         axes = [axes]  # Make it a list for consistent handling
     else:
@@ -171,52 +201,118 @@ def main():
         # Use default palette ordering
         palette = None
 
-    for i, metric in enumerate(args.metrics):
-        ax = axes[i]
+    if args.subplot_by_seed:
+        # Plot each seed in its own subplot
+        for i, seed in enumerate(unique_seeds):
+            ax = axes[i]
+            seed_df = df.filter(pl.col("seed") == seed)
 
-        sns.lineplot(
-            data=df.to_pandas(),
-            x="frame",
-            y=metric,
-            hue=hue_col,
-            hue_order=hue_order,
-            palette=palette,
-            ax=ax,
-            errorbar=("ci", 95),
-            legend="full" if i == 0 else False,  # Only show legend on first subplot
-        )
+            for metric in args.metrics:
+                sns.lineplot(
+                    data=seed_df.to_pandas(),
+                    x="frame",
+                    y=metric,
+                    hue=hue_col,
+                    hue_order=hue_order,
+                    palette=palette,
+                    ax=ax,
+                    legend="full" if i == 0 else False,
+                )
 
-        # Formatting
-        formatted_metric = format_metric_name(metric)
-        ylabel_map = get_ylabel_mapping(env)
-        ylabel = ylabel_map.get(formatted_metric, formatted_metric)
+            # Formatting
+            if len(args.metrics) == 1:
+                formatted_metric = format_metric_name(args.metrics[0])
+                ylabel_map = get_ylabel_mapping(env)
+                ylabel = ylabel_map.get(formatted_metric, formatted_metric)
+                if args.normalize:
+                    ylabel = f"Normalized {ylabel}"
+            else:
+                ylabel = "Value"
 
-        if args.normalize:
-            ylabel = f"Normalized {ylabel}"
-        ax.set_ylabel(ylabel)
-        if i == num_metrics - 1:  # Only set x-label on the last subplot
+            ax.set_ylabel(ylabel)
             ax.set_xlabel(r"Time steps $(\times 10^6)$")
+            ax.set_title(f"Seed {seed}")
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
+            ax.xaxis.set_major_formatter(
+                ticker.FuncFormatter(lambda x, _: f"{x / 1000000:g}")
+            )
+            despine(ax)
+
+            if args.ylim:
+                ax.set_ylim(args.ylim)
+
+        # Hide extra subplots if grid is not fully filled
+        for j in range(num_seeds, len(axes)):
+            axes[j].axis("off")
+
+        # Handle legend
+        if not args.legend:
+            annotate_plot(axes[0], label_map=LABEL_MAP)
         else:
-            ax.set_xlabel("")  # Remove x-label for non-last subplots
-        ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=1))
-        ax.xaxis.set_major_formatter(
-            ticker.FuncFormatter(lambda x, _: f"{x / 1000000:g}")
-        )
-        despine(ax)
-
-        if args.ylim:
-            ax.set_ylim(args.ylim)
-
-    # Handle legend
-    if not args.legend:
-        annotate_plot(axes[0], label_map=LABEL_MAP)
+            handles, labels = axes[0].get_legend_handles_labels()
+            mapped_labels = [get_mapped_label(label, LABEL_MAP) for label in labels]
+            axes[0].legend(handles, mapped_labels, title=None, frameon=False)
     else:
-        handles, labels = axes[0].get_legend_handles_labels()
-        mapped_labels = [get_mapped_label(label, LABEL_MAP) for label in labels]
-        axes[0].legend(handles, mapped_labels, title=None, frameon=False)
+        # Original plotting logic for metrics
+        for i, metric in enumerate(args.metrics):
+            ax = axes[i]
+
+            # Configure lineplot based on whether to show all seeds or confidence intervals
+            lineplot_kwargs = {
+                "data": df.to_pandas(),
+                "x": "frame",
+                "y": metric,
+                "hue": hue_col,
+                "hue_order": hue_order,
+                "palette": palette,
+                "ax": ax,
+                "legend": "full" if i == 0 else False,
+            }
+
+            if args.plot_all_seeds:
+                # Plot each seed as a separate line
+                lineplot_kwargs["units"] = "seed"
+                lineplot_kwargs["estimator"] = None
+                lineplot_kwargs["alpha"] = 0.5  # Make individual lines semi-transparent
+            else:
+                # Plot mean with confidence intervals
+                lineplot_kwargs["errorbar"] = ("ci", 95)
+
+            sns.lineplot(**lineplot_kwargs)
+
+            # Formatting
+            formatted_metric = format_metric_name(metric)
+            ylabel_map = get_ylabel_mapping(env)
+            ylabel = ylabel_map.get(formatted_metric, formatted_metric)
+
+            if args.normalize:
+                ylabel = f"Normalized {ylabel}"
+            ax.set_ylabel(ylabel)
+            if i == num_metrics - 1:  # Only set x-label on the last subplot
+                ax.set_xlabel(r"Time steps $(\times 10^6)$")
+            else:
+                ax.set_xlabel("")  # Remove x-label for non-last subplots
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=1))
+            ax.xaxis.set_major_formatter(
+                ticker.FuncFormatter(lambda x, _: f"{x / 1000000:g}")
+            )
+            despine(ax)
+
+            if args.ylim:
+                ax.set_ylim(args.ylim)
+
+        # Handle legend
+        if not args.legend:
+            annotate_plot(axes[0], label_map=LABEL_MAP)
+        else:
+            handles, labels = axes[0].get_legend_handles_labels()
+            mapped_labels = [get_mapped_label(label, LABEL_MAP) for label in labels]
+            axes[0].legend(handles, mapped_labels, title=None, frameon=False)
 
     # Save plot
-    if len(args.metrics) == 1:
+    if args.subplot_by_seed:
+        plot_name = args.plot_name or f"{env}_by_seed"
+    elif len(args.metrics) == 1:
         plot_name = args.plot_name or f"{env}_{args.metrics[0]}_curve"
     else:
         metrics_str = "_".join(args.metrics)
