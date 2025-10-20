@@ -168,6 +168,11 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
             ]
             layers += reluLayers([hidden, hidden], name="phi")
 
+        elif name == "ForagerLinearNet":
+            w_init = hk.initializers.Orthogonal(np.sqrt(2))
+            layers = [hk.Flatten(name="phi")]
+            layers += reluLayers([hidden, hidden], name="phi")
+
         elif name == "Forager2LayerNormNet":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
             layers = [
