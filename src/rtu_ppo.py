@@ -353,6 +353,8 @@ def experiment(rng, config: TrainConfig):
                 return "vf"
             elif "actor" in path_str:
                 return "pi"
+            elif "frozen" in path_str:
+                return "frozen"
             return ""
 
         labels_flat = {k: label_for_path(k) for k in flat.keys()}
@@ -375,6 +377,7 @@ def experiment(rng, config: TrainConfig):
                     optax.add_decayed_weights(config.l2_reg_vf),
                     optax.adam(config.alpha_vf, eps=config.adam_eps_vf)
                 ),
+                "frozen": optax.set_to_zero(),
             },
             labels,
         )
@@ -389,6 +392,7 @@ def experiment(rng, config: TrainConfig):
                     optax.add_decayed_weights(config.l2_reg_vf),
                     optax.adam(config.alpha_vf, eps=config.adam_eps_vf)
                 ),
+                "frozen": optax.set_to_zero(),
             },
             labels,
         )
@@ -585,8 +589,8 @@ def main():
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
             observation_type=hypers["environment"].get("observation_type", None),
-            repeat=int(hypers["environment"].get("repeat", None)),
-            reward_delay=int(hypers["environment"].get("reward_delay", None)),
+            repeat=int(hypers["environment"].get("repeat", 500)),
+            reward_delay=int(hypers["environment"].get("reward_delay", 0)),
             env_id=hypers["environment"]["env_id"],
             gamma=float(hypers['gamma']),
             gae_lambda=float(hypers['gae_lambda']),
