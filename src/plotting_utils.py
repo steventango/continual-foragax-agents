@@ -135,6 +135,7 @@ def get_ylabel_mapping(env: str) -> Dict[str, str]:
     """Get environment-specific ylabel mappings for metrics."""
     base_mapping = {
         "Ewm Reward": "Average Reward",
+        "Temperature": "Temperature",
     }
 
     if "Weather" in env:

@@ -2,6 +2,7 @@ from typing import Type
 
 from algorithms.BaseAgent import BaseAgent
 from algorithms.DebugAgent import DebugAgent
+from algorithms.MCTSAgent import MCTSAgent
 from algorithms.nn.AADRQN import AADRQN
 from algorithms.nn.ATAADRQN import ATAADRQN
 from algorithms.nn.DQN import DQN
@@ -71,5 +72,7 @@ def getAgent(name) -> Type[BaseAgent]:
     if name.startswith("Search"):
         return SearchAgent
 
+    if name.startswith("MCTS"):
+        return MCTSAgent
 
     raise Exception("Unknown algorithm")
