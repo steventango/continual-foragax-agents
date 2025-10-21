@@ -388,7 +388,7 @@ for current_step in range(start_step, n, save_every):
         video_context = exp.buildSaveContext(idx, base=args.save_path)
         video_path = video_context.resolve(f"videos/{idx}")
         video_context.ensureExists(video_path, is_file=True)
-        frames = [frames[i] for i in range(len(frames))]
+        frames = list(frames)
         logger.debug(f"Saving {start_frame}_{end_frame} video to {video_path}")
         save_video(
             frames,
