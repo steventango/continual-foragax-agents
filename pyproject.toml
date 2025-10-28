@@ -55,6 +55,7 @@ dev = [
     'pyright',
     'commitizen',
     'pre-commit',
+    'pytest>=7.0.0',
 ]
 
 [tool]
@@ -74,3 +75,14 @@ venvPath = '.'
 venv = '.venv'
 typeCheckingMode = 'standard'
 useLibraryCodeForTypes = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+]
