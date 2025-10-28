@@ -111,7 +111,7 @@ class EQRC(NNAgent):
         grad, metrics = jax.grad(self._loss, has_aux=True)(
             params, hypers.epsilon, batch
         )
-        optimizer = optax.adam(**hypers.optimizer.__dict__)
+        optimizer = self._build_optimizer(hypers.optimizer, hypers.swr)
 
         new_params = {}
         new_optim = {}

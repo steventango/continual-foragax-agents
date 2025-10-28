@@ -60,7 +60,7 @@ class DQN_Reset(DQN):
     @partial(jax.jit, static_argnums=0)
     def _reset(self, state: AgentState):
         key, q_key, body_key = jax.random.split(state.key, 3)
-        optimizer = optax.adam(**state.hypers.optimizer.__dict__)
+        optimizer = self._build_optimizer(state.hypers.optimizer, state.hypers.swr)
         params = state.params
         optim = state.optim
 

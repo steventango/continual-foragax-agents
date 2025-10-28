@@ -13,6 +13,7 @@ import utils.chex as cxu
 from algorithms.BaseAgent import AgentState as BaseAgentState
 from algorithms.BaseAgent import BaseAgent
 from algorithms.BaseAgent import Hypers as BaseHypers
+from optimizers import selective_weight_reinitialization
 from representations.networks import NetworkBuilder
 from utils.checkpoint import checkpointable
 from utils.policies import egreedy_probabilities
@@ -27,6 +28,16 @@ class OptimizerHypers:
 
 
 @cxu.dataclass
+class SWRHypers:
+    utility_function: str
+    pruning_method: str
+    reinit_freq: int
+    reinit_factor: float
+    decay_rate: float
+    seed: int
+
+
+@cxu.dataclass
 class Metrics:
     weight_change: jax.Array
     abs_td_error: jax.Array
@@ -38,6 +49,7 @@ class Metrics:
 class Hypers(BaseHypers):
     epsilon: jax.Array
     optimizer: OptimizerHypers
+    swr: Optional[SWRHypers]
     total_steps: int
     update_freq: int
     epsilon_linear_decay: Optional[float]
@@ -115,7 +127,21 @@ class NNAgent(BaseAgent):
             b2=self.optimizer_params["beta2"],
             eps=self.optimizer_params["eps"],
         )
-        optimizer = optax.adam(**optimizer_hypers.__dict__)
+
+        # Check for SWR configuration
+        swr_params = params.get("swr")
+        swr_hypers = None
+        if swr_params is not None:
+            swr_hypers = SWRHypers(
+                utility_function=swr_params["utility_function"],
+                pruning_method=swr_params["pruning_method"],
+                reinit_freq=swr_params["reinit_freq"],
+                reinit_factor=swr_params["reinit_factor"],
+                decay_rate=swr_params.get("decay_rate", 0.0),
+                seed=seed,
+            )
+
+        optimizer = self._build_optimizer(optimizer_hypers, swr_hypers)
         opt_state = {name: optimizer.init(p) for name, p in net_params.items()}
 
         # ------------------
@@ -167,6 +193,7 @@ class NNAgent(BaseAgent):
             **self.state.hypers.__dict__,
             epsilon=epsilon,
             optimizer=optimizer_hypers,
+            swr=swr_hypers,
             total_steps=total_steps,
             update_freq=update_freq,
             epsilon_linear_decay=epsilon_linear_decay,
@@ -195,6 +222,36 @@ class NNAgent(BaseAgent):
 
     def get_feature_function(self, builder: NetworkBuilder):
         return builder.getFeatureFunction()
+
+    def _build_optimizer(
+        self,
+        optimizer_hypers: OptimizerHypers,
+        swr_hypers: Optional[SWRHypers],
+    ) -> optax.GradientTransformation:
+        """Build optimizer with optional SWR."""
+
+        # Start with Adam optimizer
+        optimizer = optax.adam(**optimizer_hypers.__dict__)
+
+        # If SWR is configured, chain it after Adam
+        if swr_hypers is not None:
+            # Get initializers from the network builder
+            initializers = self.builder.getInitializers()
+
+            swr_optimizer = selective_weight_reinitialization(
+                utility_function=swr_hypers.utility_function,
+                pruning_method=swr_hypers.pruning_method,
+                param_initializers=initializers,
+                reinit_freq=swr_hypers.reinit_freq,
+                reinit_factor=swr_hypers.reinit_factor,
+                decay_rate=swr_hypers.decay_rate,
+                seed=swr_hypers.seed,
+            )
+
+            # Chain Adam and SWR
+            optimizer = optax.chain(optimizer, swr_optimizer)
+
+        return optimizer
 
     # ------------------------
     # -- NN agent interface --
