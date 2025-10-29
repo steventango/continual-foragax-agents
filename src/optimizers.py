@@ -1,6 +1,7 @@
 from typing import Callable, NamedTuple, Optional
-import haiku as hk
+
 import chex
+import haiku as hk
 import jax
 import jax.numpy as jnp
 import jax.tree
@@ -133,7 +134,6 @@ def selective_weight_reinitialization(
         # Update moving average of utility
         if decay_rate > 0.0:
             new_avg_utility = jax.tree.map(
-                # TODO: verify RNG handling
                 lambda avg, p, grad: (
                     decay_rate * avg
                     + (1.0 - decay_rate)
@@ -153,25 +153,33 @@ def selective_weight_reinitialization(
             """Perform reinitialization."""
             params, key, _ = carry
 
-            def process_single_param(p, grad, avg_utility, initializer):
+            num_params = len(jax.tree_util.tree_leaves(params))
+            keys = jax.random.split(key, num_params + 1)
+            key = keys[0]
+            param_keys = keys[1:]
+
+            keys_tree = jax.tree_util.tree_unflatten(
+                jax.tree_util.tree_structure(params),
+                param_keys
+            )
+
+            def process_single_param(p, grad, avg_utility, initializer, param_key):
+                utility_key, prune_key, reinit_key = jax.random.split(param_key, 3)
                 if decay_rate > 0.0:
                     utility = avg_utility
                 else:
-                    # Note: We can't update key here in pure functional way inside tree_map
-                    # This is a limitation - for now use the same key
-                    utility, _ = compute_utility(p, grad, utility_function, key)
+                    utility, _ = compute_utility(p, grad, utility_function, utility_key)
 
-                _, subkey = jax.random.split(key)
+
                 reinit_mask = prune_weights(
-                    utility, pruning_method, reinit_factor, subkey
+                    utility, pruning_method, reinit_factor, prune_key
                 )
 
                 # Count number of weights to reinitialize
                 num_reinit = jnp.sum(reinit_mask)
 
                 # Generate new values for positions to reinitialize using the initializer
-                _, subkey2 = jax.random.split(subkey)
-                new_values = initializer(subkey2, p.shape, p.dtype)
+                new_values = initializer(reinit_key, p.shape, p.dtype)
 
                 # Update parameters using the mask
                 new_p = jnp.where(reinit_mask.reshape(p.shape), new_values, p)
@@ -190,6 +198,7 @@ def selective_weight_reinitialization(
                 updates,
                 new_avg_utility,
                 standalone_initializers,
+                keys_tree,
             )
 
             tuple_of_trees = jax.tree_util.tree_transpose(
