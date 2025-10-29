@@ -58,7 +58,7 @@ class DQN_L2_Init(DQN):
             batch,
             state.hypers.lambda_l2_init,
         )
-        optimizer = optax.adam(**state.hypers.optimizer.__dict__)
+        optimizer = self._build_optimizer(state.hypers.optimizer, state.hypers.swr)
 
         new_params = {}
         new_optim = {}

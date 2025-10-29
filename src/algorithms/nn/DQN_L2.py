@@ -54,7 +54,7 @@ class DQN_L2(DQN):
             batch,
             state.hypers.lambda_l2,
         )
-        optimizer = optax.adam(**state.hypers.optimizer.__dict__)
+        optimizer = self._build_optimizer(state.hypers.optimizer, state.hypers.swr)
 
         new_params = {}
         new_optim = {}
@@ -79,7 +79,7 @@ class DQN_L2(DQN):
         q_loss, metrics = super()._loss(params, target, batch)
         # Add L2 regularization penalty
         flat_params, _ = ravel_pytree(params)
-        l2_penalty = optax.squared_error(flat_params).sum()
+        l2_penalty = optax.l2_loss(flat_params).sum()
         reg_loss = lambda_l2 * l2_penalty
         total_loss = q_loss + reg_loss
         return total_loss, metrics

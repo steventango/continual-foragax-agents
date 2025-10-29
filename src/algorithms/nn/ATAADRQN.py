@@ -176,7 +176,7 @@ class ATAADRQN(NNAgent):
     def _computeUpdate(self, state: AgentState, batch: Dict, weights: jax.Array):
         grad_fn = jax.grad(self._loss, has_aux=True)
         grad, metrics = grad_fn(state.params, state.target_params, batch, weights)
-        optimizer = optax.adam(**state.hypers.optimizer.__dict__)
+        optimizer = self._build_optimizer(state.hypers.optimizer, state.hypers.swr)
 
         new_params = {}
         new_optim = {}

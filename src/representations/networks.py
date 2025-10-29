@@ -16,12 +16,16 @@ class NetworkBuilder:
         self._h_params = params
         self._rng, feat_rng = jax.random.split(key)
 
-        self._feat_net, self._feat_params = buildFeatureNetwork(
+        self._feat_net, self._feat_params, self._feat_initializers = buildFeatureNetwork(
             input_shape, params, feat_rng
         )
 
         self._params = {
             "phi": self._feat_params,
+        }
+
+        self._initializers = {
+            "phi": self._feat_initializers,
         }
 
         self._retrieved_params = False
@@ -31,6 +35,10 @@ class NetworkBuilder:
     def getParams(self):
         self._retrieved_params = True
         return self._params
+
+    def getInitializers(self):
+        """Get the initializers for each parameter group."""
+        return self._initializers
 
     def getFeatureFunction(self):
         def _inner(params: Any, x: jax.Array | np.ndarray):
@@ -90,6 +98,9 @@ class NetworkBuilder:
         assert name is not None, "Could not detect name from module"
         self._params[name] = h_params
 
+        # Default head initializer (Linear layers use TruncatedNormal by default)
+        self._initializers[name] = hk.initializers.TruncatedNormal(stddev=1.0 / np.sqrt(self._sample_phi.shape[-1]))
+
         def _inner(params: Any, x: jax.Array):
             return h_net.apply(params[name], x)
 
@@ -143,6 +154,9 @@ def creluLayers(
 
 
 def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
+    # Default initializer used across most networks
+    w_init = hk.initializers.Orthogonal(np.sqrt(2))
+
     def _inner(x: jax.Array, *args, **kwargs):
         name = params["type"]
         hidden = params["hidden"]
@@ -257,7 +271,7 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
     sample_input = jnp.zeros((1,) + tuple(inputs))
     net_params = network.init(rng, sample_input)
 
-    return network, net_params
+    return network, net_params, w_init
 
 
 def make_conv(size: int, shape: Tuple[int, int], stride: Tuple[int, int]):

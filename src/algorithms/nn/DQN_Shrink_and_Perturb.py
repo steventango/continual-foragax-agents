@@ -69,7 +69,7 @@ class DQN_Shrink_and_Perturb(DQN):
 
         params = jax.tree_util.tree_map(sp, state.params)
 
-        optimizer = optax.adam(**state.hypers.optimizer.__dict__)
+        optimizer = self._build_optimizer(state.hypers.optimizer, state.hypers.swr)
         optim = {name: optimizer.init(p) for name, p in params.items()}
 
         return replace(state, key=key, params=params, optim=optim)
