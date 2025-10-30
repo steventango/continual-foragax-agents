@@ -158,10 +158,7 @@ logger.debug(
 
 n = exp.total_steps
 
-record_video = first_hypers.get("experiment", {}).get("record_video", True)
-video_length = first_hypers.get("experiment", {}).get("video_length", 1_000)
-if not record_video:
-    v_render = v_step
+video_length = first_hypers.get("experiment", {}).get("video_length", 0)
 
 # --------------------
 # -- Batch Execution --
@@ -323,14 +320,15 @@ for current_step in range(start_step, n, save_every):
         no_video_steps = jnp.arange(no_video_steps_count)
         glue_states, data_chunk = jax.lax.scan(step, glue_states, no_video_steps, unroll=1)
 
-    video_steps = jnp.arange(min(steps_in_iter, video_length))
-    glue_states, (data_chunk_video, frames) = jax.lax.scan(video_step, glue_states, video_steps, unroll=1)
-    if data_chunk is None:
-        data_chunk = data_chunk_video
-    else:
-        data_chunk = tree_map(lambda a, b: jnp.concatenate([a, b], axis=0), data_chunk, data_chunk_video)
-
-    frames = np.asarray(frames)
+    frames = None
+    if video_length:
+        video_steps = jnp.arange(min(steps_in_iter, video_length))
+        glue_states, (data_chunk_video, frames) = jax.lax.scan(video_step, glue_states, video_steps, unroll=1)
+        if data_chunk is None:
+            data_chunk = data_chunk_video
+        else:
+            data_chunk = tree_map(lambda a, b: jnp.concatenate([a, b], axis=0), data_chunk, data_chunk_video)
+        frames = np.asarray(frames)
 
     # checkpointing
     checkpoint_start_time = time.time()
@@ -388,14 +386,15 @@ for current_step in range(start_step, n, save_every):
         video_context = exp.buildSaveContext(idx, base=args.save_path)
         video_path = video_context.resolve(f"videos/{idx}")
         video_context.ensureExists(video_path, is_file=True)
-        frames = list(frames)
-        logger.debug(f"Saving {start_frame}_{end_frame} video to {video_path}")
-        save_video(
-            frames,
-            video_path,
-            name_prefix=f"{start_frame}_{end_frame}",
-            fps=8,
-        )
+        if video_length and frames is not None:
+            frames = list(frames)
+            logger.debug(f"Saving {start_frame}_{end_frame} video to {video_path}")
+            save_video(
+                frames,
+                video_path,
+                name_prefix=f"{start_frame}_{end_frame}",
+                fps=8,
+            )
     checkpoint_time = time.time() - checkpoint_start_time
     logger.debug(
         f"Checkpointed at {current_step + steps_in_iter} in {checkpoint_time:.4f}s"
