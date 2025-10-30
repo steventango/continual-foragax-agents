@@ -5,7 +5,8 @@
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxDiwali-v1",
-            "aperture_size": 15
+            "aperture_size": 15,
+            "observation_type": "rgb"
         },
         "experiment": {
             "seed_offset": 0,
