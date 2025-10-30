@@ -132,22 +132,28 @@ def selective_weight_reinitialization(
         new_step = state.step + 1
 
         # Update moving average of utility
-        if decay_rate > 0.0:
-            new_avg_utility = jax.tree.map(
+        def decay_avg_utility(avg_utility, params, updates):
+            return jax.tree.map(
                 lambda avg, p, grad: (
                     decay_rate * avg
                     + (1.0 - decay_rate)
                     * compute_utility(p, grad, utility_function, state.rng_key)[0]
                 ),
-                state.avg_utility,
+                avg_utility,
                 params,
                 updates,
             )
-        else:
-            new_avg_utility = state.avg_utility
+        new_avg_utility = jax.lax.cond(
+            decay_rate > 0.0,
+            decay_avg_utility,
+            lambda avg_utility, params, updates: avg_utility,
+            state.avg_utility,
+            params,
+            updates
+        )
 
         # Check if it's time to reinitialize
-        should_reinit = (reinit_freq > 0) and (new_step % reinit_freq == 0)
+        should_reinit = (reinit_freq > 0) & (new_step % reinit_freq == 0)
 
         def do_reinit(carry):
             """Perform reinitialization."""
