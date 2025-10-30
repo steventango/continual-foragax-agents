@@ -140,7 +140,7 @@ class NNAgent(BaseAgent):
             )
 
         optimizer = self._build_optimizer(optimizer_hypers, swr_hypers)
-        opt_state = {name: optimizer.init(p) for name, p in net_params.items()}
+        opt_state = optimizer.init(net_params)
 
         # ------------------
         # -- Data ingress --
