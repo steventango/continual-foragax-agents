@@ -25,7 +25,7 @@ class NetworkBuilder:
         }
 
         self._initializers = {
-            "phi": self._feat_initializers,
+            "phi": jax.tree.map(make_standalone_initializer, self._feat_initializers),
         }
 
         self._retrieved_params = False
@@ -117,6 +117,7 @@ class NetworkBuilder:
         self._initializers[name] = jax.tree_util.tree_map_with_path(
             _get_initializer, h_params
         )
+        self._initializers[name] = jax.tree.map(make_standalone_initializer, self._initializers[name])
 
         def _inner(params: Any, x: jax.Array):
             return h_net.apply(params[name], x)
@@ -920,3 +921,20 @@ class ForagerMAGRUNetReLU(hk.Module):
 
         # Return both the GRU outputs and hidden states across the entire sequence along with initial hidden state
         return outputs_sequence, states_sequence, initial_carry
+
+
+def make_standalone_initializer(hk_initializer) -> Callable:
+    """Convert a Haiku initializer to a standalone function.
+
+    Haiku initializers expect to be called within a transform context.
+    This wrapper creates a function that can be called with (key, shape, dtype).
+    """
+
+    def standalone_init(key, shape, dtype):
+        def _inner():
+            return hk_initializer(shape, dtype)
+
+        transformed = hk.transform(_inner)
+        return transformed.apply({}, key)
+
+    return standalone_init

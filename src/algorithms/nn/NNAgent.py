@@ -138,7 +138,7 @@ class NNAgent(BaseAgent):
                 decay_rate=swr_params.get("decay_rate", 0.0),
                 seed=seed,
             )
-
+        self.initializers = self.builder.getInitializers()
         optimizer = self._build_optimizer(optimizer_hypers, swr_hypers)
         opt_state = optimizer.init(net_params)
 
@@ -233,13 +233,10 @@ class NNAgent(BaseAgent):
 
         # If SWR is configured, chain it after Adam
         if swr_hypers is not None:
-            # Get initializers from the network builder
-            initializers = self.builder.getInitializers()
-
             swr_optimizer = selective_weight_reinitialization(
                 utility_function=self.swr_utility_function,
                 pruning_method=self.swr_pruning_method,
-                param_initializers=initializers,
+                initializers=self.initializers,
                 reinit_freq=swr_hypers.reinit_freq,
                 reinit_factor=swr_hypers.reinit_factor,
                 decay_rate=swr_hypers.decay_rate,

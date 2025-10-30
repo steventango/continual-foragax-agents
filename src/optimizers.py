@@ -2,28 +2,10 @@ from functools import partial
 from typing import Callable, NamedTuple, Optional
 
 import chex
-import haiku as hk
 import jax
 import jax.numpy as jnp
 import jax.tree
 import optax
-
-
-def make_standalone_initializer(hk_initializer) -> Callable:
-    """Convert a Haiku initializer to a standalone function.
-
-    Haiku initializers expect to be called within a transform context.
-    This wrapper creates a function that can be called with (key, shape, dtype).
-    """
-
-    def standalone_init(key, shape, dtype):
-        def _inner():
-            return hk_initializer(shape, dtype)
-
-        transformed = hk.transform(_inner)
-        return transformed.apply({}, key)
-
-    return standalone_init
 
 
 def compute_utility(
@@ -63,7 +45,7 @@ def prune_weights(
         mask = jnp.arange(utility.size) < drop_num
 
         # Map back to original parameter positions
-        reinit_mask = jnp.zeros(utility.size, dtype=bool)
+        reinit_mask = jnp.zeros(utility.shape, dtype=bool)
         reinit_mask = reinit_mask.at[indices].set(mask)
 
         return reinit_mask
@@ -89,7 +71,7 @@ class SWRState(NamedTuple):
 def selective_weight_reinitialization(
     utility_function: str,
     pruning_method: str,
-    param_initializers: dict[str, Callable],
+    initializers: dict[str, Callable],
     reinit_freq: int = 0,
     reinit_factor: float = 0.0,
     decay_rate: float = 0.0,
@@ -101,18 +83,12 @@ def selective_weight_reinitialization(
     Arguments:
         utility_function: str in ["gradient", "magnitude", "random"]
         pruning_method: str in ["proportional", "threshold"]
-        param_initializers: dict mapping parameter names to Haiku initializer callables
+        initializers: dict mapping parameter names to Haiku initializer callables
         reinit_freq: how often to reinitialize (in steps)
         reinit_factor: fraction/threshold for reinitialization
         decay_rate: exponential moving average decay for utility
         seed: random seed for reinitialization
     """
-
-    # Convert Haiku initializers to standalone functions
-    standalone_initializers = jax.tree.map(
-        make_standalone_initializer, param_initializers
-    )
-
     def init_fn(params: optax.Params) -> SWRState:
         """Initialize optimizer state."""
         return SWRState(
@@ -211,7 +187,7 @@ def selective_weight_reinitialization(
                 updates,
                 grad,
                 new_avg_utility,
-                standalone_initializers,
+                initializers,
                 keys_tree,
             )
 
