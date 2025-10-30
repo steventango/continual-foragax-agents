@@ -163,9 +163,9 @@ for path in missing:
         # generate the bash script which will be scheduled
         script = getJobScript(parallel, sub)
         script_name = get_script_name(Path(path), job_indices)
+        print(script_name)
 
         if cmdline.debug:
-            print(script_name)
             print(to_cmdline_flags(sub))
             print(script)
             exit()
