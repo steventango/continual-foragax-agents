@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
-#SBATCH --job-name=E124-diwali_foragax-sweep_ForagaxDiwali-v1
+#SBATCH --job-name=E124-diwali_foragax-sweep_ForagaxDiwali-v1_hypers
 #SBATCH --mem-per-cpu=8G
 #SBATCH --ntasks=1
 #SBATCH --output=../slurm-%j.out
