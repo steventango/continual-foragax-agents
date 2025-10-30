@@ -165,7 +165,7 @@ video_length = first_hypers.get("experiment", {}).get("video_length", 0)
 # --------------------
 
 start_step = None
-save_every = first_hypers.get("experiment", {}).get("save_every", 1_000_000)
+save_every = first_hypers.get("experiment", {}).get("save_every", 100_000)
 datas = {}
 datas["rewards"] = np.empty((len(indices), n), dtype=np.float16)
 datas["weight_change"] = np.empty((len(indices), n), dtype=np.float16)
