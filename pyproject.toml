@@ -43,6 +43,7 @@ dependencies = [
     "tol-colors>=2.1.0",
     "jinja2>=3.1.6",
     "mctx>=0.0.6",
+    "distrax>=0.1.7",
 ]
 
 [dependency-groups]
