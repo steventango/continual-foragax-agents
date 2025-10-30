@@ -36,7 +36,7 @@ def compute_utility(
         return jnp.abs(p), key
     elif utility_name == "random":
         key, subkey = jax.random.split(key)
-        return jax.random.uniform(subkey, shape=(p.size,)), key
+        return jax.random.uniform(subkey, shape=p.shape), key
     else:
         raise ValueError(f"Utility function not recognized: {utility_name}")
 
