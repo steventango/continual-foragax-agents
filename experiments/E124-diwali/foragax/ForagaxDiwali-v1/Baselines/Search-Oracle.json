@@ -10,7 +10,8 @@
             "observation_type": "object"
         },
         "experiment": {
-            "seed_offset": 0
+            "seed_offset": 0,
+            "video_length": 1000
         },
         "mode": "world",
         "nowrap": false,

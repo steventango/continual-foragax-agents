@@ -14,7 +14,8 @@
             "aperture_size": 5
         },
         "experiment": {
-            "seed_offset": 0
+            "seed_offset": 0,
+            "video_length": 1000
         },
         "gamma": 0.99,
         "optimizer": {

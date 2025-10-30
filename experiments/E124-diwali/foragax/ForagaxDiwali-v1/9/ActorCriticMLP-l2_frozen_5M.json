@@ -8,7 +8,8 @@
             "aperture_size": 9
         },
         "experiment": {
-            "seed_offset": 0
+            "seed_offset": 0,
+            "video_length": 1000
         },
         "freeze_after_steps": 5000000,
         "gamma": 0.99,
