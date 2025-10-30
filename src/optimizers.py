@@ -201,10 +201,7 @@ def selective_weight_reinitialization(
             total_replaced = jax.tree_util.tree_reduce(
                 lambda x, y: x + y, num_reinit_tree, initializer=0
             )
-
-            # Split key for next use
-            new_key, _ = jax.random.split(key)
-            return updates, new_avg_utility2, new_key, total_replaced
+            return updates, new_avg_utility2, key, total_replaced
 
         def no_reinit(carry):
             """Skip reinitialization."""
