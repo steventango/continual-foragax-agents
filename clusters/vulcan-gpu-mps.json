@@ -4,9 +4,9 @@
     "account": "aip-amw8",
     "time": "1:00:00",
     "gpus": 1,
-    "cores": 8,
+    "cores": 16,
     "mem_per_core": "2G",
-    "sequential": 10,
+    "sequential": 1,
     "tasks_per_core": 1,
     "tasks_per_vmap": 1
 }
