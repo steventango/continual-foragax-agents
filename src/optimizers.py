@@ -31,9 +31,9 @@ def compute_utility(
 ) -> tuple[chex.Array, chex.PRNGKey]:
     """Compute utility of parameters for reinitialization."""
     if utility_name == "gradient":
-        return jnp.abs(grad * p).flatten(), key
+        return jnp.abs(grad * p), key
     elif utility_name == "magnitude":
-        return jnp.abs(p).flatten(), key
+        return jnp.abs(p), key
     elif utility_name == "random":
         key, subkey = jax.random.split(key)
         return jax.random.uniform(subkey, shape=(p.size,)), key
@@ -117,7 +117,7 @@ def selective_weight_reinitialization(
         """Initialize optimizer state."""
         return SWRState(
             step=jnp.array(0, dtype=jnp.int32),
-            avg_utility=jax.tree.map(lambda p: jnp.zeros(p.size), params),
+            avg_utility=jax.tree.map(lambda p: jnp.zeros(p.shape), params),
             rng_key=jax.random.PRNGKey(seed),
             reinit_indicator=jnp.array(False),
             num_replaced=jnp.array(0, dtype=jnp.int32),
@@ -127,30 +127,31 @@ def selective_weight_reinitialization(
         updates: optax.Updates,
         state: SWRState,
         params: Optional[optax.Params] = None,
+        grad: Optional[optax.Updates] = None,
     ) -> tuple[optax.Updates, SWRState]:
         """Update parameters with selective reinitialization."""
         new_step = state.step + 1
 
         # Update moving average of utility
-        def decay_avg_utility(avg_utility, params, updates):
+        def decay_avg_utility(avg_utility, params, grad):
             return jax.tree.map(
-                lambda avg, p, grad: (
+                lambda avg, p, g: (
                     decay_rate * avg
                     + (1.0 - decay_rate)
-                    * compute_utility(p, grad, state.rng_key, utility_function)[0]
+                    * compute_utility(p, g, state.rng_key, utility_function)[0]
                 ),
                 avg_utility,
                 params,
-                updates,
+                grad,
             )
 
         new_avg_utility = jax.lax.cond(
             decay_rate > 0.0,
             decay_avg_utility,
-            lambda avg_utility, params, updates: avg_utility,
+            lambda avg_utility, params, grad: avg_utility,
             state.avg_utility,
             params,
-            updates,
+            grad,
         )
 
         # Check if it's time to reinitialize
@@ -158,7 +159,7 @@ def selective_weight_reinitialization(
 
         def do_reinit(carry):
             """Perform reinitialization."""
-            params, key, _ = carry
+            params, updates, key = carry
 
             num_params = len(jax.tree_util.tree_leaves(params))
             keys = jax.random.split(key, num_params + 1)
@@ -169,7 +170,7 @@ def selective_weight_reinitialization(
                 jax.tree_util.tree_structure(params), param_keys
             )
 
-            def process_single_param(p, grad, avg_utility, initializer, param_key):
+            def process_single_param(p, update, g, avg_utility, initializer, param_key):
                 utility_key, prune_key, reinit_key = jax.random.split(param_key, 3)
 
                 utility, utility_key = jax.lax.cond(
@@ -177,7 +178,7 @@ def selective_weight_reinitialization(
                     lambda *_: (avg_utility, utility_key),
                     partial(compute_utility, utility_name=utility_function),
                     p,
-                    grad,
+                    g,
                     utility_key,
                 )
 
@@ -192,7 +193,7 @@ def selective_weight_reinitialization(
                 new_values = initializer(reinit_key, p.shape, p.dtype)
 
                 # Update parameters using the mask
-                new_p = jnp.where(reinit_mask.reshape(p.shape), new_values, p)
+                new_update = jnp.where(reinit_mask, new_values - p, update)
 
                 new_avg_u = jax.lax.cond(
                     decay_rate > 0,
@@ -202,12 +203,13 @@ def selective_weight_reinitialization(
                     avg_utility,
                 )
 
-                return new_p, new_avg_u, num_reinit
+                return new_update, new_avg_u, num_reinit
 
             results_tree = jax.tree.map(
                 process_single_param,
                 params,
                 updates,
+                grad,
                 new_avg_utility,
                 standalone_initializers,
                 keys_tree,
@@ -218,7 +220,7 @@ def selective_weight_reinitialization(
                 jax.tree_util.tree_structure((0, 0, 0)),
                 results_tree,
             )
-            new_params, new_avg_utility2, num_reinit_tree = tuple_of_trees
+            updates, new_avg_utility2, num_reinit_tree = tuple_of_trees
 
             total_replaced = jax.tree_util.tree_reduce(
                 lambda x, y: x + y, num_reinit_tree, initializer=0
@@ -226,23 +228,18 @@ def selective_weight_reinitialization(
 
             # Split key for next use
             new_key, _ = jax.random.split(key)
-            return new_params, new_avg_utility2, new_key, total_replaced
+            return updates, new_avg_utility2, new_key, total_replaced
 
         def no_reinit(carry):
             """Skip reinitialization."""
-            params, key, num_replaced = carry
-            return params, new_avg_utility, key, num_replaced
+            params, updates, key = carry
+            return updates, new_avg_utility, key, 0
 
-        new_params, new_avg_utility, new_key, num_replaced = jax.lax.cond(
+        new_updates, new_avg_utility, new_key, num_replaced = jax.lax.cond(
             should_reinit,
             do_reinit,
             no_reinit,
-            (params, state.rng_key, state.num_replaced),
-        )
-
-        # Create updates based on parameter changes
-        new_updates = jax.tree.map(
-            lambda new_p, old_p: new_p - old_p, new_params, params
+            (params, updates, state.rng_key),
         )
 
         new_state = SWRState(
@@ -255,4 +252,4 @@ def selective_weight_reinitialization(
 
         return new_updates, new_state
 
-    return optax.GradientTransformation(init_fn, update_fn)  # type: ignore
+    return optax.GradientTransformationExtraArgs(init_fn, update_fn)  # type: ignore

@@ -225,7 +225,7 @@ class NNAgent(BaseAgent):
         self,
         optimizer_hypers: OptimizerHypers,
         swr_hypers: Optional[SWRHypers],
-    ) -> optax.GradientTransformation:
+    ) -> optax.GradientTransformationExtraArgs:
         """Build optimizer with optional SWR."""
 
         # Start with Adam optimizer

@@ -111,7 +111,7 @@ class DQN(NNAgent):
         grad, metrics = grad_fn(state.params, state.target_params, batch)
         optimizer = self._build_optimizer(state.hypers.optimizer, state.hypers.swr)
 
-        updates, new_optim = optimizer.update(grad, state.optim, state.params)
+        updates, new_optim = optimizer.update(grad, state.optim, state.params, grad=grad)
         new_params = optax.apply_updates(state.params, updates)
         flat_updates, _ = ravel_pytree(updates)
         weight_change = jnp.linalg.norm(flat_updates, ord=1)
