@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Callable, NamedTuple, Optional
 
 import chex
@@ -26,7 +27,7 @@ def make_standalone_initializer(hk_initializer) -> Callable:
 
 
 def compute_utility(
-    p: chex.Array, grad: chex.Array, utility_name: str, key: chex.PRNGKey
+    p: chex.Array, grad: chex.Array, key: chex.PRNGKey, utility_name: str
 ) -> tuple[chex.Array, chex.PRNGKey]:
     """Compute utility of parameters for reinitialization."""
     if utility_name == "gradient":
@@ -108,10 +109,9 @@ def selective_weight_reinitialization(
     """
 
     # Convert Haiku initializers to standalone functions
-    standalone_initializers = {
-        name: make_standalone_initializer(init)
-        for name, init in param_initializers.items()
-    }
+    standalone_initializers = jax.tree.map(
+        make_standalone_initializer, param_initializers
+    )
 
     def init_fn(params: optax.Params) -> SWRState:
         """Initialize optimizer state."""
@@ -137,19 +137,20 @@ def selective_weight_reinitialization(
                 lambda avg, p, grad: (
                     decay_rate * avg
                     + (1.0 - decay_rate)
-                    * compute_utility(p, grad, utility_function, state.rng_key)[0]
+                    * compute_utility(p, grad, state.rng_key, utility_function)[0]
                 ),
                 avg_utility,
                 params,
                 updates,
             )
+
         new_avg_utility = jax.lax.cond(
             decay_rate > 0.0,
             decay_avg_utility,
             lambda avg_utility, params, updates: avg_utility,
             state.avg_utility,
             params,
-            updates
+            updates,
         )
 
         # Check if it's time to reinitialize
@@ -165,17 +166,20 @@ def selective_weight_reinitialization(
             param_keys = keys[1:]
 
             keys_tree = jax.tree_util.tree_unflatten(
-                jax.tree_util.tree_structure(params),
-                param_keys
+                jax.tree_util.tree_structure(params), param_keys
             )
 
             def process_single_param(p, grad, avg_utility, initializer, param_key):
                 utility_key, prune_key, reinit_key = jax.random.split(param_key, 3)
-                if decay_rate > 0.0:
-                    utility = avg_utility
-                else:
-                    utility, _ = compute_utility(p, grad, utility_function, utility_key)
 
+                utility, utility_key = jax.lax.cond(
+                    decay_rate > 0.0,
+                    lambda *_: (avg_utility, utility_key),
+                    partial(compute_utility, utility_name=utility_function),
+                    p,
+                    grad,
+                    utility_key,
+                )
 
                 reinit_mask = prune_weights(
                     utility, pruning_method, reinit_factor, prune_key
@@ -190,11 +194,13 @@ def selective_weight_reinitialization(
                 # Update parameters using the mask
                 new_p = jnp.where(reinit_mask.reshape(p.shape), new_values, p)
 
-                if decay_rate > 0.0:
+                new_avg_u = jax.lax.cond(
+                    decay_rate > 0,
                     # Reset utility for reinitialized weights
-                    new_avg_u = jnp.where(reinit_mask, 0.0, avg_utility)
-                else:
-                    new_avg_u = avg_utility
+                    lambda avg_utility: jnp.where(reinit_mask, 0.0, avg_utility),
+                    lambda avg_utility: avg_utility,
+                    avg_utility,
+                )
 
                 return new_p, new_avg_u, num_reinit
 

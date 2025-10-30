@@ -98,8 +98,25 @@ class NetworkBuilder:
         assert name is not None, "Could not detect name from module"
         self._params[name] = h_params
 
-        # Default head initializer (Linear layers use TruncatedNormal by default)
-        self._initializers[name] = hk.initializers.TruncatedNormal(stddev=1.0 / np.sqrt(self._sample_phi.shape[-1]))
+        # Default head initializer: TruncatedNormal for weights, zeros for biases
+        def _get_initializer(path, _):
+            # path is a tuple of keys, check if last key indicates weight or bias
+            param_name = path[-1].key if hasattr(path[-1], "key") else str(path[-1])
+            if param_name == "w":
+                return hk.initializers.TruncatedNormal(
+                    stddev=1.0 / np.sqrt(self._sample_phi.shape[-1])
+                )
+            elif param_name == "b":
+                return hk.initializers.Constant(0)
+            else:
+                # Default for other parameters
+                return hk.initializers.TruncatedNormal(
+                    stddev=1.0 / np.sqrt(self._sample_phi.shape[-1])
+                )
+
+        self._initializers[name] = jax.tree_util.tree_map_with_path(
+            _get_initializer, h_params
+        )
 
         def _inner(params: Any, x: jax.Array):
             return h_net.apply(params[name], x)
@@ -271,7 +288,21 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
     sample_input = jnp.zeros((1,) + tuple(inputs))
     net_params = network.init(rng, sample_input)
 
-    return network, net_params, w_init
+    # Feature network initializer: w_init for weights, zeros for biases
+    def _get_feature_initializer(path, _):
+        # path is a tuple of keys, check if last key indicates weight or bias
+        param_name = path[-1].key if hasattr(path[-1], "key") else str(path[-1])
+        if param_name == "w":
+            return w_init
+        elif param_name == "b":
+            return hk.initializers.Constant(0)
+        else:
+            # Default for other parameters (e.g., LayerNorm scale/offset)
+            return w_init
+
+    inits = jax.tree_util.tree_map_with_path(_get_feature_initializer, net_params)
+
+    return network, net_params, inits
 
 
 def make_conv(size: int, shape: Tuple[int, int], stride: Tuple[int, int]):
