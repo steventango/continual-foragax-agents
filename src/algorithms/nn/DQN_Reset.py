@@ -4,7 +4,6 @@ from typing import Dict
 
 import jax
 import jax.lax
-import optax
 from ml_instrumentation.Collector import Collector
 
 import utils.chex as cxu
@@ -61,27 +60,54 @@ class DQN_Reset(DQN):
     def _reset(self, state: AgentState):
         key, q_key, body_key = jax.random.split(state.key, 3)
         optimizer = self._build_optimizer(state.hypers.optimizer, state.hypers.swr)
-        params = state.params
-        optim = state.optim
 
+        # Reinitialize q-network parameters
         q_params = self.q_net.init(q_key, self.builder._sample_phi)
-        params["q"] = q_params
-        optim["q"] = optimizer.init(q_params)
 
+        # Conditionally reset body parameters
         def _reset_body():
-            body_params = self.builder.reset(body_key)
-            body_optim = optimizer.init(body_params["phi"])
-            return body_params["phi"], body_optim
+            return self.builder.reset(body_key)["phi"]
 
         def _no_reset_body():
-            return params["phi"], optim["phi"]
+            return state.params["phi"]
 
-        new_phi, new_optim_phi = jax.lax.cond(
+        new_phi = jax.lax.cond(
             state.hypers.reset_head_only,
             _no_reset_body,
             _reset_body,
         )
-        params["phi"] = new_phi
-        optim["phi"] = new_optim_phi
 
-        return replace(state, key=key, params=params, optim=optim)
+        # Update params with new q and phi
+        new_params = {
+            **state.params,
+            "q": q_params,
+            "phi": new_phi,
+        }
+        new_params["phi"] = new_phi
+
+        # Reinitialize optimizer state for the updated parameters
+        # Create new optimizer state by initializing with the new params
+        new_optim = optimizer.init(new_params)
+
+        # Use tree_map_with_path to selectively replace only the parts we want to reset
+        def should_reset(path, _):
+            key_path = tuple(k.key if hasattr(k, "key") else str(k) for k in path)
+            if len(key_path) > 0:
+                # Always reset 'q'
+                if key_path[0] == "q":
+                    return True
+                # Reset 'phi' only if not head_only
+                if key_path[0] == "phi" and not state.hypers.reset_head_only:
+                    return True
+            return False
+
+        # Blend old and new optimizer states
+        final_optim = jax.tree_util.tree_map_with_path(
+            lambda path, new_val, old_val: new_val
+            if should_reset(path, new_val)
+            else old_val,
+            new_optim,
+            state.optim,
+        )
+
+        return replace(state, key=key, params=new_params, optim=final_optim)
