@@ -1,5 +1,5 @@
 {
-    "agent": "ActorCriticMLP_frozen_1M",
+    "agent": "PPO-RTU_L2_frozen_1M",
     "problem": "Foragax",
     "total_steps": 10000000,
     "metaParameters": {
@@ -21,17 +21,18 @@
         "gradient_clipping": true,
         "max_grad_norm": 0.5,
         "vf_coef": 0.5,
-        "entropy_coef": 0.001,
+        "entropy_coef": 0.01,
+        "l2_reg": 1e-07,
         "optimizer_actor": {
             "name": "Adam",
-            "alpha": 0.0001,
+            "alpha": 0.0003,
             "beta1": 0.9,
             "beta2": 0.999,
             "eps": 1e-05
         },
         "optimizer_critic": {
             "name": "Adam",
-            "lr_scale": 1.0,
+            "lr_scale": 0.1,
             "beta1": 0.9,
             "beta2": 0.999,
             "eps": 1e-05

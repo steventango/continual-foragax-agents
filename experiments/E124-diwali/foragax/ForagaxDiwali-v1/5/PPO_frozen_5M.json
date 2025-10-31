@@ -1,5 +1,5 @@
 {
-    "agent": "RealTimeActorCriticMLP",
+    "agent": "PPO_frozen_5M",
     "problem": "Foragax",
     "total_steps": 10000000,
     "metaParameters": {
@@ -21,7 +21,7 @@
         "gradient_clipping": true,
         "max_grad_norm": 0.5,
         "vf_coef": 0.5,
-        "entropy_coef": 0.001,
+        "entropy_coef": 0.01,
         "optimizer_actor": {
             "name": "Adam",
             "alpha": 0.0003,
@@ -39,6 +39,7 @@
         "representation": {
             "hidden": 64,
             "d_hidden": 192
-        }
+        },
+        "freeze_steps": 5000000
     }
 }
