@@ -34,12 +34,14 @@ def sparse_init(sparsity=0.95, spectral_radius=0.99, dtype=jnp.float32):
 
 class ESMAC(nn.Module):
     action_dim: int
-    d_hidden: int = 16384
+    d_hidden: int = 1024
     hidden_size: int = 64
     activation: str = "tanh"
     cont: bool = False
     use_sinusoidal_encoding: bool = False
     use_reward_trace: bool = False
+    sparsity: float = 0.95
+    spectral_radius: float = 0.99
     @nn.compact
     def __call__(self, hidden, obs):
         '''
@@ -63,15 +65,16 @@ class ESMAC(nn.Module):
 
         input_embedding = nn.Dense(self.d_hidden,
                                    kernel_init=orthogonal(np.sqrt(2)),
-                                   use_bias=False, name="frozen_input_embedding_decoder")(obs)
+                                   use_bias=False, name="frozen_input_embedding")(obs)
         hidden_embedding = nn.Dense(self.d_hidden,
-                                    kernel_init=orthogonal(np.sqrt(2)),
-                                    # kernel_init=sparse_init(sparsity=0.95, spectral_radius=0.99),
-                                    use_bias=False, name="frozen_hidden_embedding_decoder")(hidden)
+                                    kernel_init=sparse_init(sparsity=self.sparsity, spectral_radius=self.spectral_radius),
+                                    use_bias=False, name="frozen_hidden_embedding")(hidden)
         
         state_embedding = jax.lax.stop_gradient(activation(input_embedding + hidden_embedding))
 
-        actor_dense = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="actor_dense")(state_embedding)
+        actor_dense = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="actor_dense1")(state_embedding)
+        actor_dense = activation(actor_dense)
+        actor_dense = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="actor_dense2")(actor_dense)
         actor_dense = activation(actor_dense)
         actor_mean = nn.Dense(self.action_dim, kernel_init=orthogonal(0.01), bias_init=constant(0.0), name="actor_mean")(actor_dense)
         #actor_mean: (batch_size, action_dim)
@@ -81,7 +84,9 @@ class ESMAC(nn.Module):
         else:
             pi = distrax.Categorical(logits=actor_mean)
 
-        critic_dense = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="critic_dense")(state_embedding)
+        critic_dense = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="critic_dense1")(state_embedding)
+        critic_dense = activation(critic_dense)
+        critic_dense = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="critic_dense2")(critic_dense)
         critic_dense = activation(critic_dense)
         critic = nn.Dense(1, kernel_init=orthogonal(1.0), bias_init=constant(0.0), name="critic_value")(critic_dense)
         #critic: (batch_size, 1)

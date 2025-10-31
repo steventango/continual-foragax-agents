@@ -67,6 +67,10 @@ class TrainConfig:
     alpha_vf: float
     adam_eps_pi: float
     adam_eps_vf: float
+    
+    sparsity: float
+    spectral_radius: float
+    
     id: int
     reward_trace_decay: float
     gamma: float
@@ -327,6 +331,12 @@ def experiment(rng, config: TrainConfig):
     
     agent = getAgent(config.agent_type)
     
+    kwards = {}
+    if config.sparsity is not None:
+        kwards["sparsity"] = config.sparsity
+    if config.spectral_radius is not None:
+        kwards["spectral_radius"] = config.spectral_radius
+    
     # Create and initialize the network.
     network = agent(
         action_dim=action_dim,
@@ -335,7 +345,8 @@ def experiment(rng, config: TrainConfig):
         d_hidden=config.d_hidden,
         cont=False,
         use_sinusoidal_encoding=config.use_sinusoidal_encoding,
-        use_reward_trace=config.use_reward_trace
+        use_reward_trace=config.use_reward_trace,
+        **kwards
     )
     
     
@@ -583,14 +594,18 @@ def main():
             adam_eps_vf=float(hypers['optimizer_critic']['eps']),
             l2_reg_pi=float(hypers.get('l2_reg_pi', hypers.get('l2_reg', 0.0))),
             l2_reg_vf=float(hypers.get('l2_reg_vf', hypers.get('l2_reg', 0.0))),
+            
+            sparsity=hypers['representation'].get('sparsity', None),
+            spectral_radius=hypers['representation'].get('spectral_radius', None),
+            
             use_sinusoidal_encoding=bool(hypers.get('use_sinusoidal_encoding', False)),
             use_reward_trace=bool(hypers.get('use_reward_trace', False)),
             reward_trace_decay=float(hypers.get('reward_trace_decay', 1.0)),
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
             observation_type=hypers["environment"].get("observation_type", None),
-            repeat=int(hypers["environment"].get("repeat", 500)),
-            reward_delay=int(hypers["environment"].get("reward_delay", 0)),
+            repeat=hypers["environment"].get("repeat", None),
+            reward_delay=hypers["environment"].get("reward_delay", None),
             env_id=hypers["environment"]["env_id"],
             gamma=float(hypers['gamma']),
             gae_lambda=float(hypers['gae_lambda']),
