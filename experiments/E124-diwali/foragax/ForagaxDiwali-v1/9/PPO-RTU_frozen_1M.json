@@ -1,16 +1,15 @@
 {
-    "agent": "ActorCriticMLP_frozen_1M",
+    "agent": "PPO-RTU_frozen_1M",
     "problem": "Foragax",
     "total_steps": 10000000,
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxDiwali-v1",
-            "aperture_size": 5,
+            "aperture_size": 9,
             "observation_type": "rgb"
         },
         "experiment": {
-            "seed_offset": 0,
-            "video_length": 1000
+            "seed_offset": 0
         },
         "gamma": 0.99,
         "gae_lambda": 0.95,
@@ -21,10 +20,10 @@
         "gradient_clipping": true,
         "max_grad_norm": 0.5,
         "vf_coef": 0.5,
-        "entropy_coef": 0.001,
+        "entropy_coef": 0.01,
         "optimizer_actor": {
             "name": "Adam",
-            "alpha": 0.0001,
+            "alpha": 0.0003,
             "beta1": 0.9,
             "beta2": 0.999,
             "eps": 1e-05

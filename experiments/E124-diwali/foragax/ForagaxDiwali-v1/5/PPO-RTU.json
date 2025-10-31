@@ -1,5 +1,5 @@
 {
-    "agent": "ActorCriticMLP_frozen_1M",
+    "agent": "PPO-RTU",
     "problem": "Foragax",
     "total_steps": 10000000,
     "metaParameters": {
@@ -9,8 +9,7 @@
             "observation_type": "rgb"
         },
         "experiment": {
-            "seed_offset": 0,
-            "video_length": 1000
+            "seed_offset": 0
         },
         "gamma": 0.99,
         "gae_lambda": 0.95,
@@ -24,14 +23,14 @@
         "entropy_coef": 0.001,
         "optimizer_actor": {
             "name": "Adam",
-            "alpha": 0.0001,
+            "alpha": 0.0003,
             "beta1": 0.9,
             "beta2": 0.999,
             "eps": 1e-05
         },
         "optimizer_critic": {
             "name": "Adam",
-            "lr_scale": 1.0,
+            "lr_scale": 0.1,
             "beta1": 0.9,
             "beta2": 0.999,
             "eps": 1e-05
@@ -39,7 +38,6 @@
         "representation": {
             "hidden": 64,
             "d_hidden": 192
-        },
-        "freeze_steps": 1000000
+        }
     }
 }
