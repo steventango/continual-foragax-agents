@@ -664,8 +664,8 @@ def main():
 
     batch_experiment = jax.vmap(experiment, in_axes=(0, 0))
     rngs = jnp.stack(rngs)
-    configs = tree_map(lambda *xs: jnp.stack(xs), *configs)
-    results = batch_experiment(rngs, configs)
+    configs_stacked = tree_map(lambda *xs: jnp.stack(xs), *configs)
+    results = batch_experiment(rngs, configs_stacked)
     rewards, pos, (total_loss, (value_loss, policy_loss, entropy)), biome_id, object_collected_id, frames  = results
 
     # --------------------
