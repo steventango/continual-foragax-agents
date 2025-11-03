@@ -42,6 +42,7 @@ class SearchAgent(BaseAgent):
         self.temperature_prioritization = params.get(
             "temperature_prioritization", False
         )
+        self.reward_prioritization = params.get("reward_prioritization", False)
         if len(self.channel_priorities):
             self.max_priority = max(self.channel_priorities.values())
         else:
@@ -132,7 +133,14 @@ class SearchAgent(BaseAgent):
         # Create priority map: higher values = higher priority
         priority_map = jnp.zeros((height, width))
 
-        if self.temperature_prioritization and extra is not None:
+        if self.reward_prioritization and extra is not None and "rewards" in extra:
+            original_priority_map = extra["rewards"]
+            max_reward = jnp.max(original_priority_map)
+            max_reward_map = (original_priority_map == max_reward).astype(jnp.int32)
+            obstacle_map = (original_priority_map < 0).astype(jnp.int32)
+            priority_map = max_reward_map - obstacle_map
+            highest_priority = 1
+        elif self.temperature_prioritization and extra is not None:
             # Skip temperature of empty object
             temps = extra["temperatures"][1:]
             # Assign descending integer priorities (highest temp -> largest priority)
@@ -141,16 +149,20 @@ class SearchAgent(BaseAgent):
             priorities = priorities.at[order].set(jnp.arange(num_channels, 0, -1))
             # If negative temperature, set priority to -1 (obstacle)
             priorities = jnp.where(temps < 0, -1, priorities)
+            # For each channel (object type), add its priority to locations where that object exists
+            for channel in range(num_channels):
+                channel_priority = priorities[channel]
+                priority_map += obs[:, :, channel] * channel_priority
+            highest_priority = self.max_priority
         else:
             priorities = self.priorities_array[:num_channels]
-
-        # For each channel (object type), add its priority to locations where that object exists
-        for channel in range(num_channels):
-            channel_priority = priorities[channel]
-            priority_map += obs[:, :, channel] * channel_priority
+            # For each channel (object type), add its priority to locations where that object exists
+            for channel in range(num_channels):
+                channel_priority = priorities[channel]
+                priority_map += obs[:, :, channel] * channel_priority
+            highest_priority = self.max_priority
 
         # Find the best target using BFS
-        highest_priority = self.max_priority
 
         def cond_fun(carry):
             _, current_priority, best_action, _ = carry

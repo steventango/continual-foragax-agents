@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
-#SBATCH --job-name=E96_hypers-search-limited-fov_foragax-sweep_ForagaxDiwali-v1
+#SBATCH --job-name=E124-diwali_foragax-sweep_ForagaxDiwali-v1_hypers
 #SBATCH --mem-per-cpu=8G
 #SBATCH --ntasks=1
 #SBATCH --output=../slurm-%j.out
-#SBATCH --time=00:15:00
+#SBATCH --time=01:00:00
 
 module load arrow/19
 
@@ -22,3 +22,4 @@ export JAX_PLATFORMS=cpu
 $SLURM_TMPDIR/.venv/bin/python experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v1/hypers.py
 
 $SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E124-diwali/foragax/ForagaxDiwali-v1/9
+$SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E124-diwali/foragax/ForagaxDiwali-v1/5

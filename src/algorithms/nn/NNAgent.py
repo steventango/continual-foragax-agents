@@ -29,8 +29,6 @@ class OptimizerHypers:
 
 @cxu.dataclass
 class SWRHypers:
-    utility_function: str
-    pruning_method: str
     reinit_freq: int
     reinit_factor: float
     decay_rate: float
@@ -132,17 +130,17 @@ class NNAgent(BaseAgent):
         swr_params = params.get("swr")
         swr_hypers = None
         if swr_params is not None:
+            self.swr_utility_function = swr_params["utility_function"]
+            self.swr_pruning_method = swr_params["pruning_method"]
             swr_hypers = SWRHypers(
-                utility_function=swr_params["utility_function"],
-                pruning_method=swr_params["pruning_method"],
                 reinit_freq=swr_params["reinit_freq"],
                 reinit_factor=swr_params["reinit_factor"],
                 decay_rate=swr_params.get("decay_rate", 0.0),
                 seed=seed,
             )
-
+        self.initializers = self.builder.getInitializers()
         optimizer = self._build_optimizer(optimizer_hypers, swr_hypers)
-        opt_state = {name: optimizer.init(p) for name, p in net_params.items()}
+        opt_state = optimizer.init(net_params)
 
         # ------------------
         # -- Data ingress --
@@ -227,7 +225,7 @@ class NNAgent(BaseAgent):
         self,
         optimizer_hypers: OptimizerHypers,
         swr_hypers: Optional[SWRHypers],
-    ) -> optax.GradientTransformation:
+    ) -> optax.GradientTransformationExtraArgs:
         """Build optimizer with optional SWR."""
 
         # Start with Adam optimizer
@@ -235,13 +233,10 @@ class NNAgent(BaseAgent):
 
         # If SWR is configured, chain it after Adam
         if swr_hypers is not None:
-            # Get initializers from the network builder
-            initializers = self.builder.getInitializers()
-
             swr_optimizer = selective_weight_reinitialization(
-                utility_function=swr_hypers.utility_function,
-                pruning_method=swr_hypers.pruning_method,
-                param_initializers=initializers,
+                utility_function=self.swr_utility_function,
+                pruning_method=self.swr_pruning_method,
+                initializers=self.initializers,
                 reinit_freq=swr_hypers.reinit_freq,
                 reinit_factor=swr_hypers.reinit_factor,
                 decay_rate=swr_hypers.decay_rate,

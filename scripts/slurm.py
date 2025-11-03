@@ -34,6 +34,7 @@ parser.add_argument("--debug", action="store_true", default=False)
 parser.add_argument("--force", action="store_true", default=False)
 parser.add_argument("--exclude", type=str, nargs="+", default=[])
 parser.add_argument("-i", "--idxs", type=int, nargs="+", default=None)
+parser.add_argument("--time", type=str, default=None)
 
 cmdline = parser.parse_args()
 
@@ -95,6 +96,10 @@ if not cmdline.debug and not os.path.exists(venv_origin):
 # Scheduling logic
 # ----------------
 slurm = fromFile(cmdline.cluster)
+
+# Override time if provided
+if cmdline.time is not None:
+    slurm = dataclasses.replace(slurm, time=cmdline.time)
 
 threads = slurm.threads_per_task if isinstance(slurm, SingleNodeOptions) else 1
 tasks_per_core = slurm.tasks_per_core if isinstance(slurm, SingleNodeOptions) else 1
@@ -158,9 +163,9 @@ for path in missing:
         # generate the bash script which will be scheduled
         script = getJobScript(parallel, sub)
         script_name = get_script_name(Path(path), job_indices)
+        print(script_name)
 
         if cmdline.debug:
-            print(script_name)
             print(to_cmdline_flags(sub))
             print(script)
             exit()

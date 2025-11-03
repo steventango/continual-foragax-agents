@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
 #SBATCH --job-name=E123-two-biome_foragax-sweep_ForagaxSineTwoBiome-v1_process_data
-#SBATCH --mem-per-cpu=128G
-#SBATCH --ntasks=1
+#SBATCH --mem-per-cpu=16G
+#SBATCH --ntasks=16
 #SBATCH --output=../slurm-%j.out
 #SBATCH --time=00:15:00
 

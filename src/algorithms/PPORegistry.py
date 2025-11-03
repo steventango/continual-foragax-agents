@@ -14,14 +14,14 @@ def getAgent(name):
     
     # if name.startswith("RealTimeActorCriticConvEmb"):
     #     return RealTimeActorCriticConvEmb
-    
-    if name.startswith("RealTimeActorCriticMLPMulti"):
+
+    if name.startswith("RealTimeActorCriticMLPMulti") or name.startswith("PPO-RTU-Multi"):
         return RealTimeActorCriticMLPMulti
 
-    if name.startswith("RealTimeActorCriticMLP"):
+    if name.startswith("RealTimeActorCriticMLP") or name.startswith("PPO-RTU"):
         return RealTimeActorCriticMLP
-    
-    if name.startswith("ActorCriticMLP"):
+
+    if name.startswith("ActorCriticMLP") or name.startswith("PPO"):
         return ActorCriticMLP
 
     raise Exception("Unknown algorithm")

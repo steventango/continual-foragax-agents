@@ -111,15 +111,10 @@ class DQN(NNAgent):
         grad, metrics = grad_fn(state.params, state.target_params, batch)
         optimizer = self._build_optimizer(state.hypers.optimizer, state.hypers.swr)
 
-        new_params = {}
-        new_optim = {}
-        weight_change = 0
-        for name, p in state.params.items():
-            updates, optim = optimizer.update(grad[name], state.optim[name], p)
-            new_params[name] = optax.apply_updates(p, updates)
-            new_optim[name] = optim
-            flat_updates, _ = ravel_pytree(updates)
-            weight_change += jnp.linalg.norm(flat_updates, ord=1)
+        updates, new_optim = optimizer.update(grad, state.optim, state.params, grad=grad)
+        new_params = optax.apply_updates(state.params, updates)
+        flat_updates, _ = ravel_pytree(updates)
+        weight_change = jnp.linalg.norm(flat_updates, ord=1)
         metrics["weight_change"] = weight_change
 
         return replace(state, params=new_params, optim=new_optim), metrics

@@ -5,10 +5,12 @@
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxDiwali-v1",
-            "aperture_size": 15
+            "aperture_size": 15,
+            "observation_type": "rgb"
         },
         "experiment": {
-            "seed_offset": 0
+            "seed_offset": 0,
+            "video_length": 1000
         },
         "gamma": 0.99,
         "gae_lambda": 0.95,
