@@ -16,6 +16,7 @@ import numpy as np
 from jax.tree_util import tree_map
 from jax_tqdm.scan_pbar import scan_tqdm
 from jax_tqdm.base import PBar
+from gymnasium.utils.save_video import save_video
 from ml_instrumentation.Collector import Collector
 from ml_instrumentation.metadata import attach_metadata
 from ml_instrumentation.Sampler import Ignore, MovingAverage, Subsample
@@ -40,6 +41,7 @@ PERIOD = 182500
 class LogEnvState:
     returned_returns: float
     timestep: int
+    frames: Any
 
 @struct.dataclass
 class TrainConfig:
@@ -55,7 +57,10 @@ class TrainConfig:
     env_id: str = struct.field(pytree_node=False)
     aperture_size: int = struct.field(pytree_node=False)
     observation_type: str = struct.field(pytree_node=False)
+    repeat: int = struct.field(pytree_node=False)
+    reward_delay: int = struct.field(pytree_node=False)
     use_sinusoidal_encoding: bool = struct.field(pytree_node=False)
+    use_reward_trace: bool = struct.field(pytree_node=False)
     # ---- DYNAMIC (may vary per idx; arithmetic only) ----
     max_grad_norm: float
     l2_reg_pi: float
@@ -64,7 +69,12 @@ class TrainConfig:
     alpha_vf: float
     adam_eps_pi: float
     adam_eps_vf: float
+    
+    sparsity: float
+    spectral_radius: float
+    
     id: int
+    reward_trace_decay: float
     gamma: float
     gae_lambda: float
     clip_eps: float
@@ -73,6 +83,8 @@ class TrainConfig:
     freeze_after_steps: int = -1
     
 class GymnaxEnvState(struct.PyTreeNode):
+    to_render: bool = struct.field(pytree_node=True)
+    cond_render: Callable = struct.field(pytree_node=False)
     env_step: Callable = struct.field(pytree_node=False)
     env_params: Any = struct.field(pytree_node=True)
     env_state: Any = struct.field(pytree_node=True)
@@ -180,15 +192,15 @@ def loss_fn(params,agent_fn, traj_batch, gae, targets,init_hstate,clip_eps,vf_co
 
 @jax.jit
 def agent_step(last_obs,train_state,rng,hstate):
-    last_obs, last_action_encoded, last_reward, sine, cosine = last_obs
-    rnn_in = (jnp.expand_dims(last_obs,0), jnp.expand_dims(last_action_encoded,0), jnp.expand_dims(last_reward,0), jnp.expand_dims(sine,0), jnp.expand_dims(cosine,0))
+    last_obs, last_action_encoded, last_reward, sine, cosine, reward_trace = last_obs
+    rnn_in = (jnp.expand_dims(last_obs,0), jnp.expand_dims(last_action_encoded,0), jnp.expand_dims(last_reward,0), jnp.expand_dims(sine,0), jnp.expand_dims(cosine,0), jnp.expand_dims(reward_trace,0))
     last_hidden,pi, value = train_state.apply_fn(train_state.params, hstate,rnn_in)
     action = pi.sample(seed=rng)
     log_prob = pi.log_prob(action)
     return action, log_prob, value, last_hidden
     
 def env_step(runner_state,_):
-    train_state,gymnax_state,log_env_state,last_obs,last_action, last_reward, rng,hstate = runner_state
+    train_state,gymnax_state,log_env_state,config, last_obs,last_action, last_reward, reward_trace, rng, hstate = runner_state
 
     # SELECT ACTION
     rng, _rng = jax.random.split(rng)
@@ -197,7 +209,9 @@ def env_step(runner_state,_):
     last_reward_encoded = jnp.expand_dims(last_reward, 0)
     sine = jnp.expand_dims(jnp.sin(2 * jnp.pi * log_env_state.timestep / PERIOD), 0)
     cosine = jnp.expand_dims(jnp.cos(2 * jnp.pi * log_env_state.timestep / PERIOD), 0)
-    last_obs_encoded = (last_obs, action_encoded, last_reward_encoded, sine, cosine)
+    reward_trace = config.reward_trace_decay * reward_trace + (1.0 - config.reward_trace_decay) * last_reward
+    reward_trace_encoded = jnp.expand_dims(reward_trace, 0)
+    last_obs_encoded = (last_obs, action_encoded, last_reward_encoded, sine, cosine, reward_trace_encoded)
                   
     action, log_prob, value, last_hidden = agent_step(last_obs_encoded,train_state,_rng,hstate)
     # STEP ENV
@@ -206,23 +220,28 @@ def env_step(runner_state,_):
     )
     step = log_env_state.timestep + 1
     new_return = 0.999 * log_env_state.returned_returns + (1.0 - 0.999) * (reward)
+    
+    frame = gymnax_state.cond_render(gymnax_state.to_render, gymnax_state.env_state)
 
-    log_env_state = LogEnvState(returned_returns=new_return, timestep=step)
+    log_env_state = LogEnvState(returned_returns=new_return, timestep=step, frames=log_env_state.frames)
 
     info["reward"] = reward
     info["moving_average"] = new_return
     info["timestep"] = log_env_state.timestep
     info["pos"] = env_state.pos
+    info["frame"] = frame
 
     ### Create transition
     transition = Transition(action.squeeze(), value.squeeze(), reward, log_prob.squeeze(), last_obs_encoded, info)
     ### Update runner state
     gymnax_state = GymnaxEnvState.create(
+        to_render=gymnax_state.to_render,
+        cond_render=gymnax_state.cond_render,
         env_step=gymnax_state.env_step,
         env_params=gymnax_state.env_params,
         env_state=env_state,
     )
-    runner_state = (train_state, gymnax_state,log_env_state, obs,action.squeeze(),reward, rng,last_hidden)
+    runner_state = (train_state, gymnax_state,log_env_state,config, obs,action.squeeze(),reward,reward_trace, rng,last_hidden)
     return runner_state, (transition,hstate)
 
 @jax.jit
@@ -296,23 +315,56 @@ def update_step(update_state):
     rng = update_state[-2]
     return (train_state, rng), loss_info
 
-
 def experiment(rng, config: TrainConfig):
+    kwards = {}
     if config.observation_type is not None:
-        env = make(config.env_id, aperture_size=config.aperture_size, observation_type=config.observation_type)
-    else:
-        env = make(config.env_id, aperture_size=config.aperture_size)
+        kwards["observation_type"] = config.observation_type
+    if config.repeat is not None:
+        kwards["repeat"] = config.repeat
+    if config.reward_delay is not None:
+        kwards["reward_delay"] = config.reward_delay
+        
+    print(f"Creating env {config.env_id} with aperture size {config.aperture_size} and kwargs {kwards}")
+        
+    env = make(config.env_id, aperture_size=config.aperture_size, **kwards)
 
-    ### Initialize the environment states    
-    log_env_state = LogEnvState(returned_returns=0,timestep=0)
+    ### Initialize the environment states
+    log_env_state = LogEnvState(returned_returns=0,timestep=0, frames=jnp.zeros((config.rollout_steps, env.size[0]*24, env.size[1]*24, 3), dtype=jnp.uint8))
     rng, reset_rng = jax.random.split(rng)
     obs, env_state = env.reset(reset_rng, env.default_params)
+    
+    def real_render(env_state):
+        return env.render(
+            env_state, None, render_mode="world"
+        ).astype(jnp.uint8)
+        
+    def void_render(env_state):
+        return jnp.zeros((env.size[0]*24, env.size[1]*24, 3), dtype=jnp.uint8)
+
+    def render(cond, env_state):
+        return jax.lax.cond(
+            cond,
+            real_render,
+            void_render,
+            env_state
+        )
+    
     gymnax_state = GymnaxEnvState.create(
-        env_step=env.step, env_params=env.default_params, env_state=env_state
+        to_render=False,
+        cond_render=render,
+        env_step=env.step,
+        env_params=env.default_params,
+        env_state=env_state
     )
     action_dim = 4
     
     agent = getAgent(config.agent_type)
+    
+    kwards = {}
+    if config.sparsity is not None:
+        kwards["sparsity"] = config.sparsity
+    if config.spectral_radius is not None:
+        kwards["spectral_radius"] = config.spectral_radius
     
     # Create and initialize the network.
     network = agent(
@@ -321,12 +373,14 @@ def experiment(rng, config: TrainConfig):
         hidden_size=config.hidden_size,
         d_hidden=config.d_hidden,
         cont=False,
-        use_sinusoidal_encoding=config.use_sinusoidal_encoding
+        use_sinusoidal_encoding=config.use_sinusoidal_encoding,
+        use_reward_trace=config.use_reward_trace,
+        **kwards
     )
     
     
     rng, _rng = jax.random.split(rng)
-    init_x = (jnp.zeros((1, *obs.shape)), jnp.zeros((1, action_dim)), jnp.zeros((1, 1)), jnp.zeros((1, 1)), jnp.zeros((1, 1)))
+    init_x = (jnp.zeros((1, *obs.shape)), jnp.zeros((1, action_dim)), jnp.zeros((1, 1)), jnp.zeros((1, 1)), jnp.zeros((1, 1)), jnp.zeros((1, 1)))
     
     init_hstate = agent.initialize_memory(1, config.d_hidden, config.hidden_size)
     network_params = network.init(_rng, init_hstate, init_x)
@@ -339,6 +393,8 @@ def experiment(rng, config: TrainConfig):
                 return "vf"
             elif "actor" in path_str:
                 return "pi"
+            elif "frozen" in path_str:
+                return "frozen"
             return ""
 
         labels_flat = {k: label_for_path(k) for k in flat.keys()}
@@ -361,6 +417,7 @@ def experiment(rng, config: TrainConfig):
                     optax.add_decayed_weights(config.l2_reg_vf),
                     optax.adam(config.alpha_vf, eps=config.adam_eps_vf)
                 ),
+                "frozen": optax.set_to_zero(),
             },
             labels,
         )
@@ -375,6 +432,7 @@ def experiment(rng, config: TrainConfig):
                     optax.add_decayed_weights(config.l2_reg_vf),
                     optax.adam(config.alpha_vf, eps=config.adam_eps_vf)
                 ),
+                "frozen": optax.set_to_zero(),
             },
             labels,
         )
@@ -390,17 +448,31 @@ def experiment(rng, config: TrainConfig):
         zeros = jnp.zeros((config.epochs, config.num_mini_batch), dtype=jnp.float32)
         return (zeros, (zeros, zeros, zeros))
 
-    env_step_state = (train_state, gymnax_state, log_env_state, obs, 0, 0, rng, init_hstate)
+    env_step_state = (train_state, gymnax_state, log_env_state, config, obs, 0, 0, 0, rng, init_hstate)
 
     @scan_tqdm(config.num_updates)
-    def experiment_step(carry, _):
+    def experiment_step(carry, iteration_idx):
         env_step_state, train_state, rng = carry
+        train_state, gymnax_state, log_env_state, config, last_obs,last_action, last_reward, reward_trace, rng, hstate = env_step_state
+        
+        to_render = iteration_idx == (config.num_updates - 1)
+        
+        gymnax_state = GymnaxEnvState.create(
+            to_render=to_render,
+            cond_render=gymnax_state.cond_render,
+            env_step=gymnax_state.env_step,
+            env_params=gymnax_state.env_params,
+            env_state=gymnax_state.env_state,
+        )
+        
+        env_step_state = train_state, gymnax_state, log_env_state, config, last_obs,last_action, last_reward, reward_trace, rng, hstate
+        
         # Roll out for config.rollout_steps
         env_step_state, traj_hstate_batch = jax.lax.scan(
             env_step, env_step_state, length=config.rollout_steps
         )
         traj_batch, hstate_batch = traj_hstate_batch
-        train_state, gymnax_state, log_env_state, last_obs, last_action, last_reward, rng, last_hstate = env_step_state
+        train_state, gymnax_state, log_env_state, config, last_obs, last_action, last_reward, reward_trace, rng, last_hstate = env_step_state
 
         # Build last observation with previous action encoding
         action_encoded = jnp.zeros((4,))
@@ -408,7 +480,9 @@ def experiment(rng, config: TrainConfig):
         last_reward_encoded = jnp.expand_dims(last_reward, 0)
         sine = jnp.expand_dims(jnp.sin(2 * jnp.pi * log_env_state.timestep / PERIOD), 0)
         cosine = jnp.expand_dims(jnp.cos(2 * jnp.pi * log_env_state.timestep / PERIOD), 0)
-        last_obs_encoded = (last_obs, action_encoded, last_reward_encoded, sine, cosine)
+        reward_trace = config.reward_trace_decay * reward_trace + (1.0 - config.reward_trace_decay) * last_reward
+        reward_trace_encoded = jnp.expand_dims(reward_trace, 0)
+        last_obs_encoded = (last_obs, action_encoded, last_reward_encoded, sine, cosine, reward_trace_encoded)
 
         # Bootstrap value at last state
         _, _, last_value, _ = agent_step(last_obs_encoded, train_state, rng, last_hstate)
@@ -434,14 +508,16 @@ def experiment(rng, config: TrainConfig):
                                                      skip_update,
                                                      update_state)
 
-        # Rebuild env_step_state for next iteration
-        env_step_state = (train_state, gymnax_state, log_env_state, last_obs, last_action, last_reward, rng, last_hstate)
-
         # Collect a scalar reward summary for this iteration (mean reward over rollout)
         rewards = traj_batch.reward
         pos = traj_batch.info["pos"]
         biome_id = traj_batch.info["biome_id"]
         object_collected_id = traj_batch.info["object_collected_id"]
+        frames = traj_batch.info["frame"]
+        log_env_state = LogEnvState(returned_returns=log_env_state.returned_returns, timestep=log_env_state.timestep, frames=frames)
+        
+        # Rebuild env_step_state for next iteration
+        env_step_state = (train_state, gymnax_state, log_env_state, config, last_obs, last_action, last_reward, reward_trace, rng, last_hstate)
 
         # Optional lightweight debug
         return (env_step_state, train_state, rng), (rewards, pos, loss_info, biome_id, object_collected_id)
@@ -462,7 +538,8 @@ def experiment(rng, config: TrainConfig):
     biome_id = biome_id.reshape((-1))
     object_collected_id = object_collected_id.reshape((-1))
     env_step_state, train_state, rng = last_carry.carry
-    return rewards, pos, (total_loss, (value_loss, policy_loss, entropy)), biome_id, object_collected_id
+    frames = env_step_state[2].frames
+    return rewards, pos, (total_loss, (value_loss, policy_loss, entropy)), biome_id, object_collected_id, frames
     
 def main():
     parser = argparse.ArgumentParser()
@@ -562,10 +639,18 @@ def main():
             adam_eps_vf=float(hypers['optimizer_critic']['eps']),
             l2_reg_pi=float(hypers.get('l2_reg_pi', hypers.get('l2_reg', 0.0))),
             l2_reg_vf=float(hypers.get('l2_reg_vf', hypers.get('l2_reg', 0.0))),
+            
+            sparsity=hypers['representation'].get('sparsity', None),
+            spectral_radius=hypers['representation'].get('spectral_radius', None),
+            
             use_sinusoidal_encoding=bool(hypers.get('use_sinusoidal_encoding', False)),
+            use_reward_trace=bool(hypers.get('use_reward_trace', False)),
+            reward_trace_decay=float(hypers.get('reward_trace_decay', 1.0)),
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
             observation_type=hypers["environment"].get("observation_type", None),
+            repeat=hypers["environment"].get("repeat", None),
+            reward_delay=hypers["environment"].get("reward_delay", None),
             env_id=hypers["environment"]["env_id"],
             gamma=float(hypers['gamma']),
             gae_lambda=float(hypers['gae_lambda']),
@@ -581,7 +666,7 @@ def main():
     rngs = jnp.stack(rngs)
     configs = tree_map(lambda *xs: jnp.stack(xs), *configs)
     results = batch_experiment(rngs, configs)
-    rewards, pos, (total_loss, (value_loss, policy_loss, entropy)), biome_id, object_collected_id  = results
+    rewards, pos, (total_loss, (value_loss, policy_loss, entropy)), biome_id, object_collected_id, frames  = results
 
     # --------------------
     # -- Saving --
@@ -593,7 +678,7 @@ def main():
     for i, idx in enumerate(indices):
         collector = collectors[i]
         chk = chks[i]
-
+        config = configs[i]
         # process rewards for this run
         run_rewards = rewards[i]
         run_pos = pos[i]
@@ -603,6 +688,7 @@ def main():
         run_entropy = entropy[i]
         run_biome_id = biome_id[i]
         run_object_collected_id = object_collected_id[i]
+        run_frames = frames[i]
         start_time = time.time()
         # for reward in run_rewards:
         #     collector.next_frame()
@@ -618,9 +704,19 @@ def main():
         context = exp.buildSaveContext(idx, base=args.save_path)
         save_path = context.resolve("results.db")
         data_path = context.resolve(f"data/{idx}.npz")
+        video_path = context.resolve(f"videos/{idx}")
         context.ensureExists(data_path, is_file=True)
+        context.ensureExists(video_path, is_file=True)
 
         start_time = time.time()
+        start_frame = config.num_updates * config.rollout_steps - run_frames.shape[0]
+        end_frame = config.num_updates * config.rollout_steps
+        save_video(
+            list(run_frames),
+            video_path,
+            name_prefix=f"{start_frame}_{end_frame}",
+            fps=8,
+        )
         np.savez_compressed(
             data_path, 
             rewards=run_rewards, 

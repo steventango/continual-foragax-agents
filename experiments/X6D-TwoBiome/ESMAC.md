@@ -1,0 +1,1 @@
+Sparse coherent version with sweep and three trained layer

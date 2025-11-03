@@ -4,6 +4,7 @@ from algorithms.nn.RealTimeACConvEmb import RealTimeActorCriticConvEmb
 from algorithms.nn.RealTimeACMLPMulti import RealTimeActorCriticMLPMulti
 from algorithms.nn.RealTimeACMLP import RealTimeActorCriticMLP
 from algorithms.nn.ACMLP import ActorCriticMLP
+from algorithms.nn.ESMAC import ESMAC
 
 def getAgent(name):
     # if name.startswith("RealTimeActorCriticConv"):
@@ -23,5 +24,8 @@ def getAgent(name):
 
     if name.startswith("ActorCriticMLP") or name.startswith("PPO"):
         return ActorCriticMLP
+    
+    if name.startswith("ESMAC"):
+        return ESMAC
 
     raise Exception("Unknown algorithm")
