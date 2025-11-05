@@ -722,14 +722,14 @@ def main():
 
         start_time = time.time()
         if config.allocate_frames:
-        start_frame = config.num_updates * config.rollout_steps - run_frames.shape[0]
-        end_frame = config.num_updates * config.rollout_steps
-        save_video(
-            list(run_frames),
-            video_path,
-            name_prefix=f"{start_frame}_{end_frame}",
-            fps=8,
-        )
+            start_frame = config.num_updates * config.rollout_steps - run_frames.shape[0]
+            end_frame = config.num_updates * config.rollout_steps
+            save_video(
+                list(run_frames),
+                video_path,
+                name_prefix=f"{start_frame}_{end_frame}",
+                fps=8,
+            )
         np.savez_compressed(
             data_path, 
             rewards=run_rewards, 
