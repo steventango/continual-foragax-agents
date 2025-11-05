@@ -201,14 +201,14 @@ wheels = [
 
 [[package]]
 name = "continual-foragax"
-version = "0.34.0"
+version = "0.35.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "gymnax" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/58/96/905f50f18391446be94b91fa146c26e565e24136f0feb573244ab87c0924/continual_foragax-0.34.0.tar.gz", hash = "sha256:c1411e3ccc912d92a87762f14e054ea87fd892c9a0eef6a05de9d2fe710f4536", size = 7727829, upload-time = "2025-11-05T00:05:34.698Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7a/8a/b25498958f1ce7fead053c5788ed1ce862bda6acc57018a817d1b1e48753/continual_foragax-0.35.0.tar.gz", hash = "sha256:6ca07d4a20fe3caf8161b7f1f39330b951a350f7764e19e38780d3b6720f70d2", size = 7728139, upload-time = "2025-11-05T17:22:17.887Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/67/e2/d80694580200e88c4ae421ee4b5e8807dd030707245d13d65c95b80f1c33/continual_foragax-0.34.0-py3-none-any.whl", hash = "sha256:cbd7b3af2ccc07e633b59ea24c6eb00c23cdc460f816d9ca50d587023ffc1517", size = 8245135, upload-time = "2025-11-05T00:05:31.978Z" },
+    { url = "https://files.pythonhosted.org/packages/d3/e5/bf9e887f8a216594d08ca686697715c598eff1b25ed24ca1af1934fde67b/continual_foragax-0.35.0-py3-none-any.whl", hash = "sha256:ca9e49400b408ab26344df02f4fdfc26bca930b4e1118d5d70ef32b32f79aea2", size = 8245223, upload-time = "2025-11-05T17:22:15.86Z" },
 ]
 
 [[package]]
@@ -1277,7 +1277,7 @@ wheels = [
 
 [[package]]
 name = "orbax-checkpoint"
-version = "0.11.26"
+version = "0.11.27"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "absl-py" },
@@ -1295,9 +1295,9 @@ dependencies = [
     { name = "tensorstore" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/91/3d/a8e32b830e999326ac674213a8d70eaf2759f5346ee152d97e630b9a5487/orbax_checkpoint-0.11.26.tar.gz", hash = "sha256:d957541b3b7bf77039059c10a18955ca6456d70bd6ad1e33b3f1ee5ee1bf3f48", size = 398567, upload-time = "2025-10-22T15:32:46.748Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/93/b5/9498ceb9358ccfcfb1e70fa3f9b881ea0431f6722b51b854fc5f803a5d68/orbax_checkpoint-0.11.27.tar.gz", hash = "sha256:c02106928aa8133902f0cc391ad742014115fb2557d72a657034251680c0e9ad", size = 392342, upload-time = "2025-11-05T16:13:54.651Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/69/26/7ec5108d3a833b1e26df790f2ea069ebc30adba2cd0633324cfa88b550b9/orbax_checkpoint-0.11.26-py3-none-any.whl", hash = "sha256:12add599c9599853b246334765a38eb7e8179207453b6e2b109908234f5a07e5", size = 585622, upload-time = "2025-10-22T15:32:45.103Z" },
+    { url = "https://files.pythonhosted.org/packages/be/7b/1b177ca7880531fdf30e8bd1e5c38725574bf8052c239bc1426b39a27a10/orbax_checkpoint-0.11.27-py3-none-any.whl", hash = "sha256:71896f3f881eabf5bf8bcc4d20e4f2c0898e1d8083de161a734f6732691e44bb", size = 584334, upload-time = "2025-11-05T16:13:52.743Z" },
 ]
 
 [[package]]
@@ -1807,7 +1807,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "chex", specifier = ">=0.1.5" },
-    { name = "continual-foragax", specifier = ">=0.34" },
+    { name = "continual-foragax", specifier = ">=0.35" },
     { name = "distrax", specifier = ">=0.1.7" },
     { name = "dm-haiku", specifier = ">=0.0.4" },
     { name = "flashbax", specifier = ">=0.1.3" },
@@ -2091,7 +2091,7 @@ wheels = [
 
 [[package]]
 name = "tfp-nightly"
-version = "0.26.0.dev20251104"
+version = "0.26.0.dev20251105"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "absl-py" },
@@ -2103,7 +2103,7 @@ dependencies = [
     { name = "six" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/04/fe/508d54fa0852d95d766eed5bf601b9126db10f47bfc8b8073553f2a8cb65/tfp_nightly-0.26.0.dev20251104-py2.py3-none-any.whl", hash = "sha256:eeecbf1cf01dd9e738b48d85544277554e27bd8510ddd5952db6e43daddb1040", size = 6975609, upload-time = "2025-11-04T09:43:51.064Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/95/7856da408522b2642f39ac87eba177846a6cf2b2f510f4d35eb378076049/tfp_nightly-0.26.0.dev20251105-py2.py3-none-any.whl", hash = "sha256:6e6af2346a4cc286cd7ca9d556e343d4571b9ed385fb65e4e00042c88ce28993", size = 6975608, upload-time = "2025-11-05T09:43:52.389Z" },
 ]
 
 [[package]]
