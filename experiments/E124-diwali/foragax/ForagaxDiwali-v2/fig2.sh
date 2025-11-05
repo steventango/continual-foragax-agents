@@ -1,0 +1,4 @@
+python src/dataset_stat.py experiments/E124-diwali/foragax/ForagaxDiwali-v2
+python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v2 --plot-name fig2a_2biome_mitigations --filter-alg-apertures Search-Oracle Search-Brown-Avoid-Green DQN_L2:9 DQN_CReLU:9 DQN_Hare_and_Tortoise:9 DQN_L2_Init:9 DQN_LN:9 DQN_Reset_Head:9 DQN_Shrink_and_Perturb:9 ActorCriticMLP-l2:9  --ylim 0 1
+python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v2 --plot-name fig2b_2biome_frozen --filter-alg-apertures DQN_L2:9 ActorCriticMLP-l2:9 DQN_L2_frozen_5M:9 ActorCriticMLP-l2_frozen_5M:9 --ylim 0 1
+python src/biome_stacked_bar.py experiments/E124-diwali/foragax/ForagaxDiwali-v2 --plot-name fig2c_2biome_mitigations_biome_occupancy --sort-seeds --filter-alg-apertures DQN:9 DQN_L2:9 ActorCriticMLP:9 ActorCriticMLP-l2:9 --sample-types 999000:1000000:500 4999000:5000000:500 9999000:10000000:500
