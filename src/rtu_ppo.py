@@ -584,8 +584,8 @@ def main():
     exp = ExperimentModel.load(args.exp)
     
     indices = args.idxs
-    allocate_frames = len(indices) <= 16
-    
+    allocate_frames = len(indices) <= 1
+
     # --------------------
     # -- Batch Set-up --
     # --------------------
