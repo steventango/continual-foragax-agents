@@ -520,7 +520,7 @@ def experiment(rng, config: TrainConfig):
         biome_id = traj_batch.info["biome_id"]
         object_collected_id = traj_batch.info["object_collected_id"]
         if config.allocate_frames:
-        frames = traj_batch.info["frame"]
+            frames = traj_batch.info["frame"]
         else:
             frames = log_env_state.frames
         log_env_state = LogEnvState(returned_returns=log_env_state.returned_returns, timestep=log_env_state.timestep, frames=frames)
