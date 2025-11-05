@@ -56,6 +56,7 @@ class TrainConfig:
     num_updates: int = struct.field(pytree_node=False)
     env_id: str = struct.field(pytree_node=False)
     aperture_size: int = struct.field(pytree_node=False)
+    render_mode: str = struct.field(pytree_node=False)
     observation_type: str = struct.field(pytree_node=False)
     repeat: int = struct.field(pytree_node=False)
     reward_delay: int = struct.field(pytree_node=False)
@@ -334,9 +335,9 @@ def experiment(rng, config: TrainConfig):
     obs, env_state = env.reset(reset_rng, env.default_params)
     
     def real_render(env_state):
-        return env.render(
-            env_state, None, render_mode="world"
-        ).astype(jnp.uint8)
+        return env.render(env_state, None, render_mode=config.render_mode).astype(
+            jnp.uint8
+        )
         
     def void_render(env_state):
         return jnp.zeros((env.size[0]*24, env.size[1]*24, 3), dtype=jnp.uint8)
@@ -648,6 +649,7 @@ def main():
             reward_trace_decay=float(hypers.get('reward_trace_decay', 1.0)),
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
+            render_mode=hypers["environment"].get("render_mode", "world_reward"),
             observation_type=hypers["environment"].get("observation_type", None),
             repeat=hypers["environment"].get("repeat", None),
             reward_delay=hypers["environment"].get("reward_delay", None),
