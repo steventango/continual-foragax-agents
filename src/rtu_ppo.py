@@ -669,7 +669,7 @@ def main():
             vf_coef=float(hypers['vf_coef']),
             entropy_coef=float(hypers['entropy_coef']),
             id=idx,
-            freeze_after_steps=int(hypers.get('freeze_after_steps', -1)),
+            freeze_after_steps=int(hypers.get('freeze_after_steps', hypers.get('freeze_steps', -1))),
             allocate_frames=allocate_frames,
         )
         configs.append(config)
