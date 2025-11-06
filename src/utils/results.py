@@ -191,6 +191,10 @@ def load_all_results_from_data(
         partition_num=1,
     )
     meta = meta.lazy()
+
+    if "id" not in df.columns:
+        return meta
+
     df = df.join(meta, how="left", on=["id"]).collect()
     del meta
     return df
