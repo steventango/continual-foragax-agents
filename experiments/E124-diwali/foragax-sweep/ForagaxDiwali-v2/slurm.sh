@@ -13,8 +13,8 @@ python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-512.json --time 00:15
 # python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-512.json --time 00:30:00 --runs 5 --entry src/rtu_ppo.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v2/5/PPO_L2.json
 # python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-512.json --time 00:30:00 --runs 5 --entry src/rtu_ppo.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v2/9/PPO_L2.json
 
-python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-24.json --time 00:15:00 --runs 5 --entry src/rtu_ppo.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v2/5/PPO-RTU.json --idxs {288..299}
-python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-24.json --time 00:15:00 --runs 5 --entry src/rtu_ppo.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v2/9/PPO-RTU.json --idxs {288..299}
+python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-24.json --time 00:15:00 --runs 5 --entry src/rtu_ppo.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v2/5/PPO-RTU.json
+python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-24.json --time 00:15:00 --runs 5 --entry src/rtu_ppo.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v2/9/PPO-RTU.json
 
 # python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-24.json --time 00:30:00 --runs 5 --entry src/rtu_ppo.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v2/5/PPO-RTU_L2.json
 # python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-24.json --time 00:30:00 --runs 5 --entry src/rtu_ppo.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v2/9/PPO-RTU_L2.json
