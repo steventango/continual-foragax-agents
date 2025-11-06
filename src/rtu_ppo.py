@@ -461,7 +461,7 @@ def experiment(rng, config: TrainConfig):
         env_step_state, train_state, rng = carry
         train_state, gymnax_state, log_env_state, config, last_obs,last_action, last_reward, reward_trace, rng, hstate = env_step_state
         
-        to_render = iteration_idx == (config.num_updates - 1) & config.allocate_frames
+        to_render = (iteration_idx == (config.num_updates - 1)) & config.allocate_frames
         
         gymnax_state = GymnaxEnvState.create(
             to_render=to_render,
@@ -584,7 +584,7 @@ def main():
     exp = ExperimentModel.load(args.exp)
     
     indices = args.idxs
-    allocate_frames = len(indices) <= 1
+    allocate_frames = len(indices) == 1
 
     # --------------------
     # -- Batch Set-up --
