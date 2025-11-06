@@ -1,15 +1,16 @@
 {
-    "agent": "PPO-RTU",
+    "agent": "PPO-RTU_2048",
     "problem": "Foragax",
-    "total_steps": 1000000,
+    "total_steps": 10000000,
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxDiwali-v3",
-            "aperture_size": 9,
+            "aperture_size": 5,
             "observation_type": "rgb"
         },
         "experiment": {
-            "seed_offset": 1000000
+            "seed_offset": 0,
+            "video_length": 1000
         },
         "gamma": 0.99,
         "gae_lambda": 0.95,
@@ -20,35 +21,20 @@
         "gradient_clipping": true,
         "max_grad_norm": 0.5,
         "vf_coef": 0.5,
-        "entropy_coef": [
-            0.001,
-            0.01,
-            0.1,
-            1.0
-        ],
+        "entropy_coef": 0.01,
         "optimizer_actor": {
             "name": "Adam",
-            "alpha": [
-                1e-3,
-                3e-4,
-                1e-4,
-                3e-5,
-                1e-5
-            ],
+            "alpha": 0.0003,
             "beta1": 0.9,
             "beta2": 0.999,
-            "eps": 1e-5
+            "eps": 1e-05
         },
         "optimizer_critic": {
             "name": "Adam",
-            "lr_scale": [
-                1.0,
-                10.0,
-                0.1
-            ],
+            "lr_scale": 10.0,
             "beta1": 0.9,
             "beta2": 0.999,
-            "eps": 1e-5
+            "eps": 1e-05
         },
         "representation": {
             "hidden": 64,

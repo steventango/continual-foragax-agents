@@ -1,11 +1,11 @@
 {
-    "agent": "PPO-RTU",
+    "agent": "PPO-RTU_2048",
     "problem": "Foragax",
     "total_steps": 10000000,
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxDiwali-v3",
-            "aperture_size": 5,
+            "aperture_size": 9,
             "observation_type": "rgb"
         },
         "experiment": {
