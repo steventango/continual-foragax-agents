@@ -3,7 +3,9 @@ python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v2 --
 python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v2 --plot-name fig1a_diwali_search_seeds --filter-alg-apertures Search-Oracle Search-Nearest --ylim "-0.1" 0.25 --subplot-by-seed
 
 python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v2 --plot-name fig1b_diwali_frozen --filter-alg-apertures PPO:5 PPO-RTU:5 PPO_frozen_5M:5 PPO-RTU_frozen_5M:5
-python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v2 --plot-name fig1b_diwali_frozen_seeds --filter-alg-apertures PPO:5 PPO-RTU:5 PPO_frozen_5M:5 PPO-RTU_frozen_5M:5 --subplot-by-seed
+python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v2 --plot-name fig1b_diwali_ppo_frozen_seeds --filter-alg-apertures PPO:5 PPO_frozen_5M:5 --subplot-by-seed
+python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v2 --plot-name fig1b_diwali_rtu_frozen_seeds --filter-alg-apertures PPO-RTU:5 PPO-RTU_frozen_5M:5 --subplot-by-seed
+
 python src/biome_stacked_bar.py experiments/E124-diwali/foragax/ForagaxDiwali-v2 --plot-name fig1c_2biome_dqn_biome_occupancy --sort-seeds --filter-alg-apertures DQN:9 DQN_frozen_5M:9 ActorCriticMLP:9 ActorCriticMLP_frozen_5M:9 DQN:15 DQN_frozen_5M:15 ActorCriticMLP:15 ActorCriticMLP_frozen_5M:15 Search-Oracle --sample-types 999000:1000000:500 4999000:5000000:500 9999000:10000000:500
 
 # python src/biome_ternary.py experiments/E124-diwali/foragax/ForagaxDiwali-v2 --plot-name afig1a --bars "DQN|9|999000:1000000:500|" "DQN_L2|9|999000:1000000:500|" "DQN_frozen_5M|9|999000:1000000:500|" "DQN_greedy_frozen_5M|9|999000:1000000:500|" "Search-Oracle||999000:1000000:500|" &
