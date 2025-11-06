@@ -1,5 +1,5 @@
-python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-128.json --time 01:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v3/5/DQN.json
-python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-128.json --time 02:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v3/9/DQN.json
+# python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-128.json --time 01:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v3/5/DQN.json
+# python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-128.json --time 02:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v3/9/DQN.json
 
 # python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-128.json --time 01:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v3/5/DQN_L2.json
 # python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-128.json --time 01:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v3/9/DQN_L2.json
