@@ -63,6 +63,7 @@ class TrainConfig:
     use_sinusoidal_encoding: bool = struct.field(pytree_node=False)
     use_reward_trace: bool = struct.field(pytree_node=False)
     allocate_frames: bool = struct.field(pytree_node=False)
+    video_length: int = struct.field(pytree_node=False)
     # ---- DYNAMIC (may vary per idx; arithmetic only) ----
     max_grad_norm: float
     l2_reg_pi: float
@@ -332,7 +333,18 @@ def experiment(rng, config: TrainConfig):
 
     ### Initialize the environment states
     if config.allocate_frames:
-        frames = jnp.zeros((config.rollout_steps, env.size[0]*24, env.size[1]*24, 3), dtype=jnp.uint8)
+        updates_per_video = (
+            config.video_length + config.rollout_steps - 1
+        ) // config.rollout_steps
+        frames = jnp.zeros(
+            (
+                updates_per_video * config.rollout_steps,
+                env.size[0] * 24,
+                env.size[1] * 24,
+                3,
+            ),
+            dtype=jnp.uint8,
+        )
     else:
         frames = jnp.zeros((0, env.size[0]*24, env.size[1]*24, 3), dtype=jnp.uint8)
     log_env_state = LogEnvState(returned_returns=0,timestep=0, frames=frames)
@@ -461,7 +473,11 @@ def experiment(rng, config: TrainConfig):
         env_step_state, train_state, rng = carry
         train_state, gymnax_state, log_env_state, config, last_obs,last_action, last_reward, reward_trace, rng, hstate = env_step_state
         
-        to_render = (iteration_idx == (config.num_updates - 1)) & config.allocate_frames
+        updates_per_video = (
+            config.video_length + config.rollout_steps - 1
+        ) // config.rollout_steps
+        start_recording_update = config.num_updates - updates_per_video
+        to_render = (iteration_idx >= start_recording_update) & config.allocate_frames
         
         gymnax_state = GymnaxEnvState.create(
             to_render=to_render,
@@ -520,7 +536,17 @@ def experiment(rng, config: TrainConfig):
         biome_id = traj_batch.info["biome_id"]
         object_collected_id = traj_batch.info["object_collected_id"]
         if config.allocate_frames:
-            frames = traj_batch.info["frame"]
+            # Update the frames buffer
+            def update_frames(frames):
+                idx_in_video = iteration_idx - start_recording_update
+                start_idx = idx_in_video * config.rollout_steps
+                return jax.lax.dynamic_update_slice(
+                    frames, traj_batch.info["frame"], (start_idx, 0, 0, 0)
+                )
+
+            frames = jax.lax.cond(
+                to_render, update_frames, lambda x: x, log_env_state.frames
+            )
         else:
             frames = log_env_state.frames
         log_env_state = LogEnvState(returned_returns=log_env_state.returned_returns, timestep=log_env_state.timestep, frames=frames)
@@ -671,6 +697,7 @@ def main():
             id=idx,
             freeze_after_steps=int(hypers.get('freeze_after_steps', hypers.get('freeze_steps', -1))),
             allocate_frames=allocate_frames,
+            video_length=int(hypers.get("experiment", {}).get("video_length", 1000)),
         )
         configs.append(config)
 
