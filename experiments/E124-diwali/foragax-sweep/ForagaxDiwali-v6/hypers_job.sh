@@ -21,5 +21,6 @@ export JAX_PLATFORMS=cpu
 
 $SLURM_TMPDIR/.venv/bin/python experiments/E124-diwali/foragax-sweep/ForagaxDiwali-v6/hypers.py
 
+$SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E124-diwali/foragax/ForagaxDiwali-v6/15
 $SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E124-diwali/foragax/ForagaxDiwali-v6/9
 $SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E124-diwali/foragax/ForagaxDiwali-v6/5
