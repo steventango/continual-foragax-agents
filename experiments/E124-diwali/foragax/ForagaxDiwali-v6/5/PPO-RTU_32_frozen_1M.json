@@ -30,7 +30,7 @@
         },
         "optimizer_critic": {
             "name": "Adam",
-            "lr_scale": 0.1,
+            "lr_scale": 1.0,
             "beta1": 0.9,
             "beta2": 0.999,
             "eps": 1e-05

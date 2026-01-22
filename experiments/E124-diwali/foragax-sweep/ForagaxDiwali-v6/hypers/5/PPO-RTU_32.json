@@ -19,7 +19,7 @@
     "optimizer_critic.beta1": 0.9,
     "optimizer_critic.beta2": 0.999,
     "optimizer_critic.eps": 1e-05,
-    "optimizer_critic.lr_scale": 0.1,
+    "optimizer_critic.lr_scale": 1.0,
     "optimizer_critic.name": "Adam",
     "representation.d_hidden": 192,
     "representation.hidden": 64,
