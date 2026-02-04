@@ -30,6 +30,10 @@ from algorithms.PPORegistry import getAgent
 import optax
 from flax.training.train_state import TrainState
 import argparse
+
+import os
+
+sys.path.insert(0, os.path.abspath("/tmp/src"))
 from foragax.registry import make
 
 PERIOD = 182500
@@ -54,11 +58,10 @@ class TrainConfig:
     gradient_clipping: bool = struct.field(pytree_node=False)
     num_updates: int = struct.field(pytree_node=False)
     env_id: str = struct.field(pytree_node=False)
+    video: bool = struct.field(pytree_node=False)
     aperture_size: int = struct.field(pytree_node=False)
     render_mode: str = struct.field(pytree_node=False)
-    observation_type: str = struct.field(pytree_node=False)
-    repeat: int = struct.field(pytree_node=False)
-    reward_delay: int = struct.field(pytree_node=False)
+    env_kwargs: Any = struct.field(pytree_node=False)
     use_sinusoidal_encoding: bool = struct.field(pytree_node=False)
     use_reward_trace: bool = struct.field(pytree_node=False)
     use_layernorm: bool = struct.field(pytree_node=False)
@@ -83,9 +86,8 @@ class TrainConfig:
     clip_eps: float
     vf_coef: float
     entropy_coef: float
-    freeze_after_steps: int = -1
-
-
+    freeze_steps: int = -1
+    
 class GymnaxEnvState(struct.PyTreeNode):
     to_render: bool = struct.field(pytree_node=True)
     cond_render: Callable = struct.field(pytree_node=False)
@@ -434,19 +436,11 @@ def update_step(update_state):
 
 
 def experiment(rng, config: TrainConfig):
-    kwards = {}
-    if config.observation_type is not None:
-        kwards["observation_type"] = config.observation_type
-    if config.repeat is not None:
-        kwards["repeat"] = config.repeat
-    if config.reward_delay is not None:
-        kwards["reward_delay"] = config.reward_delay
-
-    print(
-        f"Creating env {config.env_id} with aperture size {config.aperture_size} and kwargs {kwards}"
-    )
-
-    env = make(config.env_id, aperture_size=config.aperture_size, **kwards)
+    kwargs = dict(config.env_kwargs)
+        
+    print(f"Creating env {config.env_id} with aperture size {config.aperture_size} and kwargs {kwargs}")
+        
+    env = make(config.env_id, aperture_size=config.aperture_size, **kwargs)
 
     rng, reset_rng = jax.random.split(rng)
     obs, env_state = env.reset(reset_rng, env.default_params)
@@ -490,13 +484,13 @@ def experiment(rng, config: TrainConfig):
     action_dim = 4
 
     agent = getAgent(config.agent_type)
-
-    kwards = {}
+    
+    kwargs = {}
     if config.sparsity is not None:
-        kwards["sparsity"] = config.sparsity
+        kwargs["sparsity"] = config.sparsity
     if config.spectral_radius is not None:
-        kwards["spectral_radius"] = config.spectral_radius
-
+        kwargs["spectral_radius"] = config.spectral_radius
+    
     # Create and initialize the network.
     network = agent(
         action_dim=action_dim,
@@ -507,7 +501,7 @@ def experiment(rng, config: TrainConfig):
         use_sinusoidal_encoding=config.use_sinusoidal_encoding,
         use_reward_trace=config.use_reward_trace,
         use_layernorm=config.use_layernorm,
-        **kwards,
+        **kwargs,
     )
 
     rng, _rng = jax.random.split(rng)
@@ -607,7 +601,7 @@ def experiment(rng, config: TrainConfig):
         init_hstate,
     )
 
-    @scan_tqdm(config.num_updates)
+    @scan_tqdm(config.num_updates, print_rate=min(100, config.num_updates//20))
     def experiment_step(carry, iteration_idx):
         env_step_state, train_state, rng = carry
         (
@@ -710,8 +704,8 @@ def experiment(rng, config: TrainConfig):
         )
 
         # Conditionally perform the update based on how many env steps have elapsed.
-        # If freeze_after_steps <= 0, updates are always performed.
-        # Otherwise, once log_env_state.timestep exceeds freeze_after_steps, we stop updating.
+        # If freeze_steps <= 0, updates are always performed.
+        # Otherwise, once log_env_state.timestep exceeds freeze_steps, we stop updating.
         rng, update_rng = jax.random.split(rng)
         update_state = (
             train_state,
@@ -738,8 +732,8 @@ def experiment(rng, config: TrainConfig):
             return (train_state, rng), _zero_loss_info(config)
 
         should_update = jnp.logical_or(
-            config.freeze_after_steps <= 0,
-            log_env_state.timestep <= config.freeze_after_steps,
+            config.freeze_steps <= 0,
+            log_env_state.timestep <= config.freeze_steps,
         )
         (train_state, rng), loss_info = jax.lax.cond(
             should_update, update_step, skip_update, update_state
@@ -910,6 +904,15 @@ def main():
 
         seed = exp.getRun(idx) + hypers.get("seed_offset", 0)
         rng = jax.random.PRNGKey(seed)
+        
+        freeze_steps = hypers.get("freeze_after_steps", hypers.get("freeze_steps", -1))
+        if "freeze_steps_end" in hypers:
+            # TODO: this is to match the key for the env reset, that is the jax.random.PRNGKey(seed)[1] is used to reset the env
+            freeze_key = jax.random.PRNGKey(seed + 42)
+            freeze_steps_end = hypers["freeze_steps_end"]
+            freeze_steps = jax.random.randint(freeze_key, (), freeze_steps, freeze_steps_end + 1)
+            print(f"Freeze steps sampled to {freeze_steps}")
+
         rngs.append(rng)
 
         # derive num_updates if not explicitly present
@@ -955,9 +958,10 @@ def main():
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
             render_mode=hypers["environment"].get("render_mode", "world_reward"),
-            observation_type=hypers["environment"].get("observation_type", None),
-            repeat=hypers["environment"].get("repeat", None),
-            reward_delay=hypers["environment"].get("reward_delay", None),
+            env_kwargs=tuple(sorted(
+                (k, v) for k, v in hypers["environment"].items() 
+                if k not in ["aperture_size", "env_id", "render_mode"] and v is not None
+            )),
             env_id=hypers["environment"]["env_id"],
             gamma=float(hypers["gamma"]),
             gae_lambda=float(hypers["gae_lambda"]),
@@ -965,9 +969,7 @@ def main():
             vf_coef=float(hypers["vf_coef"]),
             entropy_coef=float(hypers["entropy_coef"]),
             id=idx,
-            freeze_after_steps=int(
-                hypers.get("freeze_after_steps", hypers.get("freeze_steps", -1))
-            ),
+            freeze_steps=int(freeze_steps),
             allocate_frames=allocate_frames,
             video_length=int(hypers.get("experiment", {}).get("video_length", 1000)),
         )
@@ -1026,9 +1028,7 @@ def main():
         context = exp.buildSaveContext(idx, base=args.save_path)
         save_path = context.resolve("results.db")
         data_path = context.resolve(f"data/{idx}.npz")
-        video_path = context.resolve(f"videos/{idx}")
         context.ensureExists(data_path, is_file=True)
-        context.ensureExists(video_path, is_file=True)
 
         start_time = time.time()
         if config.allocate_frames:

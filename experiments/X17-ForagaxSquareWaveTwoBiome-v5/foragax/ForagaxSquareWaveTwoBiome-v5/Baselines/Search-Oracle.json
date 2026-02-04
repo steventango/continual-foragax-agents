@@ -1,0 +1,22 @@
+{
+    "agent": "Search-Oracle",
+    "problem": "Foragax",
+    "total_steps": 10000000,
+    "episode_cutoff": -1,
+    "metaParameters": {
+        "environment": {
+            "env_id": "ForagaxSquareWaveTwoBiome-v5",
+            "aperture_size": -1,
+            "observation_type": "object",
+			"random_shift_max_steps": 10000000
+        },
+        "experiment": {
+            "seed_offset": 0,
+            "video_length": 1000,
+            "save_every": 25000
+        },
+        "mode": "world",
+        "nowrap": false,
+        "reward_prioritization": true
+    }
+}

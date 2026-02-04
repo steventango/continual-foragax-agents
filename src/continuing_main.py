@@ -2,6 +2,7 @@ import os
 import sys
 
 sys.path.append(os.getcwd())
+sys.path.insert(0, os.path.abspath("/tmp/src"))
 import argparse
 import gc
 import logging

@@ -6,6 +6,7 @@ results
 results/
 results.tar
 .tmp/
+{$SCRATCH}/
 
 # ignore python caches
 env/
