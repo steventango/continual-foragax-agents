@@ -16,6 +16,12 @@ def calculate_ewm_reward(df: pl.DataFrame):
     df = df.with_columns(
         pl.col("rewards").ewm_mean(alpha=1e-3, adjust=True).alias("ewm_reward"),
     )
+
+    for exp in range(1, 10):
+        df = df.with_columns(
+            pl.col("rewards").ewm_mean(alpha=10**-exp, adjust=True).alias(f"ewm_reward_{exp}"),
+        )
+
     df = df.with_columns(pl.col("ewm_reward").mean().alias("mean_ewm_reward"))
 
     return df

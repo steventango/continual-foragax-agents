@@ -1,0 +1,2 @@
+python scripts/slurm.py --cluster clusters/vulcan-cpu.json --time 01:00:00 --runs 30 --entry src/continuing_main.py --force -e experiments/E124-diwali/foragax/ForagaxDiwali-v3/Baselines/Search-Nearest.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu.json --time 02:00:00 --runs 30 --entry src/continuing_main.py --force -e experiments/E124-diwali/foragax/ForagaxDiwali-v3/Baselines/Search-Oracle.json

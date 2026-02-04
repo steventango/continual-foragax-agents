@@ -56,11 +56,14 @@ class TrainConfig:
     num_updates: int = struct.field(pytree_node=False)
     env_id: str = struct.field(pytree_node=False)
     aperture_size: int = struct.field(pytree_node=False)
+    render_mode: str = struct.field(pytree_node=False)
     observation_type: str = struct.field(pytree_node=False)
     repeat: int = struct.field(pytree_node=False)
     reward_delay: int = struct.field(pytree_node=False)
     use_sinusoidal_encoding: bool = struct.field(pytree_node=False)
     use_reward_trace: bool = struct.field(pytree_node=False)
+    allocate_frames: bool = struct.field(pytree_node=False)
+    video_length: int = struct.field(pytree_node=False)
     # ---- DYNAMIC (may vary per idx; arithmetic only) ----
     max_grad_norm: float
     l2_reg_pi: float
@@ -329,14 +332,29 @@ def experiment(rng, config: TrainConfig):
     env = make(config.env_id, aperture_size=config.aperture_size, **kwards)
 
     ### Initialize the environment states
-    log_env_state = LogEnvState(returned_returns=0,timestep=0, frames=jnp.zeros((config.rollout_steps, env.size[0]*24, env.size[1]*24, 3), dtype=jnp.uint8))
+    if config.allocate_frames:
+        updates_per_video = (
+            config.video_length + config.rollout_steps - 1
+        ) // config.rollout_steps
+        frames = jnp.zeros(
+            (
+                updates_per_video * config.rollout_steps,
+                env.size[0] * 24,
+                env.size[1] * 24,
+                3,
+            ),
+            dtype=jnp.uint8,
+        )
+    else:
+        frames = jnp.zeros((0, env.size[0]*24, env.size[1]*24, 3), dtype=jnp.uint8)
+    log_env_state = LogEnvState(returned_returns=0,timestep=0, frames=frames)
     rng, reset_rng = jax.random.split(rng)
     obs, env_state = env.reset(reset_rng, env.default_params)
     
     def real_render(env_state):
-        return env.render(
-            env_state, None, render_mode="world"
-        ).astype(jnp.uint8)
+        return env.render(env_state, None, render_mode=config.render_mode).astype(
+            jnp.uint8
+        )
         
     def void_render(env_state):
         return jnp.zeros((env.size[0]*24, env.size[1]*24, 3), dtype=jnp.uint8)
@@ -455,7 +473,11 @@ def experiment(rng, config: TrainConfig):
         env_step_state, train_state, rng = carry
         train_state, gymnax_state, log_env_state, config, last_obs,last_action, last_reward, reward_trace, rng, hstate = env_step_state
         
-        to_render = iteration_idx == (config.num_updates - 1)
+        updates_per_video = (
+            config.video_length + config.rollout_steps - 1
+        ) // config.rollout_steps
+        start_recording_update = config.num_updates - updates_per_video
+        to_render = (iteration_idx >= start_recording_update) & config.allocate_frames
         
         gymnax_state = GymnaxEnvState.create(
             to_render=to_render,
@@ -513,7 +535,20 @@ def experiment(rng, config: TrainConfig):
         pos = traj_batch.info["pos"]
         biome_id = traj_batch.info["biome_id"]
         object_collected_id = traj_batch.info["object_collected_id"]
-        frames = traj_batch.info["frame"]
+        if config.allocate_frames:
+            # Update the frames buffer
+            def update_frames(frames):
+                idx_in_video = iteration_idx - start_recording_update
+                start_idx = idx_in_video * config.rollout_steps
+                return jax.lax.dynamic_update_slice(
+                    frames, traj_batch.info["frame"], (start_idx, 0, 0, 0)
+                )
+
+            frames = jax.lax.cond(
+                to_render, update_frames, lambda x: x, log_env_state.frames
+            )
+        else:
+            frames = log_env_state.frames
         log_env_state = LogEnvState(returned_returns=log_env_state.returned_returns, timestep=log_env_state.timestep, frames=frames)
         
         # Rebuild env_step_state for next iteration
@@ -575,7 +610,8 @@ def main():
     exp = ExperimentModel.load(args.exp)
     
     indices = args.idxs
-    
+    allocate_frames = len(indices) == 1
+
     # --------------------
     # -- Batch Set-up --
     # --------------------
@@ -648,6 +684,7 @@ def main():
             reward_trace_decay=float(hypers.get('reward_trace_decay', 1.0)),
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
+            render_mode=hypers["environment"].get("render_mode", "world_reward"),
             observation_type=hypers["environment"].get("observation_type", None),
             repeat=hypers["environment"].get("repeat", None),
             reward_delay=hypers["environment"].get("reward_delay", None),
@@ -658,7 +695,9 @@ def main():
             vf_coef=float(hypers['vf_coef']),
             entropy_coef=float(hypers['entropy_coef']),
             id=idx,
-            freeze_after_steps=int(hypers.get('freeze_after_steps', -1)),
+            freeze_after_steps=int(hypers.get('freeze_after_steps', hypers.get('freeze_steps', -1))),
+            allocate_frames=allocate_frames,
+            video_length=int(hypers.get("experiment", {}).get("video_length", 1000)),
         )
         configs.append(config)
 
@@ -709,14 +748,15 @@ def main():
         context.ensureExists(video_path, is_file=True)
 
         start_time = time.time()
-        start_frame = config.num_updates * config.rollout_steps - run_frames.shape[0]
-        end_frame = config.num_updates * config.rollout_steps
-        save_video(
-            list(run_frames),
-            video_path,
-            name_prefix=f"{start_frame}_{end_frame}",
-            fps=8,
-        )
+        if config.allocate_frames:
+            start_frame = config.num_updates * config.rollout_steps - run_frames.shape[0]
+            end_frame = config.num_updates * config.rollout_steps
+            save_video(
+                list(run_frames),
+                video_path,
+                name_prefix=f"{start_frame}_{end_frame}",
+                fps=8,
+            )
         np.savez_compressed(
             data_path, 
             rewards=run_rewards, 

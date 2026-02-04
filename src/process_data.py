@@ -31,6 +31,9 @@ def process_alg_result(alg_result: Result, group, aperture):
             sample_types.append((start, end, n_samples))
         start, end = total, total + interval
         sample_types.append((start, end, n_samples))
+        start, end = total - interval, total + interval
+        if start >= 0 and end <= max(targets):
+            sample_types.append((start, end, n_samples))
 
     df = alg_result.load(sample_type=sample_types)  # type: ignore
     if df is None:

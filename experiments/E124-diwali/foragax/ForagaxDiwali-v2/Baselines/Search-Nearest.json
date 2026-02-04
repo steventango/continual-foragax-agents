@@ -1,0 +1,22 @@
+{
+    "agent": "Search-Nearest",
+    "problem": "Foragax",
+    "total_steps": 10000000,
+    "episode_cutoff": -1,
+    "metaParameters": {
+        "environment": {
+            "env_id": "ForagaxDiwali-v2",
+            "aperture_size": -1,
+            "observation_type": "object"
+        },
+        "channel_priorities": {
+            "0": 1
+        },
+        "experiment": {
+            "seed_offset": 0,
+            "video_length": 1000
+        },
+        "mode": "world",
+        "nowrap": false
+    }
+}

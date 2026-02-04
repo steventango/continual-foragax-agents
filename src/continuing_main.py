@@ -134,9 +134,11 @@ for idx in indices:
 
 assert first_hypers is not None
 
+render_mode = first_hypers.get("experiment", {}).get("render_mode", "world_reward")
+
 def render(carry):
     return glues[0].environment.env.render(
-        carry.env_state.state, None, render_mode="world"
+        carry.env_state.state, None, render_mode=render_mode
     )
 
 if len(glues) > 1:
