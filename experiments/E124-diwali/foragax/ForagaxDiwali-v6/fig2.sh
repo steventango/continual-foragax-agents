@@ -1,4 +1,13 @@
-python src/dataset_stat.py experiments/E124-diwali/foragax/ForagaxDiwali-v6
-python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v6 --plot-name fig2a_2biome_mitigations --filter-alg-apertures Search-Oracle Search-Brown-Avoid-Green DQN_L2:9 DQN_CReLU:9 DQN_Hare_and_Tortoise:9 DQN_L2_Init:9 DQN_LN:9 DQN_Reset_Head:9 DQN_Shrink_and_Perturb:9 ActorCriticMLP-l2:9  --ylim 0 1
-python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v6 --plot-name fig2b_2biome_frozen --filter-alg-apertures DQN_L2:9 ActorCriticMLP-l2:9 DQN_L2_frozen_5M:9 ActorCriticMLP-l2_frozen_5M:9 --ylim 0 1
-python src/biome_stacked_bar.py experiments/E124-diwali/foragax/ForagaxDiwali-v6 --plot-name fig2c_2biome_mitigations_biome_occupancy --sort-seeds --filter-alg-apertures DQN:9 DQN_L2:9 ActorCriticMLP:9 ActorCriticMLP-l2:9 --sample-types 999000:1000000:500 4999000:5000000:500 9999000:10000000:500
+python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v6 --plot-name fig_diwali_fov5_rollout128_search --filter-alg-apertures PPO_128:5 PPO-RTU_128:5 Search-Oracle Search-Nearest --metric rolling_reward_1000000
+python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v6 --plot-name fig_diwali_fov9_rollout128_search --filter-alg-apertures PPO_128:9 PPO-RTU_128:9 Search-Oracle Search-Nearest --metric rolling_reward_1000000
+python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v6 --plot-name fig_diwali_fov15_rollout128_search --filter-alg-apertures PPO_128:15 PPO-RTU_128:15 Search-Oracle Search-Nearest --metric rolling_reward_1000000
+
+
+for seed in {0..2}; do
+    python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v6 --plot-name fig_diwali_fov5_ppo_rollout128_frozen_$seed --filter-alg-apertures PPO_128:5 PPO_128_frozen_5M:5 --filter-seeds $seed --metric ewm_reward_5
+    python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v6 --plot-name fig_diwali_fov5_rtu_rollout128_frozen_$seed --filter-alg-apertures PPO-RTU_128:5 PPO-RTU_128_frozen_5M:5 --filter-seeds $seed --metric ewm_reward_5
+    python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v6 --plot-name fig_diwali_fov9_ppo_rollout128_frozen_$seed --filter-alg-apertures PPO_128:9 PPO_128_frozen_5M:9 --filter-seeds $seed --metric ewm_reward_5
+    python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v6 --plot-name fig_diwali_fov9_rtu_rollout128_frozen_$seed --filter-alg-apertures PPO-RTU_128:9 PPO-RTU_128_frozen_5M:9 --filter-seeds $seed --metric ewm_reward_5
+    python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v6 --plot-name fig_diwali_fov15_ppo_rollout128_frozen_$seed --filter-alg-apertures PPO_128:15 PPO_128_frozen_5M:15 --filter-seeds $seed --metric ewm_reward_5
+    python src/learning_curve.py experiments/E124-diwali/foragax/ForagaxDiwali-v6 --plot-name fig_diwali_fov15_rtu_rollout128_frozen_$seed --filter-alg-apertures PPO-RTU_128:15 PPO-RTU_128_frozen_5M:15 --filter-seeds $seed --metric ewm_reward_5
+done
