@@ -3,6 +3,7 @@ import sys
 
 sys.path.append(os.getcwd())
 import argparse
+import gc
 import logging
 import lzma
 import pickle
@@ -397,6 +398,8 @@ for current_step in range(start_step, n, save_every):
                 name_prefix=f"{start_frame}_{end_frame}",
                 fps=8,
             )
+        del frames, data_chunk_video
+        gc.collect()
     checkpoint_time = time.time() - checkpoint_start_time
     logger.debug(
         f"Checkpointed at {current_step + steps_in_iter} in {checkpoint_time:.4f}s"
