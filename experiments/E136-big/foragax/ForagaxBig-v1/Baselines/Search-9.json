@@ -13,7 +13,7 @@
             "seed_offset": 0,
             "video_length": 1000
         },
-        "mode": "world",
+        "mode": "aperture",
         "nowrap": false,
         "reward_prioritization": true
     }
