@@ -15,6 +15,9 @@
         },
         "mode": "world",
         "nowrap": false,
-        "reward_prioritization": true
+        "reward_prioritization": true,
+        "channel_priorities": {
+            "2": -1
+        }
     }
 }
