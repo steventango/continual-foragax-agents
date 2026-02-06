@@ -137,10 +137,12 @@ assert first_hypers is not None
 
 render_mode = first_hypers.get("experiment", {}).get("render_mode", "world_reward")
 
+
 def render(carry):
     return glues[0].environment.env.render(
         carry.env_state.state, None, render_mode=render_mode
     )
+
 
 if len(glues) > 1:
     # vmap glue methods
@@ -163,7 +165,8 @@ n = exp.total_steps
 
 video_length = first_hypers.get("experiment", {}).get("video_length", 0)
 video_idxs = first_hypers.get("experiment", {}).get("video_idxs", [0])
-video_length = 0 if idx not in video_idxs else video_length
+if not any(idx in video_idxs for idx in indices):
+    video_length = 0
 
 # --------------------
 # -- Batch Execution --
@@ -171,6 +174,7 @@ video_length = 0 if idx not in video_idxs else video_length
 
 start_step = None
 save_every = first_hypers.get("experiment", {}).get("save_every", 100_000)
+video_every = first_hypers.get("experiment", {}).get("video_every", save_every)
 datas = {}
 datas["rewards"] = np.empty((len(indices), n), dtype=np.float16)
 datas["weight_change"] = np.empty((len(indices), n), dtype=np.float16)
@@ -227,6 +231,7 @@ if isinstance(glues[0].environment, Foragax):
             data["temperatures"] = interaction.extra["temperatures"]
         return data
 else:
+
     def get_data(carry, interaction):
         weight_change, squared_td_error, abs_td_error, loss = get_agent_metrics(
             carry.agent_state, interaction.reward.shape
@@ -299,15 +304,29 @@ if start_step is None:
 else:
     logger.debug(f"Loaded checkpoints, resuming from step {start_step}")
 
-for current_step in range(start_step, n, save_every):
-    steps_in_iter = min(save_every, n - current_step)
+current_step = start_step
+while current_step < n:
+    next_save = ((current_step // save_every) + 1) * save_every
+    next_video = ((current_step // video_every) + 1) * video_every
+    next_milestone = min(next_save, next_video, n)
+    steps_in_iter = next_milestone - current_step
+
     if steps_in_iter <= 0:
         break
 
-    no_video_steps_count = max(steps_in_iter - video_length, 0)
+    # We only record video if this milestone reaches a video frequency
+    is_video_milestone = next_milestone % video_every == 0
+    if is_video_milestone and video_length > 0:
+        no_video_steps_count = max(steps_in_iter - video_length, 0)
+        video_steps_count = min(steps_in_iter, video_length)
+    else:
+        no_video_steps_count = steps_in_iter
+        video_steps_count = 0
 
     @scan_tqdm(
-        n, print_rate=max(min(n // 20, 10000), 1), initial=current_step + no_video_steps_count
+        n,
+        print_rate=max(min(n // 20, 10000), 1),
+        initial=current_step + no_video_steps_count,
     )
     def video_step(carry, _):
         frame = v_render(carry)
@@ -317,23 +336,33 @@ for current_step in range(start_step, n, save_every):
 
     data_chunk = None
     if no_video_steps_count > 0:
+
         @scan_tqdm(n, print_rate=min(n // 20, 10000), initial=current_step)
         def step(carry, _):
             carry, interaction = v_step(carry)
             data = get_data(carry, interaction)
             return carry, data
+
         no_video_steps = jnp.arange(no_video_steps_count)
-        glue_states, data_chunk = jax.lax.scan(step, glue_states, no_video_steps, unroll=1)
+        glue_states, data_chunk = jax.lax.scan(
+            step, glue_states, no_video_steps, unroll=1
+        )
 
     frames = None
     data_chunk_video = None
-    if video_length:
-        video_steps = jnp.arange(min(steps_in_iter, video_length))
-        glue_states, (data_chunk_video, frames) = jax.lax.scan(video_step, glue_states, video_steps, unroll=1)
+    if video_steps_count > 0:
+        video_steps = jnp.arange(video_steps_count)
+        glue_states, (data_chunk_video, frames) = jax.lax.scan(
+            video_step, glue_states, video_steps, unroll=1
+        )
         if data_chunk is None:
             data_chunk = data_chunk_video
         else:
-            data_chunk = tree_map(lambda a, b: jnp.concatenate([a, b], axis=0), data_chunk, data_chunk_video)
+            data_chunk = tree_map(
+                lambda a, b: jnp.concatenate([a, b], axis=0),
+                data_chunk,
+                data_chunk_video,
+            )
         frames = np.asarray(frames)
 
     # checkpointing
@@ -346,63 +375,75 @@ for current_step in range(start_step, n, save_every):
         for key in datas:
             datas[key][i, current_step : current_step + steps_in_iter] = data_idx[key]
 
-        if n < save_every:
-            continue
-        context = exp.buildSaveContext(idx, base=args.checkpoint_path)
+        if next_milestone % save_every == 0 or next_milestone == n:
+            context = exp.buildSaveContext(idx, base=args.checkpoint_path)
 
-        # Write to temporary files first for atomic checkpointing
-        glue_state_path_tmp = context.resolve(f"{idx}/glue_state.pkl.xz.tmp")
-        data_path_tmp = context.resolve(f"{idx}/data.tmp.npz")
-        step_path_tmp = context.resolve(f"{idx}/step.txt.tmp")
+            # Write to temporary files first for atomic checkpointing
+            glue_state_path_tmp = context.resolve(f"{idx}/glue_state.pkl.xz.tmp")
+            data_path_tmp = context.resolve(f"{idx}/data.tmp.npz")
+            step_path_tmp = context.resolve(f"{idx}/step.txt.tmp")
 
-        # Ensure directories exist
-        context.ensureExists(glue_state_path_tmp, is_file=True)
-        context.ensureExists(data_path_tmp, is_file=True)
-        context.ensureExists(step_path_tmp, is_file=True)
+            # Ensure directories exist
+            context.ensureExists(glue_state_path_tmp, is_file=True)
+            context.ensureExists(data_path_tmp, is_file=True)
+            context.ensureExists(step_path_tmp, is_file=True)
 
-        # Prepare checkpoint data
-        if len(glues) > 1:
-            glue_state_idx = tree_map(lambda x: x[i], glue_states)
-        else:
-            glue_state_idx = glue_states
+            # Prepare checkpoint data
+            if len(glues) > 1:
+                glue_state_idx = tree_map(lambda x: x[i], glue_states)
+            else:
+                glue_state_idx = glue_states
 
-        data_to_save = tree_map(lambda d: d[i, : current_step + steps_in_iter], datas)
+            data_to_save = tree_map(lambda d: d[i, :next_milestone], datas)
 
-        # Write temporary files
-        with lzma.open(glue_state_path_tmp, "wb") as f:
-            pickle.dump(glue_state_idx, f)
+            # Write temporary files
+            with lzma.open(glue_state_path_tmp, "wb") as f:
+                pickle.dump(glue_state_idx, f)
 
-        np.savez_compressed(data_path_tmp, **data_to_save)
+            np.savez_compressed(data_path_tmp, **data_to_save)
 
-        with open(step_path_tmp, "w") as f:
-            f.write(str(current_step + steps_in_iter))
+            with open(step_path_tmp, "w") as f:
+                f.write(str(next_milestone))
 
-        # Atomically rename temporary files to final names
-        final_glue_state_path = context.resolve(f"{idx}/glue_state.pkl.xz")
-        final_data_path = context.resolve(f"{idx}/data.npz")
-        final_step_path = context.resolve(f"{idx}/step.txt")
+            # Atomically rename temporary files to final names
+            final_glue_state_path = context.resolve(f"{idx}/glue_state.pkl.xz")
+            final_data_path = context.resolve(f"{idx}/data.npz")
+            final_step_path = context.resolve(f"{idx}/step.txt")
 
-        os.rename(glue_state_path_tmp, final_glue_state_path)
-        os.rename(data_path_tmp, final_data_path)
-        os.rename(step_path_tmp, final_step_path)
+            os.rename(glue_state_path_tmp, final_glue_state_path)
+            os.rename(data_path_tmp, final_data_path)
+            os.rename(step_path_tmp, final_step_path)
 
         # Save video
-        end_frame = current_step + save_every * (i + 1)
-        start_frame = max(end_frame - video_length, 0)
-        video_context = exp.buildSaveContext(idx, base=args.save_path)
-        video_path = video_context.resolve(f"videos/{idx}")
-        video_context.ensureExists(video_path, is_file=True)
-        if video_length and frames is not None:
-            frames = list(frames)
-            logger.debug(f"Saving {start_frame}_{end_frame} video to {video_path}")
-            save_video(
-                frames,
-                video_path,
-                name_prefix=f"{start_frame}_{end_frame}",
-                fps=8,
-            )
-        del frames, data_chunk, data_chunk_video
-        gc.collect()
+        if (
+            (next_milestone % video_every == 0 or next_milestone == n)
+            and video_length
+            and frames is not None
+        ):
+            if idx in video_idxs:
+                video_context = exp.buildSaveContext(idx, base=args.save_path)
+                video_path = video_context.resolve(f"videos/{idx}")
+                video_context.ensureExists(video_path, is_file=True)
+
+                frames_list = list(frames)
+                logger.debug(
+                    f"Saving {next_milestone - len(frames_list)}_{next_milestone} video to {video_path}"
+                )
+                save_video(
+                    frames_list,
+                    video_path,
+                    name_prefix=f"{next_milestone - len(frames_list)}_{next_milestone}",
+                    fps=8,
+                )
+
+    current_step = next_milestone
+    if "frames" in locals():
+        del frames
+    if "data_chunk" in locals():
+        del data_chunk
+    if "data_chunk_video" in locals():
+        del data_chunk_video
+    gc.collect()
     checkpoint_time = time.time() - checkpoint_start_time
     logger.debug(
         f"Checkpointed at {current_step + steps_in_iter} in {checkpoint_time:.4f}s"
