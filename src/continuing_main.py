@@ -162,6 +162,8 @@ logger.debug(
 n = exp.total_steps
 
 video_length = first_hypers.get("experiment", {}).get("video_length", 0)
+video_idxs = first_hypers.get("experiment", {}).get("video_idxs", [0])
+video_length = 0 if idx not in video_idxs else video_length
 
 # --------------------
 # -- Batch Execution --
@@ -324,6 +326,7 @@ for current_step in range(start_step, n, save_every):
         glue_states, data_chunk = jax.lax.scan(step, glue_states, no_video_steps, unroll=1)
 
     frames = None
+    data_chunk_video = None
     if video_length:
         video_steps = jnp.arange(min(steps_in_iter, video_length))
         glue_states, (data_chunk_video, frames) = jax.lax.scan(video_step, glue_states, video_steps, unroll=1)
@@ -398,7 +401,7 @@ for current_step in range(start_step, n, save_every):
                 name_prefix=f"{start_frame}_{end_frame}",
                 fps=8,
             )
-        del frames, data_chunk_video
+        del frames, data_chunk, data_chunk_video
         gc.collect()
     checkpoint_time = time.time() - checkpoint_start_time
     logger.debug(
