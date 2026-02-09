@@ -207,6 +207,8 @@ def get_agent_metrics(agent_state, batch_shape):
 if isinstance(glues[0].environment, Foragax):
     datas["pos"] = np.empty((len(indices), n, 2), dtype=np.int32)
     datas["biome_id"] = np.empty((len(indices), n), dtype=np.int32)
+    datas["biome_regret"] = np.empty((len(indices), n), dtype=np.float16)
+    datas["biome_rank"] = np.empty((len(indices), n), dtype=np.int32)
     datas["object_collected_id"] = np.empty((len(indices), n), dtype=np.int32)
     if "Weather" in glues[0].environment.env.name:
         datas["temperatures"] = np.empty(
@@ -221,6 +223,8 @@ if isinstance(glues[0].environment, Foragax):
             "rewards": interaction.reward,
             "pos": carry.env_state.state.pos,
             "biome_id": interaction.extra["biome_id"],
+            "biome_regret": interaction.extra["biome_regret"],
+            "biome_rank": interaction.extra["biome_rank"],
             "object_collected_id": interaction.extra["object_collected_id"],
             "weight_change": weight_change,
             "squared_td_error": squared_td_error,
@@ -283,6 +287,10 @@ for i, idx in enumerate(indices):
                 if isinstance(glues[0].environment, Foragax):
                     datas["pos"] = np.empty((len(indices), n, 2), dtype=np.int32)
                     datas["biome_id"] = np.empty((len(indices), n), dtype=np.int32)
+                    datas["biome_regret"] = np.empty(
+                        (len(indices), n), dtype=np.float16
+                    )
+                    datas["biome_rank"] = np.empty((len(indices), n), dtype=np.int32)
                     datas["object_collected_id"] = np.empty(
                         (len(indices), n), dtype=np.int32
                     )
