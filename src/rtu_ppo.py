@@ -339,14 +339,14 @@ def experiment(rng, config: TrainConfig):
         frames = jnp.zeros(
             (
                 updates_per_video * config.rollout_steps,
-                env.size[0] * 24,
-                env.size[1] * 24,
+                env.size[0] * 9,
+                env.size[1] * 9,
                 3,
             ),
             dtype=jnp.uint8,
         )
     else:
-        frames = jnp.zeros((0, env.size[0]*24, env.size[1]*24, 3), dtype=jnp.uint8)
+        frames = jnp.zeros((0, env.size[0]*9, env.size[1]*9, 3), dtype=jnp.uint8)
     log_env_state = LogEnvState(returned_returns=0,timestep=0, frames=frames)
     rng, reset_rng = jax.random.split(rng)
     obs, env_state = env.reset(reset_rng, env.default_params)
@@ -357,7 +357,7 @@ def experiment(rng, config: TrainConfig):
         )
         
     def void_render(env_state):
-        return jnp.zeros((env.size[0]*24, env.size[1]*24, 3), dtype=jnp.uint8)
+        return jnp.zeros((env.size[0]*9, env.size[1]*9, 3), dtype=jnp.uint8)
 
     def render(cond, env_state):
         return jax.lax.cond(
