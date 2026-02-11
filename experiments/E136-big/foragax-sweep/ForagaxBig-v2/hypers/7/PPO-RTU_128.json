@@ -1,7 +1,7 @@
 {
     "clip_eps": 0.2,
     "entropy_coef": 0.1,
-    "environment.aperture_size": 15,
+    "environment.aperture_size": 7,
     "environment.env_id": "ForagaxBig-v2",
     "environment.observation_type": "rgb",
     "epochs": 4,
@@ -11,7 +11,7 @@
     "gradient_clipping": 1,
     "max_grad_norm": 0.5,
     "num_mini_batch": 32,
-    "optimizer_actor.alpha": 1e-05,
+    "optimizer_actor.alpha": 3e-05,
     "optimizer_actor.beta1": 0.9,
     "optimizer_actor.beta2": 0.999,
     "optimizer_actor.eps": 1e-05,
