@@ -120,7 +120,7 @@ def buildParallel(
         tasks_per_core = opts.tasks_per_core
         tasks_per_vmap = opts.tasks_per_vmap
 
-    jobs = math.ceil(int(opts.cores / threads) * tasks_per_core / tasks_per_vmap)
+    jobs = math.ceil(math.ceil(opts.cores / threads) * tasks_per_core / tasks_per_vmap)
 
     parallel_exec = f"srun -N1 -n{threads} --exclusive {executable}"
     if isinstance(opts, SingleNodeOptions):

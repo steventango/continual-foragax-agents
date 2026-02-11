@@ -64,7 +64,7 @@ nvidia-cuda-mps-control -d"""
     else:
         device_str = "export JAX_PLATFORMS=cpu"
     jobs = math.ceil(
-        int(slurm.cores / slurm.threads_per_task)
+        math.ceil(slurm.cores / slurm.threads_per_task)
         * slurm.tasks_per_core
         / slurm.tasks_per_vmap
     )
@@ -109,7 +109,9 @@ threads = slurm.threads_per_task if isinstance(slurm, SingleNodeOptions) else 1
 tasks_per_core = slurm.tasks_per_core if isinstance(slurm, SingleNodeOptions) else 1
 
 # compute how many "tasks" to clump into each job
-base_group_size = math.ceil(slurm.cores / threads * tasks_per_core) * slurm.sequential
+base_group_size = (
+    math.ceil(math.ceil(slurm.cores / threads) * tasks_per_core) * slurm.sequential
+)
 
 # compute how much time the jobs are going to take
 hours, minutes, seconds = slurm.time.split(":")
@@ -154,7 +156,7 @@ for path in missing:
         # make sure to only request the number of CPU cores necessary
         tasks = min([groupSize, len(job_indices)])
         par_tasks = max(math.ceil(tasks / slurm.sequential), 1)
-        cores = math.ceil(par_tasks * threads / tasks_per_core)
+        cores = math.ceil(par_tasks / tasks_per_core) * threads
         sub = dataclasses.replace(slurm, cores=cores)
 
         # build the executable string
