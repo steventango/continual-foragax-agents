@@ -1,6 +1,6 @@
 {
     "clip_eps": 0.2,
-    "entropy_coef": 1.0,
+    "entropy_coef": 0.1,
     "environment.aperture_size": 5,
     "environment.env_id": "ForagaxBig-v3",
     "environment.observation_type": "rgb",
