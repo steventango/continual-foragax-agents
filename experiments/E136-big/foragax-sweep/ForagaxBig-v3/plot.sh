@@ -1,0 +1,5 @@
+python src/learning_curve.py experiments/E136-big/foragax-sweep/ForagaxBig-v3 --plot-name fig1a_big_sweep_mean --filter-alg-apertures Search-5 Search-7 Search-9 Search-15 Search-31 Search-Oracle --metric mean_reward 
+python src/learning_curve.py experiments/E136-big/foragax-sweep/ForagaxBig-v3 --plot-name fig1a_big_sweep_rolling --filter-alg-apertures Search-5 Search-7 Search-9 Search-15 Search-31 Search-Oracle --metric rolling_reward_100000 
+python src/learning_curve.py experiments/E136-big/foragax-sweep/ForagaxBig-v3 --plot-name fig1a_big_sweep_rolling_regret --filter-alg-apertures Search-5 Search-7 Search-9 Search-15 Search-31 Search-Oracle --metric rolling_biome_regret_100000
+python src/learning_curve.py experiments/E136-big/foragax-sweep/ForagaxBig-v3 --plot-name fig1a_big_sweep_rolling_rank --filter-alg-apertures Search-5 Search-7 Search-9 Search-15 Search-31 Search-Oracle --metric rolling_biome_rank_100000
+ 
