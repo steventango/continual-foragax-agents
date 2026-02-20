@@ -1,7 +1,7 @@
 {
     "agent": "PPO_L2_frozen_5M",
     "problem": "Foragax",
-    "total_steps": 10000000,
+    "total_steps": 100000000,
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxBig-v3",
