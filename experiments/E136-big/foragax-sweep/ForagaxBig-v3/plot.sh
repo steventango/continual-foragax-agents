@@ -1,5 +1,2 @@
-python src/learning_curve.py experiments/E136-big/foragax-sweep/ForagaxBig-v3 --plot-name fig1a_big_sweep_mean --filter-alg-apertures Search-5 Search-7 Search-9 Search-15 Search-31 Search-Oracle --metric mean_reward 
-python src/learning_curve.py experiments/E136-big/foragax-sweep/ForagaxBig-v3 --plot-name fig1a_big_sweep_rolling --filter-alg-apertures Search-5 Search-7 Search-9 Search-15 Search-31 Search-Oracle --metric rolling_reward_100000 
-python src/learning_curve.py experiments/E136-big/foragax-sweep/ForagaxBig-v3 --plot-name fig1a_big_sweep_rolling_regret --filter-alg-apertures Search-5 Search-7 Search-9 Search-15 Search-31 Search-Oracle --metric rolling_biome_regret_100000
-python src/learning_curve.py experiments/E136-big/foragax-sweep/ForagaxBig-v3 --plot-name fig1a_big_sweep_rolling_rank --filter-alg-apertures Search-5 Search-7 Search-9 Search-15 Search-31 Search-Oracle --metric rolling_biome_rank_100000
- 
+python src/learning_curve.py experiments/E136-big/foragax-sweep/ForagaxBig-v3 --plot-name fig_big_ppo_regret --filter-alg-apertures PPO_128:5 PPO_128:7 PPO_128:9 PPO_128:15 --metric rolling_biome_regret_100000
+python src/learning_curve.py experiments/E136-big/foragax-sweep/ForagaxBig-v3 --plot-name fig_big_rtu_regret --filter-alg-apertures PPO-RTU_128:5 PPO-RTU_128:7 PPO-RTU_128:9 PPO-RTU_128:15 --metric rolling_biome_regret_100000
