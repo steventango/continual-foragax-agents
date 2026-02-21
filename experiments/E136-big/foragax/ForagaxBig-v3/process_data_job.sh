@@ -1,8 +1,9 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
 #SBATCH --job-name=E136-big_foragax_ForagaxBig-v3_process_data
-#SBATCH --mem-per-cpu=32000M
-#SBATCH --ntasks=16
+#SBATCH --mem=500G
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
 #SBATCH --output=../slurm-%j.out
 #SBATCH --time=06:00:00
 
