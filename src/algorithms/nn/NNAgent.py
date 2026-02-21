@@ -1,3 +1,4 @@
+import dataclasses
 from abc import abstractmethod
 from dataclasses import replace
 from functools import partial
@@ -41,6 +42,9 @@ class Metrics:
     abs_td_error: jax.Array
     squared_td_error: jax.Array
     loss: jax.Array
+    dead_feature_percentage: jax.Array = dataclasses.field(
+        default_factory=lambda: jnp.float32(0.0)
+    )
 
 
 @cxu.dataclass
@@ -215,6 +219,7 @@ class NNAgent(BaseAgent):
                 abs_td_error=jnp.float32(0.0),
                 squared_td_error=jnp.float32(0.0),
                 loss=jnp.float32(0.0),
+                dead_feature_percentage=jnp.float32(0.0),
             ),
         )
 
@@ -282,6 +287,9 @@ class NNAgent(BaseAgent):
                     "squared_td_error", state.metrics.squared_td_error
                 ),
                 loss=metrics.get("loss", state.metrics.loss),
+                dead_feature_percentage=metrics.get(
+                    "dead_feature_percentage", state.metrics.dead_feature_percentage
+                ),
             )
             new_state = replace(new_state, metrics=metrics)
             return new_state

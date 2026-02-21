@@ -181,6 +181,7 @@ datas["weight_change"] = np.empty((len(indices), n), dtype=np.float16)
 datas["squared_td_error"] = np.empty((len(indices), n), dtype=np.float16)
 datas["abs_td_error"] = np.empty((len(indices), n), dtype=np.float16)
 datas["loss"] = np.empty((len(indices), n), dtype=np.float16)
+datas["dead_feature_percentage"] = np.empty((len(indices), n), dtype=np.float16)
 
 
 def get_agent_metrics(agent_state, batch_shape):
@@ -189,6 +190,7 @@ def get_agent_metrics(agent_state, batch_shape):
     squared_td_error = jnp.zeros(batch_shape)
     abs_td_error = jnp.zeros(batch_shape)
     loss = jnp.zeros(batch_shape)
+    dead_feature_percentage = jnp.zeros(batch_shape)
 
     if hasattr(agent_state, "metrics"):
         metrics = agent_state.metrics
@@ -200,8 +202,10 @@ def get_agent_metrics(agent_state, batch_shape):
             abs_td_error = metrics.abs_td_error
         if hasattr(metrics, "loss"):
             loss = metrics.loss
+        if hasattr(metrics, "dead_feature_percentage"):
+            dead_feature_percentage = metrics.dead_feature_percentage
 
-    return weight_change, squared_td_error, abs_td_error, loss
+    return weight_change, squared_td_error, abs_td_error, loss, dead_feature_percentage
 
 
 if isinstance(glues[0].environment, Foragax):
@@ -216,8 +220,8 @@ if isinstance(glues[0].environment, Foragax):
         )
 
     def get_data(carry, interaction):
-        weight_change, squared_td_error, abs_td_error, loss = get_agent_metrics(
-            carry.agent_state, interaction.reward.shape
+        weight_change, squared_td_error, abs_td_error, loss, dead_feature_percentage = (
+            get_agent_metrics(carry.agent_state, interaction.reward.shape)
         )
         data = {
             "rewards": interaction.reward,
@@ -230,6 +234,7 @@ if isinstance(glues[0].environment, Foragax):
             "squared_td_error": squared_td_error,
             "abs_td_error": abs_td_error,
             "loss": loss,
+            "dead_feature_percentage": dead_feature_percentage,
         }
         if "Weather" in glues[0].environment.env.name:
             data["temperatures"] = interaction.extra["temperatures"]
@@ -237,8 +242,8 @@ if isinstance(glues[0].environment, Foragax):
 else:
 
     def get_data(carry, interaction):
-        weight_change, squared_td_error, abs_td_error, loss = get_agent_metrics(
-            carry.agent_state, interaction.reward.shape
+        weight_change, squared_td_error, abs_td_error, loss, dead_feature_percentage = (
+            get_agent_metrics(carry.agent_state, interaction.reward.shape)
         )
         data = {
             "rewards": interaction.reward,
@@ -246,6 +251,7 @@ else:
             "squared_td_error": squared_td_error,
             "abs_td_error": abs_td_error,
             "loss": loss,
+            "dead_feature_percentage": dead_feature_percentage,
         }
         return data
 
@@ -284,6 +290,9 @@ for i, idx in enumerate(indices):
                 )
                 datas["abs_td_error"] = np.empty((len(indices), n), dtype=np.float16)
                 datas["loss"] = np.empty((len(indices), n), dtype=np.float16)
+                datas["dead_feature_percentage"] = np.empty(
+                    (len(indices), n), dtype=np.float16
+                )
                 if isinstance(glues[0].environment, Foragax):
                     datas["pos"] = np.empty((len(indices), n, 2), dtype=np.int32)
                     datas["biome_id"] = np.empty((len(indices), n), dtype=np.int32)

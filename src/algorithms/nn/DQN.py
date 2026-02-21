@@ -111,7 +111,9 @@ class DQN(NNAgent):
         grad, metrics = grad_fn(state.params, state.target_params, batch)
         optimizer = self._build_optimizer(state.hypers.optimizer, state.hypers.swr)
 
-        updates, new_optim = optimizer.update(grad, state.optim, state.params, grad=grad)
+        updates, new_optim = optimizer.update(
+            grad, state.optim, state.params, grad=grad
+        )
         new_params = optax.apply_updates(state.params, updates)
         flat_updates, _ = ravel_pytree(updates)
         weight_change = jnp.linalg.norm(flat_updates, ord=1)
@@ -131,7 +133,8 @@ class DQN(NNAgent):
         r = jnp.sum(rs[:, :-1] * gs[:, :-1], axis=1)
         g = gs[:, -1]
 
-        phi = self.phi(params, x).out
+        phi_out = self.phi(params, x)
+        phi = phi_out.out
         phi_p = self.phi(target, xp).out
 
         qs = self.q(params, phi)
@@ -142,11 +145,32 @@ class DQN(NNAgent):
 
         loss = jnp.mean(losses)
 
+        total_neurons = 0.0
+        total_dead = 0.0
+        for layer_name, act in phi_out.activations.items():
+            if layer_name not in params["phi"]:
+                continue
+            act = jax.nn.relu(act)
+            reduce_axes = list(range(act.ndim - 1))
+            score = jnp.mean(jnp.abs(act), axis=reduce_axes)
+            score /= jnp.mean(score) + 1e-9
+
+            dead_count = jnp.count_nonzero(score <= 0.025)
+            layer_size = float(jnp.size(score))
+
+            total_neurons += layer_size
+            total_dead += dead_count
+
+        dead_feature_percentage = (
+            (total_dead / total_neurons) * 100.0 if total_neurons > 0 else 0.0
+        )
+
         # aggregate metrics
         metrics = {
             "loss": loss,
             "abs_td_error": jnp.mean(jnp.abs(batch_metrics["delta"])),
             "squared_td_error": jnp.mean(jnp.square(batch_metrics["delta"])),
+            "dead_feature_percentage": dead_feature_percentage,
         }
 
         return loss, metrics
