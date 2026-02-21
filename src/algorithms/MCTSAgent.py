@@ -112,9 +112,7 @@ class MCTSAgent(BaseAgent):
             prior_logits = jnp.where(valid_actions, 0.0, -100.0)
             return prior_logits
 
-        def root_fn(
-            env_state: chex.Array, rng_key: chex.PRNGKey
-        ) -> mctx.RootFnOutput:
+        def root_fn(env_state: chex.Array, rng_key: chex.PRNGKey) -> mctx.RootFnOutput:
             obs, state = env_state
             prior_logits = prior_fn(obs)
 
@@ -128,7 +126,6 @@ class MCTSAgent(BaseAgent):
                 value=value,
                 embedding=env_state,
             )
-
 
         def recurrent_fn(params, rng_key, action, embedding):
             # embedding is (obs, state) tuple from MCTSEnvWrapper
@@ -163,7 +160,9 @@ class MCTSAgent(BaseAgent):
             params={},
             rng_key=key1,
             # Create a batch of environments
-            root=jax.vmap(root_fn, (None, 0))(env_state, jax.random.split(key2, batch_size)),
+            root=jax.vmap(root_fn, (None, 0))(
+                env_state, jax.random.split(key2, batch_size)
+            ),
             # Automatically vectorize the recurrent_fn exactly like Connect 4
             recurrent_fn=jax.vmap(recurrent_fn, (None, None, 0, 0)),
             num_simulations=self.num_simulations,
@@ -176,9 +175,7 @@ class MCTSAgent(BaseAgent):
         )
         return policy_output
 
-    def value_function(
-        self, env_state, rng_key: chex.PRNGKey, env_step_fn
-    ) -> float:
+    def value_function(self, env_state, rng_key: chex.PRNGKey, env_step_fn) -> float:
         """Estimates the value of a state using oracle search policy rollout.
 
         For continuing environments where done is always False, we run a fixed number

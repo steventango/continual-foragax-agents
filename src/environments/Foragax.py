@@ -40,5 +40,7 @@ class Foragax(BaseEnvironment):
     @partial(jax.jit, static_argnums=0)
     def _step(self, state: EnvState, action: jax.Array):
         state.key, env_step_key = jax.random.split(state.key)
-        obs, state.state, reward, done, info = self.env.step(env_step_key, state.state, action)
+        obs, state.state, reward, done, info = self.env.step(
+            env_step_key, state.state, action
+        )
         return state, (obs, reward, done, done, info)

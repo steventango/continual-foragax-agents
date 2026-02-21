@@ -13,16 +13,26 @@ from algorithms.BaseAgent import BaseAgent
 class AgentState:
     state: jax.Array
 
+
 class DebugAgent(BaseAgent):
-    def __init__(self, observations: Tuple[int, ...], actions: int, params: Dict, collector: Collector, seed: int):
+    def __init__(
+        self,
+        observations: Tuple[int, ...],
+        actions: int,
+        params: Dict,
+        collector: Collector,
+        seed: int,
+    ):
         super().__init__(observations, actions, params, collector, seed)
         self.state = AgentState(
-            state = jnp.zeros((), dtype=jnp.float32),
+            state=jnp.zeros((), dtype=jnp.float32),
         )
 
     @partial(jax.jit, static_argnums=0)
     def act(
-        self, state: AgentState, obs: jax.Array,
+        self,
+        state: AgentState,
+        obs: jax.Array,
     ) -> tuple[AgentState, jax.Array]:
         a = state.state
         state.state += 1
@@ -44,7 +54,13 @@ class DebugAgent(BaseAgent):
         return a
 
     @partial(jax.jit, static_argnums=0)
-    def _step(self, state: AgentState, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
+    def _step(
+        self,
+        state: AgentState,
+        reward: jax.Array,
+        obs: jax.Array,
+        extra: Dict[str, jax.Array],
+    ):
         return self.act(state, obs)
 
     def end(self, reward: jax.Array, extra: Dict[str, jax.Array]):

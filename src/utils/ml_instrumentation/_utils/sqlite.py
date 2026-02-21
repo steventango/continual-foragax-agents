@@ -6,5 +6,6 @@ def maybe_quote(v: Any):
         return quote(v)
     return v
 
+
 def quote(s: str):
     return f"'{s}'"

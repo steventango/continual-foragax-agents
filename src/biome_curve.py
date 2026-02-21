@@ -130,6 +130,7 @@ def main(
     plot_name = args.plot_name if args.plot_name else f"{env}_biome_occupancy"
     save_plot(g.fig, args.experiment_path, plot_name, args.save_type)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Plot biome occupancy metrics from processed data"

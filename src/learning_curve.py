@@ -98,7 +98,9 @@ def main():
         f"After filter_by_alg_aperture: {df.select('alg').unique().to_pandas()}"
     )
 
-    logger.info(f"Sample types present: {df.select('sample_type').unique().to_pandas()}")
+    logger.info(
+        f"Sample types present: {df.select('sample_type').unique().to_pandas()}"
+    )
     df = df.filter(pl.col("sample_type") == args.sample_type)
     logger.info(f"After sample_type filter: {df.select('alg').unique().to_pandas()}")
 

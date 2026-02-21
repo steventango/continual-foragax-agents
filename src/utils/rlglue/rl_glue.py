@@ -104,7 +104,12 @@ class RlGlue:
             term,
             _end_step,
             _normal_step,
-            state, s, reward, term, trunc, extra,
+            state,
+            s,
+            reward,
+            term,
+            trunc,
+            extra,
         )
 
         return state, interaction

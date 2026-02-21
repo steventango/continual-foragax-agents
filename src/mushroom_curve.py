@@ -117,5 +117,6 @@ def main():
     plot_name = args.plot_name or f"{env}_object_trace_e{args.trace_exponent}"
     save_plot(g.fig, args.experiment_path, plot_name, args.save_type)
 
+
 if __name__ == "__main__":
     main()

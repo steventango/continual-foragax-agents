@@ -38,12 +38,16 @@ def annotate_plot(ax: Axes, label_map: Optional[Dict[str, str]] = None):
             and not line.get_label().startswith("_")  # type: ignore
         )
     ]
-    logger.info(f"Lines to label: {len(lines_to_label)}, labels: {[line.get_label() for line in lines_to_label]}")
+    logger.info(
+        f"Lines to label: {len(lines_to_label)}, labels: {[line.get_label() for line in lines_to_label]}"
+    )
 
     if lines_to_label:
         # Calculate intelligent offsets based on line data and confidence intervals
         num_lines = len(lines_to_label)
-        final_ys = np.array([np.asarray(line.get_ydata())[-1] for line in lines_to_label])
+        final_ys = np.array(
+            [np.asarray(line.get_ydata())[-1] for line in lines_to_label]
+        )
 
         # Get CI bounds for each line (x-dependent)
         ci_lows_arrays = []
@@ -56,7 +60,7 @@ def annotate_plot(ax: Axes, label_map: Optional[Dict[str, str]] = None):
                 idx = all_lines.index(line)
                 if idx < len(collections):
                     collection = collections[idx]
-                    if hasattr(collection, 'get_paths') and collection.get_paths():
+                    if hasattr(collection, "get_paths") and collection.get_paths():
                         path = collection.get_paths()[0]
                         vertices = np.asarray(path.vertices)
                         n = len(vertices) // 2

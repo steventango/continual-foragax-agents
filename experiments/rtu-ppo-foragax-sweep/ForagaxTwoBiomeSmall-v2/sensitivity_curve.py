@@ -1,8 +1,8 @@
-
 import sys
 from pathlib import Path
 
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -45,7 +45,9 @@ def _numeric(x: pd.Series) -> bool:
         return False
 
 
-def plot_sensitivity(merged: pd.DataFrame, hyper: str, out_path: Path, title_prefix: str):
+def plot_sensitivity(
+    merged: pd.DataFrame, hyper: str, out_path: Path, title_prefix: str
+):
     stats = (
         merged.groupby(hyper)["mean_ewm_reward"]
         .agg(["mean", "std", "count"])  # type: ignore
@@ -111,7 +113,9 @@ def main():
             frame_col = "frame" if "frame" in pdf.columns else None
 
             # Attempt to find a run identifier column
-            run_candidates = [c for c in ["id", "run", "trial", "experiment_id"] if c in pdf.columns]
+            run_candidates = [
+                c for c in ["id", "run", "trial", "experiment_id"] if c in pdf.columns
+            ]
             group_cols = []
             if run_candidates:
                 group_cols.append(run_candidates[0])
@@ -123,11 +127,7 @@ def main():
 
             # Aggregate over time to get one score per run (mean over frames)
             if frame_col:
-                run_scores = (
-                    pdf.groupby(group_cols)[metric_col]
-                    .mean()
-                    .reset_index()
-                )
+                run_scores = pdf.groupby(group_cols)[metric_col].mean().reset_index()
             else:
                 # If there's no explicit time column, assume rows are already per-step aggregated
                 run_scores = pdf[group_cols + [metric_col]]
@@ -154,7 +154,9 @@ def main():
                 printed_any = True
 
             if not printed_any:
-                print(f"No varying hyperparameters found for {env} {alg}; skipping plots.")
+                print(
+                    f"No varying hyperparameters found for {env} {alg}; skipping plots."
+                )
 
 
 if __name__ == "__main__":

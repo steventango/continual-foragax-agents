@@ -5,6 +5,7 @@ from collections import defaultdict
 
 # sys.path.append(os.getcwd() + "/src")
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -50,7 +51,6 @@ SINGLE = {
     "Search-Oracle",
     "Search-Oyster",
 }
-
 
 
 if __name__ == "__main__":
@@ -180,7 +180,7 @@ if __name__ == "__main__":
         for j, alg in enumerate(unique_algs):
             ax = axs[i, j]
             if alg not in SINGLE and alg in data[aperture]:
-                ax.axhline(y=0, alpha=0.1, color='black')
+                ax.axhline(y=0, alpha=0.1, color="black")
                 xs, ys = data[aperture][alg]
                 res = curve_percentile_bootstrap_ci(
                     rng=np.random.default_rng(0),
@@ -243,13 +243,15 @@ if __name__ == "__main__":
                     ax.ticklabel_format(
                         axis="x", style="sci", scilimits=(0, 0), useMathText=True
                     )
-                    ax.set_ylim(-1,1)
+                    ax.set_ylim(-1, 1)
                     ax.spines["top"].set_visible(False)
                     ax.spines["right"].set_visible(False)
 
             if i == 0:
                 title = LABEL_MAP.get(alg, alg)
-                title = title.replace("RealTimeActorCriticMLP", "RTU PPO").replace("ActorCriticMLP", "PPO")
+                title = title.replace("RealTimeActorCriticMLP", "RTU PPO").replace(
+                    "ActorCriticMLP", "PPO"
+                )
                 ax.set_title(title + " 1M-500k")
             if j == 0:
                 ax.set_ylabel(f"FOV {aperture}")
@@ -261,7 +263,9 @@ if __name__ == "__main__":
         [k for k in COLORS.keys() if isinstance(k, int) and k in unique_apertures]
     )
     for ap in aperture_keys:
-        legend_elements.append(Line2D([0], [0], color=COLORS[ap], lw=2, label=f"FOV {ap}"))
+        legend_elements.append(
+            Line2D([0], [0], color=COLORS[ap], lw=2, label=f"FOV {ap}")
+        )
 
     for k in SINGLE:
         if k in COLORS:

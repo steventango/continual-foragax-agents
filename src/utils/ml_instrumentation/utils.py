@@ -3,6 +3,7 @@ from typing import Callable
 from ml_instrumentation.utils import Pipe
 from ml_instrumentation.Sampler import Sampler
 
+
 class Last(Pipe):
     def __init__(self, *args: Sampler):
         super().__init__(*args)

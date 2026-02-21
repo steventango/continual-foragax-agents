@@ -18,9 +18,12 @@ def main():
             if os.path.isdir(config_dir):
                 print(f"Generating frozen configs for {config_dir}")
                 try:
-                    result = subprocess.run([
-                        "python3", "scripts/generate_frozen_configs.py", config_dir
-                    ], capture_output=True, text=True, cwd="/home/steven/Github/continual-foragax-agents")
+                    result = subprocess.run(
+                        ["python3", "scripts/generate_frozen_configs.py", config_dir],
+                        capture_output=True,
+                        text=True,
+                        cwd="/home/steven/Github/continual-foragax-agents",
+                    )
 
                     if result.returncode == 0:
                         print(f"Successfully generated frozen configs for {config_dir}")
@@ -33,6 +36,7 @@ def main():
 
                 except Exception as e:
                     print(f"Exception generating frozen configs for {config_dir}: {e}")
+
 
 if __name__ == "__main__":
     main()

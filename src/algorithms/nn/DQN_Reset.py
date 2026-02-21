@@ -103,9 +103,9 @@ class DQN_Reset(DQN):
 
         # Blend old and new optimizer states
         final_optim = jax.tree_util.tree_map_with_path(
-            lambda path, new_val, old_val: new_val
-            if should_reset(path, new_val)
-            else old_val,
+            lambda path, new_val, old_val: (
+                new_val if should_reset(path, new_val) else old_val
+            ),
             new_optim,
             state.optim,
         )

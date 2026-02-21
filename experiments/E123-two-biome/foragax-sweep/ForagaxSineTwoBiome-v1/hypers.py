@@ -73,10 +73,7 @@ def main():
             ) as f:
                 json.dump(best_configuration, f, indent=4)
 
-            alg_reports[alg] = {
-                "result": alg_result,
-                "report": report
-            }
+            alg_reports[alg] = {"result": alg_result, "report": report}
 
             update_best_config(alg, report, exp_path)
         env_reports[env] = alg_reports

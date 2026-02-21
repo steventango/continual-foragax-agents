@@ -16,7 +16,7 @@ def generate_frozen_configs(config_dir):
         if "_frozen" in config_file.stem:
             continue
 
-        with open(config_file, 'r') as f:
+        with open(config_file, "r") as f:
             config = json.load(f)
 
         # Generate configs for 1M and 5M freeze steps

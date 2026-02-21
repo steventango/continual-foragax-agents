@@ -3,6 +3,7 @@ import sys
 
 # sys.path.append(os.getcwd() + "/src")
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -25,13 +26,13 @@ setDefaultConference("jmlr")
 setFonts(20)
 
 COLORS = {
-    "RealTimeActorCriticMLP-3": "#1f77b4",        # Muted blue
-    "RealTimeActorCriticMLPNE-3": "#2ca02c",     # Muted green
-    "RealTimeActorCriticMLP-7": "#d62728",   # Muted red
-    "RealTimeActorCriticMLPNE-7": "#9467bd",      # Muted purple
-    "RealTimeActorCriticMLP-11": "#ff7f0e", # Muted orange
-    "RealTimeActorCriticMLPNE-11": "#8c564b", # Muted brown
-    "Random": "#7f7f7f",                           # Gray
+    "RealTimeActorCriticMLP-3": "#1f77b4",  # Muted blue
+    "RealTimeActorCriticMLPNE-3": "#2ca02c",  # Muted green
+    "RealTimeActorCriticMLP-7": "#d62728",  # Muted red
+    "RealTimeActorCriticMLPNE-7": "#9467bd",  # Muted purple
+    "RealTimeActorCriticMLP-11": "#ff7f0e",  # Muted orange
+    "RealTimeActorCriticMLPNE-11": "#8c564b",  # Muted brown
+    "Random": "#7f7f7f",  # Gray
 }
 
 # LINESTYLES = {
@@ -46,9 +47,7 @@ COLORS = {
 #     "Random": (0, (1, 1)),
 # }
 
-SINGLE = {
-    "Random"
-}
+SINGLE = {"Random"}
 
 
 if __name__ == "__main__":
@@ -63,7 +62,7 @@ if __name__ == "__main__":
     )
 
     fig, ax = plt.subplots(1, 1)
-    
+
     ax.axhline(y=1.2, label="Oracle", color="black")  # Muted purple
     # ax.axhline(y=0.8, label="DQN-3-7", color="#ff7f0e")  # Muted orange
     # ax.axhline(y=1.0, label="Search Nearest", color="#17becf")  # Muted teal
@@ -88,7 +87,6 @@ if __name__ == "__main__":
             df = alg_result.load()
             if df is None:
                 continue
-            
 
             cols = set(dd.hyper_cols).intersection(df.columns)
             hyper_vals = {col: df[col][0] for col in cols}
@@ -113,7 +111,6 @@ if __name__ == "__main__":
                 iterations=10000,
             )
 
-            
             ax.plot(
                 xs[0],
                 res.sample_stat,
@@ -128,9 +125,13 @@ if __name__ == "__main__":
                 )
             else:
                 for y in ys:
-                    ax.plot(xs[0], y, color=COLORS[label], 
-                            # linestyle=LINESTYLES[label], 
-                            linewidth=0.2)
+                    ax.plot(
+                        xs[0],
+                        y,
+                        color=COLORS[label],
+                        # linestyle=LINESTYLES[label],
+                        linewidth=0.2,
+                    )
 
         ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
         ax.set_xlabel("Time steps")

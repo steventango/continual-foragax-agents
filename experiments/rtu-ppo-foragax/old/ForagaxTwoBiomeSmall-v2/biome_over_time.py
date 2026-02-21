@@ -3,6 +3,7 @@ import sys
 
 # sys.path.append(os.getcwd() + "/src")
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -20,6 +21,7 @@ from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
 setFonts(20)
+
 
 def plot_biome_occupancy_on_ax(ax, df, biomes, alg, env, aperture):
     biome_names = list(biomes.keys()) + ["Neither"]

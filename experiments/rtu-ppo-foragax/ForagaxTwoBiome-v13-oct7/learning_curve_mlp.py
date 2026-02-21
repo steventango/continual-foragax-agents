@@ -1,8 +1,10 @@
 import os
 import sys
 import tol_colors as tc
+
 # sys.path.append(os.getcwd() + "/src")
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -42,8 +44,8 @@ PALETTE = [
 # Linestyles to distinguish families
 LINESTYLES = {
     "RealTimeActorCriticMLP": "-",
-    "ActorCriticMLP":        "-", 
-    "Random": ":",                
+    "ActorCriticMLP": "-",
+    "Random": ":",
 }
 
 # LINESTYLES = {
@@ -58,15 +60,15 @@ LINESTYLES = {
 #     "Random": (0, (1, 1)),
 # }
 
-SINGLE = {
-    "Random"
-}
+SINGLE = {"Random"}
 
 # Helper: strip optional "1M" token (with or without leading separator) so
 # color is shared between 1M and non-1M variants
 
+
 def base_without_1m(name: str) -> str:
     return re.sub(r"[-_]?1M", "", name)
+
 
 if __name__ == "__main__":
     results = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
@@ -82,9 +84,12 @@ if __name__ == "__main__":
     # Collect sub-results grouped by FOV (aperture) so we can build a grid
     by_aperture = {}
     for env_aperture, sub_results in sorted(
-        results.groupby_directory(level=3), key=lambda x: int(x[0].split("-")[-1] if "-" in x[0] else -1)
+        results.groupby_directory(level=3),
+        key=lambda x: int(x[0].split("-")[-1] if "-" in x[0] else -1),
     ):
-        env, aperture_str = env_aperture.rsplit("-", 1) if "-" in env_aperture else (env_aperture, -1)
+        env, aperture_str = (
+            env_aperture.rsplit("-", 1) if "-" in env_aperture else (env_aperture, -1)
+        )
         aperture = int(aperture_str)
         by_aperture.setdefault((env, aperture), []).extend(sub_results)
 
@@ -150,7 +155,9 @@ if __name__ == "__main__":
                 base_label = base_alg if alg in SINGLE else f"{base_alg}-{aperture}"
 
                 if base_label not in label_to_color:
-                    label_to_color[base_label] = palette_cycle[color_i % len(palette_cycle)]
+                    label_to_color[base_label] = palette_cycle[
+                        color_i % len(palette_cycle)
+                    ]
                     color_i += 1
 
             # Plot each algorithm's curve(s)
@@ -217,9 +224,13 @@ if __name__ == "__main__":
                     ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.1)
                 else:
                     for y in ys:
-                        ax.plot(xs[0], y, color=color, linestyle=linestyle, linewidth=0.2)
+                        ax.plot(
+                            xs[0], y, color=color, linestyle=linestyle, linewidth=0.2
+                        )
 
-            ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+            ax.ticklabel_format(
+                axis="x", style="sci", scilimits=(0, 0), useMathText=True
+            )
             ax.set_xlabel("Time steps")
             ax.set_ylabel("Average Reward")
             ax.set_title(f"{env} — FOV {aperture}")
@@ -230,7 +241,7 @@ if __name__ == "__main__":
         # Hide any unused subplots
         for j in range(n, nrows * ncols):
             r, c = divmod(j, ncols)
-            axes[r][c].axis('off')
+            axes[r][c].axis("off")
 
         # Save one figure per env containing the grid
         path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
@@ -239,7 +250,7 @@ if __name__ == "__main__":
             plot_name=f"{env}_grid",
             save_type="pdf",
             f=fig,
-            width = 2,
+            width=2,
             height_ratio=2 / 3,
         )
 

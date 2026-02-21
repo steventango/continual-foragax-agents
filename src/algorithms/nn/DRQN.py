@@ -19,17 +19,20 @@ from representations.networks import NetworkBuilder, reluLayers
 from utils.jax import huber_loss
 from utils.policies import egreedy_probabilities
 
+
 @cxu.dataclass
 class Hypers(BaseHypers):
     target_refresh: int
     sequence_length: int
     burn_in_steps: int
 
+
 @cxu.dataclass
 class AgentState(BaseAgentState):
     target_params: Any
     hypers: Hypers
     carry: Any
+
 
 def q_loss(q, a, r, gamma, qp):
     vp = qp.max()
@@ -67,11 +70,15 @@ class DRQN(NNAgent):
             **self.state.hypers.__dict__,
             target_refresh=params["target_refresh"],
             sequence_length=self.sequence_length,
-            burn_in_steps=params.get("burn_in_steps", 0)
+            burn_in_steps=params.get("burn_in_steps", 0),
         )
 
         self.state = AgentState(
-            **{k: v for k, v in self.state.__dict__.items() if k != "hypers" and k != "buffer_state"},
+            **{
+                k: v
+                for k, v in self.state.__dict__.items()
+                if k != "hypers" and k != "buffer_state"
+            },
             target_params=self.state.params,
             buffer_state=buffer_state,
             carry=None,
@@ -79,7 +86,7 @@ class DRQN(NNAgent):
         )
 
         self.burn_in_steps = self.state.hypers.burn_in_steps
-        
+
     def get_feature_function(self, builder: NetworkBuilder):
         return builder.getRecurrentFeatureFunction()
 
@@ -105,17 +112,19 @@ class DRQN(NNAgent):
     def _values(self, state: AgentState, x: jax.Array, carry: jax.Array = None):  # type: ignore
         phi = self.phi(state.params, x, carry=carry)
         return self.q(state.params, phi[0][:, -1]), phi[1][:, -1], phi[2]
-    
+
     @partial(jax.jit, static_argnums=0)
     def _policy(self, state: AgentState, obs: jax.Array) -> Tuple[jax.Array, jax.Array]:
         obs = jnp.expand_dims(obs, 0)
         q, carry, _ = self._values(state, obs, carry=state.carry)
         pi = egreedy_probabilities(q, self.actions, state.hypers.epsilon)[0]
         return pi, carry
-    
+
     @partial(jax.jit, static_argnums=0)
     def act(
-        self, state: AgentState, obs: jax.Array,
+        self,
+        state: AgentState,
+        obs: jax.Array,
     ) -> tuple[AgentState, jax.Array]:
         pi, state.carry = self._policy(state, obs)
         state.key, sample_key = jax.random.split(state.key)
@@ -189,7 +198,7 @@ class DRQN(NNAgent):
         carry = batch["carry"][:, :-1]
         carryp = batch["carry"][:, 1:]
         reset = batch["reset"][:, :-1]
-        
+
         # Perform burn-in
         if self.burn_in_steps > 0:
             b_x, x = jnp.hsplit(x, [self.burn_in_steps])
@@ -201,22 +210,34 @@ class DRQN(NNAgent):
             _, r = jnp.hsplit(r, [self.burn_in_steps])
             _, g = jnp.hsplit(g, [self.burn_in_steps])
             _, weights = jnp.hsplit(weights, [self.burn_in_steps])
-            
-            carry = carry.at[:, 0].set(jax.lax.stop_gradient(self.phi(params, b_x, carry=b_carry, reset=b_reset, is_target=False)[1][:, -1, ...]))
-            carryp = carryp.at[:, 0].set(jax.lax.stop_gradient(self.phi(target, b_xp, carry=b_carryp, reset=b_reset, is_target=True)[1][:, -1, ...]))
+
+            carry = carry.at[:, 0].set(
+                jax.lax.stop_gradient(
+                    self.phi(
+                        params, b_x, carry=b_carry, reset=b_reset, is_target=False
+                    )[1][:, -1, ...]
+                )
+            )
+            carryp = carryp.at[:, 0].set(
+                jax.lax.stop_gradient(
+                    self.phi(
+                        target, b_xp, carry=b_carryp, reset=b_reset, is_target=True
+                    )[1][:, -1, ...]
+                )
+            )
 
         phi = self.phi(params, x, carry=carry, reset=reset, is_target=False)[0]
         phi_p = self.phi(target, xp, carry=carryp, reset=reset, is_target=True)[0]
 
         qs = self.q(params, phi)
         qsp = self.q(target, phi_p)
-        
+
         qs = qs.reshape(-1, qs.shape[-1])
         qsp = qsp.reshape(-1, qsp.shape[-1])
         a = a.ravel()
         r = r.ravel()
         g = g.ravel()
-        
+
         # weights = weights.ravel()
 
         batch_loss = jax.vmap(q_loss, in_axes=0)
@@ -241,8 +262,10 @@ class DRQN(NNAgent):
             {
                 "x": obs,
                 "a": a,
-                "carry": jnp.zeros(self.hidden_size),   # Replaced with learnt init within alg
-                "reset": jnp.bool(True)
+                "carry": jnp.zeros(
+                    self.hidden_size
+                ),  # Replaced with learnt init within alg
+                "reset": jnp.bool(True),
             }
         )
         state = replace(state, steps=state.steps + 1)
@@ -251,7 +274,13 @@ class DRQN(NNAgent):
         return state, a
 
     @partial(jax.jit, static_argnums=0)
-    def _step(self, state: AgentState, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
+    def _step(
+        self,
+        state: AgentState,
+        reward: jax.Array,
+        obs: jax.Array,
+        extra: Dict[str, jax.Array],
+    ):
         # see if the problem specified a discount term
         gamma = extra.get("gamma", 1.0)
 
@@ -270,18 +299,13 @@ class DRQN(NNAgent):
         )
         buffer_state = self.buffer.add(state.buffer_state, batch_sequence)
         state = replace(state, buffer_state=buffer_state)
-        
+
         last_carry = state.carry[0]
-        
+
         state, a = self.act(state, obs)
 
         state.last_timestep.update(
-            {
-                "x": obs,
-                "a": a,
-                "carry": last_carry,
-                "reset": jnp.bool(False)
-            }
+            {"x": obs, "a": a, "carry": last_carry, "reset": jnp.bool(False)}
         )
         state = self._maybe_update(state)
         state = replace(state, steps=state.steps + 1)
@@ -290,16 +314,11 @@ class DRQN(NNAgent):
 
     @partial(jax.jit, static_argnums=0)
     def _end(self, state, reward: jax.Array, extra: Dict[str, jax.Array]):
-         # possibly process the reward
+        # possibly process the reward
         if self.reward_clip > 0:
             reward = jnp.clip(reward, -self.reward_clip, self.reward_clip)
 
-        state.last_timestep.update(
-            {
-                "r": reward,
-                "gamma": jnp.float32(0)
-            }
-        )
+        state.last_timestep.update({"r": reward, "gamma": jnp.float32(0)})
         batch_sequence = jax.tree.map(
             lambda x: jnp.broadcast_to(x, (1, 1, *x.shape)), state.last_timestep
         )

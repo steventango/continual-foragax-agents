@@ -5,7 +5,7 @@ from ml_instrumentation.Sampler import Sampler
 
 class Mean(Sampler):
     def __init__(self):
-        self.sum = 0.
+        self.sum = 0.0
         self.count = 0
 
     def next(self, v: float):

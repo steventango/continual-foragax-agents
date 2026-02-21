@@ -5,6 +5,7 @@ from collections import defaultdict
 
 # sys.path.append(os.getcwd() + "/src")
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -50,7 +51,6 @@ SINGLE = {
     "Search-Oracle",
     "Search-Oyster",
 }
-
 
 
 if __name__ == "__main__":
@@ -242,7 +242,7 @@ if __name__ == "__main__":
                     ax.ticklabel_format(
                         axis="x", style="sci", scilimits=(0, 0), useMathText=True
                     )
-                    ax.set_ylim(-1,1)
+                    ax.set_ylim(-1, 1)
                     ax.spines["top"].set_visible(False)
                     ax.spines["right"].set_visible(False)
 
@@ -258,7 +258,9 @@ if __name__ == "__main__":
         [k for k in COLORS.keys() if isinstance(k, int) and k in unique_apertures]
     )
     for ap in aperture_keys:
-        legend_elements.append(Line2D([0], [0], color=COLORS[ap], lw=2, label=f"FOV {ap}"))
+        legend_elements.append(
+            Line2D([0], [0], color=COLORS[ap], lw=2, label=f"FOV {ap}")
+        )
 
     for k in SINGLE:
         if k in COLORS:

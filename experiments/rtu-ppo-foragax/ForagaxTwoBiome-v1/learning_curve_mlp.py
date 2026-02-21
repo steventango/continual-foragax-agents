@@ -3,6 +3,7 @@ import sys
 
 # sys.path.append(os.getcwd() + "/src")
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -39,11 +40,11 @@ PALETTE = [
 
 # Linestyles to distinguish families
 LINESTYLES = {
-    "RealTimeActorCriticMLP": "-",   # solid
-    "ActorCriticMLP":        "--",  # dashed
+    "RealTimeActorCriticMLP": "-",  # solid
+    "ActorCriticMLP": "--",  # dashed
     "RealTimeActorCriticMLPDefault": "-",
-    "ActorCriticMLPDefault":        "--",
-    "Random": ":",                   # dotted baseline
+    "ActorCriticMLPDefault": "--",
+    "Random": ":",  # dotted baseline
 }
 
 # LINESTYLES = {
@@ -58,9 +59,7 @@ LINESTYLES = {
 #     "Random": (0, (1, 1)),
 # }
 
-SINGLE = {
-    "Random"
-}
+SINGLE = {"Random"}
 
 
 if __name__ == "__main__":
@@ -165,7 +164,11 @@ if __name__ == "__main__":
                 )
 
                 color = label_to_color.get(label, "#444444")
-                linestyle = LINESTYLES.get(alg, "-") if label != "Random" else LINESTYLES["Random"]
+                linestyle = (
+                    LINESTYLES.get(alg, "-")
+                    if label != "Random"
+                    else LINESTYLES["Random"]
+                )
 
                 ax.plot(
                     xs[0],
@@ -179,9 +182,13 @@ if __name__ == "__main__":
                     ax.fill_between(xs[0], res.ci[0], res.ci[1], color=color, alpha=0.2)
                 else:
                     for y in ys:
-                        ax.plot(xs[0], y, color=color, linestyle=linestyle, linewidth=0.2)
+                        ax.plot(
+                            xs[0], y, color=color, linestyle=linestyle, linewidth=0.2
+                        )
 
-            ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+            ax.ticklabel_format(
+                axis="x", style="sci", scilimits=(0, 0), useMathText=True
+            )
             ax.set_xlabel("Time steps")
             ax.set_ylabel("Average Reward")
             ax.set_title(f"{env} — FOV {aperture}")
@@ -193,7 +200,7 @@ if __name__ == "__main__":
         # Hide any unused subplots
         for j in range(n, nrows * ncols):
             r, c = divmod(j, ncols)
-            axes[r][c].axis('off')
+            axes[r][c].axis("off")
 
         # Save one figure per env containing the grid
         path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
@@ -202,7 +209,7 @@ if __name__ == "__main__":
             plot_name=f"{env}_grid",
             save_type="pdf",
             f=fig,
-            width = 6,
+            width=6,
             height_ratio=2 / 3,
         )
 

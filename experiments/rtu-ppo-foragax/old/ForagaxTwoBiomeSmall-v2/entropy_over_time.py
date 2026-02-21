@@ -3,6 +3,7 @@ import sys
 
 # sys.path.append(os.getcwd() + "/src")
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -19,6 +20,7 @@ from utils.results import ResultCollection
 
 setDefaultConference("jmlr")
 setFonts(20)
+
 
 def plot_entropy_on_ax(ax, df, alg, env, aperture):
     if df is None or df.height == 0:
@@ -38,9 +40,7 @@ def plot_entropy_on_ax(ax, df, alg, env, aperture):
 
     # Aggregate and plot mean entropy over time
     agg_df = (
-        df.group_by("frame")
-        .agg(pl.mean("entropy").alias("entropy_mean"))
-        .sort("frame")
+        df.group_by("frame").agg(pl.mean("entropy").alias("entropy_mean")).sort("frame")
     )
 
     frames = agg_df["frame"]
@@ -80,7 +80,6 @@ if __name__ == "__main__":
         env_groups[env][aperture] = sub_results
 
     for env, aperture_results in env_groups.items():
-
         apertures = sorted(aperture_results.keys())
 
         all_algs = set()

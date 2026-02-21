@@ -34,7 +34,9 @@ class MCTSEnvWrapper(BaseEnvironment):
 
     @partial(jax.jit, static_argnums=0)
     def _step(self, state, action: jax.Array):
-        state, (obs, reward, terminated, truncated, info) = self._env._step(state, action)
+        state, (obs, reward, terminated, truncated, info) = self._env._step(
+            state, action
+        )
         # Return tuple of (obs, state) so MCTS can use both
         obs_with_state = (obs, state)
         return state, (obs_with_state, reward, terminated, truncated, info)

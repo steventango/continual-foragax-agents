@@ -17,7 +17,7 @@ def generate_freeze_small_buffer_configs(root_dir):
                     continue
 
                 filepath = os.path.join(dirpath, filename)
-                with open(filepath, 'r') as f:
+                with open(filepath, "r") as f:
                     try:
                         data = json.load(f)
                     except json.JSONDecodeError:
@@ -25,7 +25,9 @@ def generate_freeze_small_buffer_configs(root_dir):
                         continue
 
                 if "metaParameters" not in data:
-                    print(f"Skipping {filepath} as it does not contain 'metaParameters'")
+                    print(
+                        f"Skipping {filepath} as it does not contain 'metaParameters'"
+                    )
                     continue
 
                 for suffix, steps in freeze_variants.items():
@@ -40,12 +42,12 @@ def generate_freeze_small_buffer_configs(root_dir):
 
                     new_filepath = os.path.join(dirpath, new_filename)
 
-                    with open(new_filepath, 'w') as f:
+                    with open(new_filepath, "w") as f:
                         json.dump(new_data, f, indent=4)
 
                     print(f"Generated {new_filepath}")
 
 
 if __name__ == "__main__":
-    experiments_dir = os.path.join(os.path.dirname(__file__), '..', 'experiments')
+    experiments_dir = os.path.join(os.path.dirname(__file__), "..", "experiments")
     generate_freeze_small_buffer_configs(experiments_dir)
