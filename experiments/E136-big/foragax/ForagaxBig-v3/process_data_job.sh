@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --account=aip-amw8
 #SBATCH --job-name=E136-big_foragax_ForagaxBig-v3_process_data
-#SBATCH --mem-per-cpu=16G
+#SBATCH --mem-per-cpu=32G
 #SBATCH --ntasks=16
 #SBATCH --output=../slurm-%j.out
-#SBATCH --time=01:00:00
+#SBATCH --time=06:00:00
 
 module load arrow/19
 
