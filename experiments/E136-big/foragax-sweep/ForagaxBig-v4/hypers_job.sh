@@ -23,5 +23,4 @@ $SLURM_TMPDIR/.venv/bin/python experiments/E136-big/foragax-sweep/ForagaxBig-v4/
 
 $SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E136-big/foragax/ForagaxBig-v4/15
 $SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E136-big/foragax/ForagaxBig-v4/9
-$SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E136-big/foragax/ForagaxBig-v4/7
 $SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E136-big/foragax/ForagaxBig-v4/5
