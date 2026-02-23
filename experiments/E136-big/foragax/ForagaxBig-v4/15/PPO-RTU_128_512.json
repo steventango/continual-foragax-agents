@@ -39,7 +39,8 @@
         },
         "representation": {
             "hidden": 64,
-            "d_hidden": 512
+            "d_hidden": 512,
+            "use_layernorm": false
         }
     }
 }

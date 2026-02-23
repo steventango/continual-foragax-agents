@@ -1,11 +1,11 @@
 {
-    "agent": "PPO-RTU_128_512",
+    "agent": "PPO-RTU_LN_128_512",
     "problem": "Foragax",
     "total_steps": 1000000,
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxBig-v4",
-            "aperture_size": 9,
+            "aperture_size": 5,
             "observation_type": "rgb"
         },
         "experiment": {
@@ -53,7 +53,7 @@
         "representation": {
             "hidden": 64,
             "d_hidden": 512,
-            "use_layernorm": false
+            "use_layernorm": true
         }
     }
 }

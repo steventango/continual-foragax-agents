@@ -61,6 +61,7 @@ class TrainConfig:
     reward_delay: int = struct.field(pytree_node=False)
     use_sinusoidal_encoding: bool = struct.field(pytree_node=False)
     use_reward_trace: bool = struct.field(pytree_node=False)
+    use_layernorm: bool = struct.field(pytree_node=False)
     allocate_frames: bool = struct.field(pytree_node=False)
     video_length: int = struct.field(pytree_node=False)
     # ---- DYNAMIC (may vary per idx; arithmetic only) ----
@@ -505,6 +506,7 @@ def experiment(rng, config: TrainConfig):
         cont=False,
         use_sinusoidal_encoding=config.use_sinusoidal_encoding,
         use_reward_trace=config.use_reward_trace,
+        use_layernorm=config.use_layernorm,
         **kwards,
     )
 
@@ -940,6 +942,12 @@ def main():
             spectral_radius=hypers["representation"].get("spectral_radius", None),
             use_sinusoidal_encoding=bool(hypers.get("use_sinusoidal_encoding", False)),
             use_reward_trace=bool(hypers.get("use_reward_trace", False)),
+            use_layernorm=bool(
+                hypers.get(
+                    "use_layernorm",
+                    hypers.get("representation", {}).get("use_layernorm", False),
+                )
+            ),
             reward_trace_decay=float(hypers.get("reward_trace_decay", 1.0)),
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),

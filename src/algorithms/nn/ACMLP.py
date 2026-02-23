@@ -17,6 +17,7 @@ class ActorCriticMLP(nn.Module):
     cont: bool = False
     use_sinusoidal_encoding: bool = False
     use_reward_trace: bool = False
+    use_layernorm: bool = False
 
     @nn.compact
     def __call__(self, hidden, obs):
@@ -53,6 +54,8 @@ class ActorCriticMLP(nn.Module):
             bias_init=constant(0.0),
             name="actor_dense1",
         )(obs)
+        if self.use_layernorm:
+            actor_embedding = nn.LayerNorm(name="actor_layernorm1")(actor_embedding)
         actor_embedding = activation(actor_embedding)
         actor_embedding = jnp.concatenate(
             (actor_embedding, last_action_encoded, last_reward_plus), axis=-1
@@ -64,6 +67,8 @@ class ActorCriticMLP(nn.Module):
             bias_init=constant(0.0),
             name="critic_dense1",
         )(obs)
+        if self.use_layernorm:
+            critic_embedding = nn.LayerNorm(name="critic_layernorm1")(critic_embedding)
         critic_embedding = activation(critic_embedding)
         critic_embedding = jnp.concatenate(
             (critic_embedding, last_action_encoded, last_reward_plus), axis=-1
@@ -88,6 +93,8 @@ class ActorCriticMLP(nn.Module):
             bias_init=constant(0.0),
             name="actor_dense3",
         )(actor_embedding)
+        if self.use_layernorm:
+            actor_mean = nn.LayerNorm(name="actor_layernorm2")(actor_mean)
         actor_mean = activation(actor_mean)
         actor_mean = nn.Dense(
             self.action_dim,
@@ -110,6 +117,8 @@ class ActorCriticMLP(nn.Module):
             bias_init=constant(0.0),
             name="critic_dense3",
         )(critic_embedding)
+        if self.use_layernorm:
+            critic = nn.LayerNorm(name="critic_layernorm2")(critic)
         critic = activation(critic)
         critic = nn.Dense(
             1, kernel_init=orthogonal(1.0), bias_init=constant(0.0), name="critic_value"
