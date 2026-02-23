@@ -42,7 +42,7 @@
             ]
         },
         "representation": {
-            "type": "Forager2Net",
+            "type": "ForagerNet",
             "hidden": 64
         },
         "update_freq": 4
