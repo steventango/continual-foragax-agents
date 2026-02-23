@@ -55,6 +55,7 @@ class Hypers(BaseHypers):
     final_epsilon: Optional[float]
     freeze_steps: float
     greedy_when_frozen: bool
+    reward_trace_decay: float
 
 
 @cxu.dataclass
@@ -68,6 +69,7 @@ class AgentState(BaseAgentState):
     updates: int
     hypers: Hypers
     metrics: Metrics
+    reward_trace: jax.Array
 
 
 @checkpointable(("buffer", "steps", "state", "updates"))
@@ -106,6 +108,20 @@ class NNAgent(BaseAgent):
         )
         self.reward_clip = params.get("reward_clip", 0)
         self.reward_scale = params.get("reward_scale")
+        self.reward_trace_decay = params.get("reward_trace_decay", 0.9)
+        self.scalar_features = params.get("representation", {}).get(
+            "scalar_features", ["last_action", "last_reward"]
+        )
+
+        self.scalars_size = 0
+        if "last_action" in self.scalar_features:
+            self.scalars_size += actions
+        if "last_reward" in self.scalar_features:
+            self.scalars_size += 1
+        if "reward_trace" in self.scalar_features:
+            self.scalars_size += 1
+
+        self.rep_params["scalars"] = self.scalars_size
         self.hidden_size = self.rep_params["hidden"]
 
         # ---------------------
@@ -177,6 +193,9 @@ class NNAgent(BaseAgent):
 
         dummy_timestep = {
             "x": jnp.zeros(self.observations),
+            "scalars": self.encode_scalar_features(
+                jnp.int32(0), jnp.float32(0), jnp.float32(0)
+            ),
             "a": jnp.int32(0),
             "r": jnp.float32(0),
             "gamma": jnp.float32(0),
@@ -199,6 +218,7 @@ class NNAgent(BaseAgent):
             final_epsilon=final_epsilon,
             freeze_steps=freeze_steps,
             greedy_when_frozen=greedy_when_frozen,
+            reward_trace_decay=self.reward_trace_decay,
         )
         self.state = AgentState(
             **{k: v for k, v in self.state.__dict__.items() if k != "hypers"},
@@ -216,6 +236,7 @@ class NNAgent(BaseAgent):
                 squared_td_error=jnp.float32(0.0),
                 loss=jnp.float32(0.0),
             ),
+            reward_trace=jnp.float32(0.0),
         )
 
     def get_feature_function(self, builder: NetworkBuilder):
@@ -248,6 +269,36 @@ class NNAgent(BaseAgent):
 
         return optimizer
 
+    @partial(jax.jit, static_argnums=0)
+    def _compute_reward_trace(
+        self, state: AgentState, reward: jax.Array
+    ) -> Tuple[AgentState, jax.Array]:
+        beta = state.hypers.reward_trace_decay
+        new_reward_trace = beta * state.reward_trace + (1 - beta) * reward
+        correction = 1.0 - jnp.power(beta, state.steps.astype(jnp.float32))
+        unbiased_reward_trace = new_reward_trace / correction
+        state = replace(state, reward_trace=new_reward_trace)
+        return state, unbiased_reward_trace
+
+    @partial(jax.jit, static_argnums=0)
+    def encode_scalar_features(
+        self,
+        last_action: jax.Array,
+        last_reward: jax.Array,
+        reward_trace: jax.Array,
+    ) -> jax.Array:
+        parts = []
+        if "last_action" in self.scalar_features:
+            parts.append(jax.nn.one_hot(last_action, self.actions))
+        if "last_reward" in self.scalar_features:
+            parts.append(jnp.atleast_1d(last_reward))
+        if "reward_trace" in self.scalar_features:
+            parts.append(jnp.atleast_1d(reward_trace))
+
+        if len(parts) == 0:
+            return jnp.zeros((0,))
+        return jnp.concatenate(parts, axis=-1)
+
     # ------------------------
     # -- NN agent interface --
     # ------------------------
@@ -256,7 +307,7 @@ class NNAgent(BaseAgent):
     def _build_heads(self, builder: NetworkBuilder) -> None: ...
 
     @abstractmethod
-    def _values(self, state: AgentState, x: jax.Array) -> jax.Array: ...
+    def _values(self, state: AgentState, x: jax.Array, z: jax.Array) -> jax.Array: ...
 
     @abstractmethod
     def _update(self, state: AgentState) -> Tuple[AgentState, Dict[str, jax.Array]]: ...
@@ -316,13 +367,13 @@ class NNAgent(BaseAgent):
         hypers = replace(state.hypers, epsilon=epsilon)
         return replace(state, hypers=hypers)
 
-    def policy(self, obs: jax.Array) -> jax.Array:
-        return self._policy(self.state, obs)
-
     @partial(jax.jit, static_argnums=0)
-    def _policy(self, state: AgentState, obs: jax.Array) -> jax.Array:
+    def _policy(
+        self, state: AgentState, obs: jax.Array, scalars: jax.Array
+    ) -> jax.Array:
         obs = jnp.expand_dims(obs, 0)
-        q = self._values(state, obs)[0]
+        z = jnp.expand_dims(scalars, 0)
+        q = self._values(state, obs, z)[0]
         epsilon = jax.lax.cond(
             state.hypers.greedy_when_frozen
             & (state.steps >= state.hypers.freeze_steps),
@@ -337,8 +388,9 @@ class NNAgent(BaseAgent):
         self,
         state: AgentState,
         obs: jax.Array,
+        scalars: jax.Array,
     ) -> tuple[AgentState, jax.Array]:
-        pi = self._policy(state, obs)
+        pi = self._policy(state, obs, scalars)
         state.key, sample_key = jax.random.split(state.key)
         a = jax.random.choice(sample_key, self.actions, p=pi)
         return state, a
@@ -368,11 +420,15 @@ class NNAgent(BaseAgent):
 
     @partial(jax.jit, static_argnums=0)
     def _start(self, state: AgentState, obs: jax.Array):
-        state, a = self.act(state, obs)
+        scalars = self.encode_scalar_features(
+            jnp.int32(-1), jnp.float32(0), jnp.float32(0)
+        )
+        state, a = self.act(state, obs, scalars)
         state.last_timestep.update(
             {
                 "x": obs,
                 "a": a,
+                "scalars": scalars,
             }
         )
         state = self._maybe_update_if_not_frozen(state)
@@ -390,7 +446,12 @@ class NNAgent(BaseAgent):
         obs: jax.Array,
         extra: Dict[str, jax.Array],
     ):
-        state, a = self.act(state, obs)
+        state, unbiased_reward_trace = self._compute_reward_trace(state, reward)
+
+        scalars = self.encode_scalar_features(
+            state.last_timestep["a"], reward, unbiased_reward_trace
+        )
+        state, a = self.act(state, obs, scalars)
 
         # see if the problem specified a discount term
         gamma = extra.get("gamma", 1.0)
@@ -415,6 +476,7 @@ class NNAgent(BaseAgent):
         state.last_timestep.update(
             {
                 "x": obs,
+                "scalars": scalars,
                 "a": a,
             }
         )
@@ -431,6 +493,8 @@ class NNAgent(BaseAgent):
             reward = jnp.clip(reward, -self.reward_clip, self.reward_clip)
         if self.reward_scale is not None:
             reward = reward / self.reward_scale
+
+        state, _ = self._compute_reward_trace(state, reward)
 
         state.last_timestep.update(
             {

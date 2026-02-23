@@ -43,22 +43,8 @@ class NetworkBuilder:
         return self._initializers
 
     def getFeatureFunction(self):
-        def _inner(params: Any, x: jax.Array | np.ndarray):
-            return self._feat_net.apply(params["phi"], x)
-
-        return _inner
-
-    def getRecurrentFeatureFunction(self):
-        def _inner(
-            params: Any,
-            x: jax.Array | np.ndarray,
-            reset: jax.Array | np.ndarray = None,
-            carry: jax.Array | np.ndarray = None,
-            is_target=False,
-        ):
-            return self._feat_net.apply(
-                params["phi"], x, reset=reset, carry=carry, is_target=is_target
-            )
+        def _inner(params: Any, x: jax.Array | np.ndarray, **kwargs):
+            return self._feat_net.apply(params["phi"], x, **kwargs)
 
         return _inner
 
@@ -223,7 +209,7 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
         elif name == "OneLayerRelu":
             layers = reluLayers([hidden], name="phi")
 
-        if name == "TwoLayerCrelu":
+        elif name == "TwoLayerCrelu":
             layers = creluLayers([hidden, hidden], name="phi")
 
         elif name == "OneLayerCrelu":
@@ -238,12 +224,14 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
             ]
 
         elif name == "ForagerNet":
-            w_init = hk.initializers.Orthogonal(np.sqrt(2))
-            layers = [
-                hk.Conv2D(16, 3, 1, w_init=w_init, name="phi"),
-                jax.nn.relu,
-                hk.Flatten(name="phi"),
-            ]
+            net = ForagerNet(
+                hidden=hidden,
+                scalars=params["scalars"],
+                layers=params.get("pre_gru_layers", 0),
+                use_layernorm=params.get("use_layernorm", False),
+                name="phi",
+            )
+            return net(x, *args, **kwargs)
 
         elif name == "ForagerLayerNormNet":
             w_init = hk.initializers.Orthogonal(np.sqrt(2))
@@ -286,6 +274,8 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
             # It uses initializer different from above
             net = ForagerGRUNetReLU(
                 hidden=hidden,
+                scalars=params["scalars"],
+                pre_gru_layers=params.get("pre_gru_layers", 0),
                 learn_initial_h=params.get("learn_initial_h", True),
                 name="ForagerGRUNetReLU",
             )
@@ -852,26 +842,57 @@ class ATAAGRU(hk.Module):
 
 
 class ForagerGRUNetReLU(hk.Module):
-    def __init__(self, hidden: int, learn_initial_h=True, name: str = ""):
+    def __init__(
+        self,
+        hidden: int,
+        scalars: int = 0,
+        pre_gru_layers: int = 0,
+        post_gru_layers: int = 0,
+        learn_initial_h=True,
+        use_layernorm=False,
+        name: str = "",
+    ):
         super().__init__(name=name)
         self.hidden = hidden
+        self.scalars = scalars
+        self.pre_gru_layers = pre_gru_layers
+        self.post_gru_layers = post_gru_layers
         w_init = hk.initializers.Orthogonal(np.sqrt(2))
 
         self.conv = hk.Conv2D(16, 3, 1, w_init=w_init, name="phi")
 
         self.flatten = hk.Flatten(preserve_dims=2, name="flatten")
 
-        self.skip_connection = hk.Linear(
-            self.hidden, w_init=w_init, name="skip_connection"
-        )
+        if pre_gru_layers > 0:
+            layers = []
+            for _ in range(pre_gru_layers):
+                layers.append(hk.Linear(self.hidden, w_init=w_init))
+                if use_layernorm:
+                    layers.append(
+                        hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
+                    )
+                layers.append(jax.nn.relu)
+            self.pre_gru_mlp = hk.Sequential(layers)
 
         self.gru = GRU(self.hidden, learn_initial_h=learn_initial_h, name="gru")
+
+        if post_gru_layers > 0:
+            layers = []
+            for _ in range(post_gru_layers):
+                layers.append(hk.Linear(self.hidden, w_init=w_init))
+                if use_layernorm:
+                    layers.append(
+                        hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
+                    )
+                layers.append(jax.nn.relu)
+            self.post_gru_mlp = hk.Sequential(layers)
 
         self.phi = hk.Flatten(preserve_dims=2, name="phi")
 
     def __call__(
         self,
         x: jnp.ndarray,
+        scalars: jnp.ndarray = None,
         reset: jnp.ndarray = None,
         carry: jnp.ndarray = None,
         is_target=False,
@@ -879,6 +900,7 @@ class ForagerGRUNetReLU(hk.Module):
         """
         Args:
           x: Input tensor with shape [N, T, ...]
+          scalars: Optional scalar features with shape [N, T, S]
           reset: Optional binary flag sequence with shape [N, T] indicating when to reset the GRU state.
                  For example, at episode boundaries.
           carry: The initial hidden state for RNN.
@@ -904,13 +926,26 @@ class ForagerGRUNetReLU(hk.Module):
 
         h = self.flatten(h)
 
+        if self.scalars > 0:
+            if scalars is None:
+                scalars = jnp.zeros((N, T, self.scalars))
+            elif len(scalars.shape) < 3:
+                scalars = jnp.broadcast_to(scalars, (N, T, self.scalars))
+
+            h = jnp.concatenate([h, scalars], axis=-1)
+
+        if self.pre_gru_layers > 0:
+            h = self.pre_gru_mlp(h)
+
         outputs_sequence, states_sequence, initial_carry = self.gru(
             h, reset, carry, is_target=is_target
         )
-
         outputs_sequence = jax.nn.relu(outputs_sequence)
 
-        outputs_sequence = outputs_sequence + self.skip_connection(h)
+        outputs_sequence = jnp.concatenate([outputs_sequence, h], axis=-1)
+
+        if self.post_gru_layers > 0:
+            outputs_sequence = self.post_gru_mlp(outputs_sequence)
 
         outputs_sequence = self.phi(outputs_sequence)
 
@@ -1050,7 +1085,7 @@ class ForagerATAAGRUNetReLU(hk.Module):
 
         # Use No-Op action 0 to populate a if None
         if a is None:
-            a = jnp.full((N, T, self.number_of_actions), jnp.float32(0))
+            a = jnp.zeros((N, T, self.number_of_scalars))
         if len(a.shape) < 3:
             a = jnp.broadcast_to(a, (N, T, self.number_of_actions))
         if action_trace is None:
@@ -1162,6 +1197,63 @@ class ForagerMAGRUNetReLU(hk.Module):
 
         # Return both the GRU outputs and hidden states across the entire sequence along with initial hidden state
         return outputs_sequence, states_sequence, initial_carry
+
+
+class ForagerNet(hk.Module):
+    def __init__(
+        self,
+        hidden: int,
+        scalars: int = 0,
+        layers: int = 0,
+        use_layernorm=False,
+        name: str = "",
+    ):
+        super().__init__(name=name)
+        self.hidden = hidden
+        self.scalars = scalars
+        self.layers = layers
+        w_init = hk.initializers.Orthogonal(np.sqrt(2))
+
+        self.conv = hk.Conv2D(16, 3, 1, w_init=w_init, name="phi")
+
+        self.flatten = hk.Flatten(preserve_dims=1, name="flatten")
+
+        if layers > 0:
+            mlp_layers = []
+            for _ in range(layers):
+                mlp_layers.append(hk.Linear(self.hidden, w_init=w_init))
+                if use_layernorm:
+                    mlp_layers.append(
+                        hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
+                    )
+                mlp_layers.append(jax.nn.relu)
+            self.mlp = hk.Sequential(mlp_layers)
+
+        self.phi = hk.Flatten(preserve_dims=1, name="phi")
+
+    def __call__(
+        self,
+        x: jnp.ndarray,
+        scalars: jnp.ndarray = None,
+        **kwargs,
+    ) -> hku.AccumulatedOutput:
+        h = self.conv(x)
+        h = jax.nn.relu(h)
+
+        h = self.flatten(h)
+
+        if self.scalars > 0:
+            if scalars is None:
+                scalars = jnp.zeros(x.shape[:-3] + (self.scalars,))
+
+            h = jnp.concatenate([h, scalars], axis=-1)
+
+        if self.layers > 0:
+            h = self.mlp(h)
+
+        out = self.phi(h)
+
+        return hku.AccumulatedOutput(activations={self.name: out}, out=out)
 
 
 def make_standalone_initializer(hk_initializer) -> Callable:

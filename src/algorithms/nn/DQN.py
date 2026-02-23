@@ -72,8 +72,8 @@ class DQN(NNAgent):
 
     # internal compiled version of the value function
     @partial(jax.jit, static_argnums=0)
-    def _values(self, state: AgentState, x: jax.Array):  # type: ignore
-        phi = self.phi(state.params, x).out
+    def _values(self, state: AgentState, x: jax.Array, scalars: jax.Array):  # type: ignore
+        phi = self.phi(state.params, x, scalars=scalars).out
         return self.q(state.params, phi)
 
     @partial(jax.jit, static_argnums=0)
@@ -125,6 +125,9 @@ class DQN(NNAgent):
         x = batch["x"][:, 0]
         xp = batch["x"][:, -1]
         a = batch["a"][:, 0]
+        scalars = batch["scalars"][:, 0]
+        scalars_p = batch["scalars"][:, -1]
+
         rs = batch["r"]
         gs = batch["gamma"]
         gs = jnp.concatenate([jnp.ones((gs.shape[0], 1)), gs[:, :-1]], axis=1)
@@ -133,8 +136,8 @@ class DQN(NNAgent):
         r = jnp.sum(rs[:, :-1] * gs[:, :-1], axis=1)
         g = gs[:, -1]
 
-        phi = self.phi(params, x).out
-        phi_p = self.phi(target, xp).out
+        phi = self.phi(params, x, scalars=scalars).out
+        phi_p = self.phi(target, xp, scalars=scalars_p).out
 
         qs = self.q(params, phi)
         qsp = self.q(target, phi_p)
