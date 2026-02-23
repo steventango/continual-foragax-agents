@@ -1,6 +1,6 @@
 from dataclasses import replace
 from functools import partial
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Union, Mapping
 
 import jax
 import jax.numpy as jnp
@@ -121,6 +121,9 @@ class SearchAgent(BaseAgent):
         obs: jax.Array,
         extra: Optional[Dict[str, jax.Array]] = None,
     ) -> tuple[AgentState, jax.Array]:
+        if isinstance(obs, Mapping):
+            obs = obs["image"]
+
         height, width, num_channels = obs.shape
 
         if self.mode == "world":

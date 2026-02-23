@@ -39,6 +39,7 @@ parser.add_argument("--save_path", type=str, default="./")
 parser.add_argument("--checkpoint_path", type=str, default="./checkpoints/")
 parser.add_argument("--silent", action="store_true", default=False)
 parser.add_argument("--gpu", action="store_true", default=False)
+parser.add_argument("--max_steps", type=int, default=None)
 
 args = parser.parse_args()
 
@@ -162,6 +163,8 @@ logger.debug(
 )
 
 n = exp.total_steps
+if args.max_steps is not None:
+    n = args.max_steps
 
 video_length = first_hypers.get("experiment", {}).get("video_length", 0)
 video_idxs = first_hypers.get("experiment", {}).get("video_idxs", [0])

@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Union
 from dataclasses import replace
 
 import haiku as hk
@@ -283,14 +283,21 @@ class DRQN(NNAgent):
         return loss, metrics
 
     @partial(jax.jit, static_argnums=0)
-    def _start(self, state: AgentState, obs: jax.Array):
+    def _start(self, state: AgentState, obs: Union[jax.Array, Dict[str, jax.Array]]):
+        if isinstance(obs, Mapping):
+            obs_img = obs["image"]
+            hint = obs["hint"]
+        else:
+            obs_img = obs
+            hint = None
+
         scalars = self.encode_scalar_features(
-            jnp.int32(-1), jnp.float32(0), jnp.float32(0)
+            jnp.int32(-1), jnp.float32(0), jnp.float32(0), hint
         )
-        state, a = self.act(state, obs, scalars)
+        state, a = self.act(state, obs_img, scalars)
         state.last_timestep.update(
             {
-                "x": obs,
+                "x": obs_img,
                 "a": a,
                 "scalars": scalars,
                 "carry": jnp.zeros(
@@ -308,9 +315,15 @@ class DRQN(NNAgent):
         self,
         state: AgentState,
         reward: jax.Array,
-        obs: jax.Array,
+        obs: Union[jax.Array, Dict[str, jax.Array]],
         extra: Dict[str, jax.Array],
     ):
+        if isinstance(obs, Mapping):
+            obs_img = obs["image"]
+            hint = obs["hint"]
+        else:
+            obs_img = obs
+            hint = None
         # see if the problem specified a discount term
         gamma = extra.get("gamma", 1.0)
 
@@ -333,14 +346,14 @@ class DRQN(NNAgent):
         state, unbiased_reward_trace = self._compute_reward_trace(state, reward)
 
         scalars = self.encode_scalar_features(
-            state.last_timestep["a"], reward, unbiased_reward_trace
+            state.last_timestep["a"], reward, unbiased_reward_trace, hint
         )
         last_carry = state.carry[0]
-        state, a = self.act(state, obs, scalars)
+        state, a = self.act(state, obs_img, scalars)
 
         state.last_timestep.update(
             {
-                "x": obs,
+                "x": obs_img,
                 "a": a,
                 "scalars": scalars,
                 "carry": last_carry,

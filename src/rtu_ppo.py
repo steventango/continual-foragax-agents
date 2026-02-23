@@ -839,6 +839,7 @@ def main():
     parser.add_argument("--silent", action="store_true", default=False)
     parser.add_argument("--gpu", action="store_true", default=False)
     parser.add_argument("--video", action="store_true", default=False)
+    parser.add_argument("--max_steps", type=int, default=None)
 
     args = parser.parse_args()
 
@@ -917,6 +918,8 @@ def main():
             if "num_updates" in hypers
             else (exp.total_steps // int(hypers["rollout_steps"]) + 1)
         )
+        if args.max_steps is not None:
+            num_updates = args.max_steps
         config = TrainConfig(
             d_hidden=int(hypers["representation"]["d_hidden"]),
             agent_type=exp.agent,
