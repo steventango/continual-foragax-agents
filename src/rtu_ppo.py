@@ -1,5 +1,4 @@
 # Modified from esraaelelimy/continuing_ppo
-import sys
 
 import socket
 import time
@@ -7,13 +6,11 @@ import logging
 from jax.tree_util import tree_map
 import numpy as np
 from flax import struct
-from utils.preempt import TimeoutHandler
+from collections.abc import Mapping
 from functools import partial
-from typing import Sequence, NamedTuple, Any, Callable, Optional, Tuple
+from typing import NamedTuple, Any, Callable, Tuple
 import jax
 import jax.numpy as jnp
-import numpy as np
-from jax.tree_util import tree_map
 from jax_tqdm.scan_pbar import scan_tqdm
 from jax_tqdm.base import PBar
 from gymnasium.utils.save_video import save_video
@@ -233,6 +230,14 @@ def env_step(runner_state, _):
     action_encoded = jnp.zeros((4,))
     action_encoded = action_encoded.at[last_action].set(1)
     last_reward_encoded = jnp.expand_dims(last_reward, 0)
+
+    if isinstance(last_obs, Mapping):
+        obs_img = last_obs["image"]
+        hint = last_obs["hint"]
+        last_reward_encoded = jnp.concatenate((last_reward_encoded, hint), axis=-1)
+    else:
+        obs_img = last_obs
+
     sine = jnp.expand_dims(jnp.sin(2 * jnp.pi * log_env_state.timestep / PERIOD), 0)
     cosine = jnp.expand_dims(jnp.cos(2 * jnp.pi * log_env_state.timestep / PERIOD), 0)
     reward_trace = (
@@ -241,7 +246,7 @@ def env_step(runner_state, _):
     )
     reward_trace_encoded = jnp.expand_dims(reward_trace, 0)
     last_obs_encoded = (
-        last_obs,
+        obs_img,
         action_encoded,
         last_reward_encoded,
         sine,
@@ -442,23 +447,6 @@ def experiment(rng, config: TrainConfig):
 
     env = make(config.env_id, aperture_size=config.aperture_size, **kwards)
 
-    ### Initialize the environment states
-    if config.allocate_frames:
-        updates_per_video = (
-            config.video_length + config.rollout_steps - 1
-        ) // config.rollout_steps
-        frames = jnp.zeros(
-            (
-                updates_per_video * config.rollout_steps,
-                env.size[0] * 9,
-                env.size[1] * 9,
-                3,
-            ),
-            dtype=jnp.uint8,
-        )
-    else:
-        frames = jnp.zeros((0, env.size[0] * 9, env.size[1] * 9, 3), dtype=jnp.uint8)
-    log_env_state = LogEnvState(returned_returns=0, timestep=0, frames=frames)
     rng, reset_rng = jax.random.split(rng)
     obs, env_state = env.reset(reset_rng, env.default_params)
 
@@ -467,8 +455,26 @@ def experiment(rng, config: TrainConfig):
             jnp.uint8
         )
 
+    render_shape = real_render(env_state).shape
+
+    ### Initialize the environment states
+    if config.allocate_frames:
+        updates_per_video = (
+            config.video_length + config.rollout_steps - 1
+        ) // config.rollout_steps
+        frames = jnp.zeros(
+            (
+                updates_per_video * config.rollout_steps,
+                *render_shape,
+            ),
+            dtype=jnp.uint8,
+        )
+    else:
+        frames = jnp.zeros((0, *render_shape), dtype=jnp.uint8)
+    log_env_state = LogEnvState(returned_returns=0, timestep=0, frames=frames)
+
     def void_render(env_state):
-        return jnp.zeros((env.size[0] * 9, env.size[1] * 9, 3), dtype=jnp.uint8)
+        return jnp.zeros(render_shape, dtype=jnp.uint8)
 
     def render(cond, env_state):
         return jax.lax.cond(cond, real_render, void_render, env_state)
@@ -503,10 +509,18 @@ def experiment(rng, config: TrainConfig):
     )
 
     rng, _rng = jax.random.split(rng)
+
+    if isinstance(obs, Mapping):
+        obs_img_shape = obs["image"].shape
+        hint_shape = (1 + obs["hint"].shape[-1],)
+    else:
+        obs_img_shape = obs.shape
+        hint_shape = (1,)
+
     init_x = (
-        jnp.zeros((1, *obs.shape)),
+        jnp.zeros((1, *obs_img_shape)),
         jnp.zeros((1, action_dim)),
-        jnp.zeros((1, 1)),
+        jnp.zeros((1, *hint_shape)),
         jnp.zeros((1, 1)),
         jnp.zeros((1, 1)),
         jnp.zeros((1, 1)),
@@ -656,6 +670,14 @@ def experiment(rng, config: TrainConfig):
         action_encoded = jnp.zeros((4,))
         action_encoded = action_encoded.at[last_action].set(1)
         last_reward_encoded = jnp.expand_dims(last_reward, 0)
+
+        if isinstance(last_obs, Mapping):
+            obs_img = last_obs["image"]
+            hint = last_obs["hint"]
+            last_reward_encoded = jnp.concatenate((last_reward_encoded, hint), axis=-1)
+        else:
+            obs_img = last_obs
+
         sine = jnp.expand_dims(jnp.sin(2 * jnp.pi * log_env_state.timestep / PERIOD), 0)
         cosine = jnp.expand_dims(
             jnp.cos(2 * jnp.pi * log_env_state.timestep / PERIOD), 0
@@ -666,7 +688,7 @@ def experiment(rng, config: TrainConfig):
         )
         reward_trace_encoded = jnp.expand_dims(reward_trace, 0)
         last_obs_encoded = (
-            last_obs,
+            obs_img,
             action_encoded,
             last_reward_encoded,
             sine,

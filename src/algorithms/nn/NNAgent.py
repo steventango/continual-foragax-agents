@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from dataclasses import replace
 from functools import partial
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import flashbax as fbx
 import jax
@@ -10,6 +10,7 @@ import optax
 from ml_instrumentation.Collector import Collector
 
 import utils.chex as cxu
+from collections.abc import Mapping
 from algorithms.BaseAgent import AgentState as BaseAgentState
 from algorithms.BaseAgent import BaseAgent
 from algorithms.BaseAgent import Hypers as BaseHypers
@@ -121,13 +122,20 @@ class NNAgent(BaseAgent):
         if "reward_trace" in self.scalar_features:
             self.scalars_size += 1
 
+        if isinstance(observations, Mapping):
+            image_shape = observations["image"]
+            if "hint" in self.scalar_features:
+                self.scalars_size += observations["hint"][0]
+        else:
+            image_shape = observations
+
         self.rep_params["scalars"] = self.scalars_size
         self.hidden_size = self.rep_params["hidden"]
 
         # ---------------------
         # -- NN Architecture --
         # ---------------------
-        self.builder = NetworkBuilder(observations, self.rep_params, self.key)
+        self.builder = NetworkBuilder(image_shape, self.rep_params, self.key)
         self._build_heads(self.builder)
         self.phi = self.get_feature_function(self.builder)
         net_params = self.builder.getParams()
@@ -191,10 +199,14 @@ class NNAgent(BaseAgent):
             set_priorities=jax.jit(buffer.set_priorities, donate_argnums=(0,)),
         )
 
+        dummy_hint = None
+        if isinstance(observations, Mapping) and "hint" in observations:
+            dummy_hint = jnp.zeros(observations["hint"])
+
         dummy_timestep = {
-            "x": jnp.zeros(self.observations),
+            "x": jnp.zeros(image_shape),
             "scalars": self.encode_scalar_features(
-                jnp.int32(0), jnp.float32(0), jnp.float32(0)
+                jnp.int32(0), jnp.float32(0), jnp.float32(0), dummy_hint
             ),
             "a": jnp.int32(0),
             "r": jnp.float32(0),
@@ -286,6 +298,7 @@ class NNAgent(BaseAgent):
         last_action: jax.Array,
         last_reward: jax.Array,
         reward_trace: jax.Array,
+        hint: Optional[jax.Array] = None,
     ) -> jax.Array:
         parts = []
         if "last_action" in self.scalar_features:
@@ -294,6 +307,8 @@ class NNAgent(BaseAgent):
             parts.append(jnp.atleast_1d(last_reward))
         if "reward_trace" in self.scalar_features:
             parts.append(jnp.atleast_1d(reward_trace))
+        if "hint" in self.scalar_features and hint is not None:
+            parts.append(jnp.atleast_1d(hint))
 
         if len(parts) == 0:
             return jnp.zeros((0,))
@@ -414,19 +429,26 @@ class NNAgent(BaseAgent):
     # ----------------------
     # -- RLGlue interface --
     # ----------------------
-    def start(self, obs: jax.Array):
+    def start(self, obs: Union[jax.Array, Dict[str, jax.Array]]):
         self.state, a = self._start(self.state, obs)
         return a
 
     @partial(jax.jit, static_argnums=0)
-    def _start(self, state: AgentState, obs: jax.Array):
+    def _start(self, state: AgentState, obs: Union[jax.Array, Dict[str, jax.Array]]):
+        if isinstance(obs, Mapping):
+            obs_img = obs["image"]
+            hint = obs["hint"]
+        else:
+            obs_img = obs
+            hint = None
+
         scalars = self.encode_scalar_features(
-            jnp.int32(-1), jnp.float32(0), jnp.float32(0)
+            jnp.int32(-1), jnp.float32(0), jnp.float32(0), hint
         )
-        state, a = self.act(state, obs, scalars)
+        state, a = self.act(state, obs_img, scalars)
         state.last_timestep.update(
             {
-                "x": obs,
+                "x": obs_img,
                 "a": a,
                 "scalars": scalars,
             }
@@ -434,7 +456,12 @@ class NNAgent(BaseAgent):
         state = self._maybe_update_if_not_frozen(state)
         return state, a
 
-    def step(self, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
+    def step(
+        self,
+        reward: jax.Array,
+        obs: Union[jax.Array, Dict[str, jax.Array]],
+        extra: Dict[str, jax.Array],
+    ):
         self.state, a = self._step(self.state, reward, obs, extra)
         return a
 
@@ -443,15 +470,22 @@ class NNAgent(BaseAgent):
         self,
         state: AgentState,
         reward: jax.Array,
-        obs: jax.Array,
+        obs: Union[jax.Array, Dict[str, jax.Array]],
         extra: Dict[str, jax.Array],
     ):
+        if isinstance(obs, Mapping):
+            obs_img = obs["image"]
+            hint = obs["hint"]
+        else:
+            obs_img = obs
+            hint = None
+
         state, unbiased_reward_trace = self._compute_reward_trace(state, reward)
 
         scalars = self.encode_scalar_features(
-            state.last_timestep["a"], reward, unbiased_reward_trace
+            state.last_timestep["a"], reward, unbiased_reward_trace, hint
         )
-        state, a = self.act(state, obs, scalars)
+        state, a = self.act(state, obs_img, scalars)
 
         # see if the problem specified a discount term
         gamma = extra.get("gamma", 1.0)
@@ -475,7 +509,7 @@ class NNAgent(BaseAgent):
         state = replace(state, buffer_state=buffer_state)
         state.last_timestep.update(
             {
-                "x": obs,
+                "x": obs_img,
                 "scalars": scalars,
                 "a": a,
             }
