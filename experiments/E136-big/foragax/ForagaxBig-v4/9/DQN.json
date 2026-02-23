@@ -28,8 +28,10 @@
             "eps": 1e-08
         },
         "representation": {
-            "type": "Forager2Net",
-            "hidden": 64
+            "type": "ForagerNet",
+            "hidden": 64,
+            "layers": 2,
+            "use_layernorm": false
         },
         "update_freq": 4
     }

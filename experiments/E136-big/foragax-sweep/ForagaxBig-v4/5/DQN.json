@@ -43,7 +43,9 @@
         },
         "representation": {
             "type": "ForagerNet",
-            "hidden": 64
+            "hidden": 64,
+            "layers": 2,
+            "use_layernorm": false
         },
         "update_freq": 4
     }

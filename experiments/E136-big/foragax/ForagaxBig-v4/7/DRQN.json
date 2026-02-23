@@ -1,5 +1,5 @@
 {
-    "agent": "DQN_LN",
+    "agent": "DRQN",
     "problem": "Foragax",
     "total_steps": 100000000,
     "episode_cutoff": -1,
@@ -28,11 +28,17 @@
             "eps": 1e-08
         },
         "representation": {
-            "type": "ForagerNet",
-            "hidden": 64,
-            "layers": 2,
-            "use_layernorm": true
+            "type": "Forager2Net",
+            "hidden": 64
         },
-        "update_freq": 4
+        "update_freq": 4,
+        "sequence_length": 128,
+        "burn_in_steps": 16,
+        "scalar_features": [
+            [
+                "last_action",
+                "last_reward"
+            ]
+        ]
     }
 }
