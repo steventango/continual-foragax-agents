@@ -18,6 +18,8 @@ do
     python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-5.json --time 03:00:00 --runs 1 --entry src/continuing_main.py --force -e experiments/E136-big/foragax/ForagaxBig-v4/${fov}/DQN.json
     python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-5.json --time 03:00:00 --runs 30 --entry src/continuing_main.py --force -e experiments/E136-big/foragax/ForagaxBig-v4/${fov}/DQN_LN.json
     python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-5.json --time 03:00:00 --runs 1 --entry src/continuing_main.py --force -e experiments/E136-big/foragax/ForagaxBig-v4/${fov}/DQN_LN.json
+    python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-5.json --time 03:00:00 --runs 30 --entry src/continuing_main.py --force -e experiments/E136-big/foragax/ForagaxBig-v4/${fov}/DQN_LN_RT.json
+    python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-5.json --time 03:00:00 --runs 1 --entry src/continuing_main.py --force -e experiments/E136-big/foragax/ForagaxBig-v4/${fov}/DQN_LN_RT.json
     python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-5.json --time 03:00:00 --runs 30 --entry src/continuing_main.py --force -e experiments/E136-big/foragax/ForagaxBig-v4/${fov}/DRQN_1_1.json
     python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-5.json --time 03:00:00 --runs 1 --entry src/continuing_main.py --force -e experiments/E136-big/foragax/ForagaxBig-v4/${fov}/DRQN_1_1.json
     python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-5.json --time 03:00:00 --runs 30 --entry src/continuing_main.py --force -e experiments/E136-big/foragax/ForagaxBig-v4/${fov}/DRQN_0_2.json
