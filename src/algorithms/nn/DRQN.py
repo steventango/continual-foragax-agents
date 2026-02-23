@@ -8,6 +8,7 @@ import jax.numpy as jnp
 import optax
 from jax.flatten_util import ravel_pytree
 from ml_instrumentation.Collector import Collector
+from collections.abc import Mapping
 
 import utils.chex as cxu
 from algorithms.nn.NNAgent import AgentState as BaseAgentState
@@ -55,8 +56,13 @@ class DRQN(NNAgent):
 
         super().__init__(observations, actions, params, collector, seed)
         # set up the target network parameters
+        if isinstance(observations, Mapping):
+            image_shape = observations["image"]
+        else:
+            image_shape = observations
+
         dummy_timestep = {
-            "x": jnp.zeros(self.observations),
+            "x": jnp.zeros(image_shape),
             "carry": jnp.zeros(self.hidden_size),
             "reset": jnp.bool(True),
             "scalars": self.encode_scalar_features(
