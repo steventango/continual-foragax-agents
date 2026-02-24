@@ -227,7 +227,7 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
             net = ForagerNet(
                 hidden=hidden,
                 scalars=params["scalars"],
-                layers=params.get("pre_gru_layers", 0),
+                layers=params.get("layers", 0),
                 use_layernorm=params.get("use_layernorm", False),
                 name="phi",
             )
