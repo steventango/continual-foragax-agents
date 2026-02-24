@@ -855,11 +855,15 @@ class ForagerGRUNetReLU(hk.Module):
         super().__init__(name=name)
         self.hidden = hidden
         self.scalars = scalars
+        self.use_layernorm = use_layernorm
         self.pre_gru_layers = pre_gru_layers
         self.post_gru_layers = post_gru_layers
         w_init = hk.initializers.Orthogonal(np.sqrt(2))
 
         self.conv = hk.Conv2D(16, 3, 1, w_init=w_init, name="phi")
+        self.conv_layer_norm = hk.LayerNorm(
+            axis=-1, create_scale=True, create_offset=True
+        )
 
         self.flatten = hk.Flatten(preserve_dims=2, name="flatten")
 
@@ -918,6 +922,8 @@ class ForagerGRUNetReLU(hk.Module):
         x = jnp.reshape(x, (N * T, *feat))
 
         h = self.conv(x)
+        if self.use_layernorm:
+            h = self.conv_layer_norm(h)
         h = jax.nn.relu(h)
 
         _, *feat = h.shape
@@ -1212,9 +1218,13 @@ class ForagerNet(hk.Module):
         self.hidden = hidden
         self.scalars = scalars
         self.layers = layers
+        self.use_layernorm = use_layernorm
         w_init = hk.initializers.Orthogonal(np.sqrt(2))
 
         self.conv = hk.Conv2D(16, 3, 1, w_init=w_init, name="phi")
+        self.conv_layer_norm = hk.LayerNorm(
+            axis=-1, create_scale=True, create_offset=True
+        )
 
         self.flatten = hk.Flatten(preserve_dims=1, name="flatten")
 
@@ -1238,6 +1248,8 @@ class ForagerNet(hk.Module):
         **kwargs,
     ) -> hku.AccumulatedOutput:
         h = self.conv(x)
+        if self.use_layernorm:
+            h = self.conv_layer_norm(h)
         h = jax.nn.relu(h)
 
         h = self.flatten(h)
