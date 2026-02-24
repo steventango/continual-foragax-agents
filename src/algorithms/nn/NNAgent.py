@@ -111,7 +111,7 @@ class NNAgent(BaseAgent):
         self.reward_scale = params.get("reward_scale")
         self.reward_trace_decay = params.get("reward_trace_decay", 0.9)
         self.scalar_features = params.get("representation", {}).get(
-            "scalar_features", ["last_action", "last_reward"]
+            "scalar_features", ["hint", "last_action", "last_reward"]
         )
 
         self.scalars_size = 0
@@ -124,7 +124,7 @@ class NNAgent(BaseAgent):
 
         if isinstance(observations, Mapping):
             image_shape = observations["image"]
-            if "hint" in observations:
+            if "hint" in observations and "hint" in self.scalar_features:
                 self.scalars_size += observations["hint"][0]
         else:
             image_shape = observations

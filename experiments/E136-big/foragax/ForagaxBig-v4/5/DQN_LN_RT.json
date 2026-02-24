@@ -34,6 +34,7 @@
             "use_layernorm": true,
             "scalar_features": [
                 [
+                    "hint",
                     "last_action",
                     "last_reward",
                     "reward_trace"
