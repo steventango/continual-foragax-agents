@@ -42,7 +42,7 @@
             ]
         },
         "representation": {
-            "type": "ForagerNet",
+            "type": "ForagerGRUNetReLU",
             "hidden": 64
         },
         "update_freq": 4,
