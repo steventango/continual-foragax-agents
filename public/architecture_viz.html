@@ -403,10 +403,12 @@
 
                         subgraph PreGRU5 ["Pre-GRU Layers"]
                         direction TB
-                        Concat5 --> Pre5("Linear 64"):::styleMlp
+                        Pre5("Linear 64"):::styleMlp
                         Pre5 --> PreLN5("LayerNorm"):::styleNorm
                         PreLN5 --> PreReLU5("ReLU"):::styleNorm
                         end
+
+                        Concat5 --> Pre5
 
                         PreReLU5 --> GRU5("GRU Unit 64"):::styleRnn
                         GRU5 --> ReLU5_2("ReLU"):::styleNorm
@@ -493,9 +495,11 @@
 
                         subgraph PreGRU7 ["Pre-GRU Layers"]
                         direction TB
-                        Concat7 --> Pre7("Linear 64"):::styleMlp
+                        Pre7("Linear 64"):::styleMlp
                         Pre7 --> PreReLU7("ReLU"):::styleNorm
                         end
+
+                        Concat7 --> Pre7
 
                         PreReLU7 --> GRU7("GRU Unit 64"):::styleRnn
                         GRU7 --> ReLU7_2("ReLU"):::styleNorm
@@ -539,30 +543,41 @@
                         Scalars8(["L. Act, L. Rew, R Trace"]):::styleInput
 
                         Obs8 --> Flat8("Flatten"):::styleMlp
-                        Flat8 --> Emb8("Dense 64"):::styleMlp
-                        Emb8 --> LN8("LayerNorm"):::styleNorm
-                        LN8 --> ReLU8_1("ReLU"):::styleNorm
+                        Flat8 --> A_Emb8("Dense 64"):::styleMlp
+                        A_Emb8 --> A_LN8("LayerNorm"):::styleNorm
+                        A_LN8 --> A_Act8("Tanh"):::styleNorm
 
-                        ReLU8_1 --> Concat8("Concatenate"):::styleConcat
-                        Scalars8 --> Concat8
+                        A_Act8 --> Concat8_A("Concatenate"):::styleConcat
+                        Scalars8 --> Concat8_A
 
-                        subgraph ActorBranch8 ["Actor Path"]
+                        Flat8 --> C_Emb8("Dense 64"):::styleMlp
+                        C_Emb8 --> C_LN8("LayerNorm"):::styleNorm
+                        C_LN8 --> C_Act8("Tanh"):::styleNorm
+
+                        C_Act8 --> Concat8_C("Concatenate"):::styleConcat
+                        Scalars8 --> Concat8_C
+
+                        subgraph ActorBranch8 ["Actor"]
                         direction TB
-                        Concat8 --> A8_1("Dense 192"):::styleMlp
+                        A8_1("Dense 192"):::styleMlp
                         A8_1 --> A8_2("Dense 64"):::styleMlp
                         A8_2 --> ALN8("LayerNorm"):::styleNorm
-                        ALN8 --> AReLU8("ReLU"):::styleNorm
+                        ALN8 --> AReLU8("Tanh"):::styleNorm
                         AReLU8 --> Policy8("Logits: Linear 4"):::styleHead
                         end
 
-                        subgraph CriticBranch8 ["Critic Path"]
+                        subgraph CriticBranch8 ["Critic"]
                         direction TB
-                        Concat8 --> C8_1("Dense 192"):::styleMlp
+                        C8_1("Dense 192"):::styleMlp
                         C8_1 --> C8_2("Dense 64"):::styleMlp
                         C8_2 --> CLN8("LayerNorm"):::styleNorm
-                        CLN8 --> CReLU8("ReLU"):::styleNorm
+                        CLN8 --> CReLU8("Tanh"):::styleNorm
                         CReLU8 --> Value8("Scalar: Linear 1"):::styleHead
                         end
+
+                        Concat8_A --> A8_1
+                        Concat8_C --> C8_1
+                        ActorBranch8 ~~~ CriticBranch8
                     </div>
                 </div>
 
@@ -583,30 +598,41 @@
                         Scalars9(["Last Action + Last Reward"]):::styleInput
 
                         Obs9 --> Flat9("Flatten"):::styleMlp
-                        Flat9 --> Emb9("Dense 64"):::styleMlp
-                        Emb9 --> LN9("LayerNorm"):::styleNorm
-                        LN9 --> ReLU9_1("ReLU"):::styleNorm
+                        Flat9 --> A_Emb9("Dense 64"):::styleMlp
+                        A_Emb9 --> A_LN9("LayerNorm"):::styleNorm
+                        A_LN9 --> A_Act9("Tanh"):::styleNorm
 
-                        ReLU9_1 --> Concat9("Concatenate"):::styleConcat
-                        Scalars9 --> Concat9
+                        A_Act9 --> Concat9_A("Concatenate"):::styleConcat
+                        Scalars9 --> Concat9_A
 
-                        subgraph ActorBranch9 ["Actor Path"]
+                        Flat9 --> C_Emb9("Dense 64"):::styleMlp
+                        C_Emb9 --> C_LN9("LayerNorm"):::styleNorm
+                        C_LN9 --> C_Act9("Tanh"):::styleNorm
+
+                        C_Act9 --> Concat9_C("Concatenate"):::styleConcat
+                        Scalars9 --> Concat9_C
+
+                        subgraph ActorBranch9 ["Actor"]
                         direction TB
-                        Concat9 --> A9_1("Dense 192"):::styleMlp
+                        A9_1("Dense 192"):::styleMlp
                         A9_1 --> A9_2("Dense 64"):::styleMlp
                         A9_2 --> ALN9("LayerNorm"):::styleNorm
-                        ALN9 --> AReLU9("ReLU"):::styleNorm
+                        ALN9 --> AReLU9("Tanh"):::styleNorm
                         AReLU9 --> Policy9("Logits: Linear 4"):::styleHead
                         end
 
-                        subgraph CriticBranch9 ["Critic Path"]
+                        subgraph CriticBranch9 ["Critic"]
                         direction TB
-                        Concat9 --> C9_1("Dense 192"):::styleMlp
+                        C9_1("Dense 192"):::styleMlp
                         C9_1 --> C9_2("Dense 64"):::styleMlp
                         C9_2 --> CLN9("LayerNorm"):::styleNorm
-                        CLN9 --> CReLU9("ReLU"):::styleNorm
+                        CLN9 --> CReLU9("Tanh"):::styleNorm
                         CReLU9 --> Value9("Scalar: Linear 1"):::styleHead
                         end
+
+                        Concat9_A --> A9_1
+                        Concat9_C --> C9_1
+                        ActorBranch9 ~~~ CriticBranch9
                     </div>
                 </div>
 
@@ -627,27 +653,37 @@
                         Scalars10(["Last Action + Last Reward"]):::styleInput
 
                         Obs10 --> Flat10("Flatten"):::styleMlp
-                        Flat10 --> Emb10("Dense 64"):::styleMlp
-                        Emb10 --> ReLU10_1("ReLU"):::styleNorm
+                        Flat10 --> A_Emb10("Dense 64"):::styleMlp
+                        A_Emb10 --> A_Act10("Tanh"):::styleNorm
 
-                        ReLU10_1 --> Concat10("Concatenate"):::styleConcat
-                        Scalars10 --> Concat10
+                        A_Act10 --> Concat10_A("Concatenate"):::styleConcat
+                        Scalars10 --> Concat10_A
 
-                        subgraph ActorBranch10 ["Actor Path"]
+                        Flat10 --> C_Emb10("Dense 64"):::styleMlp
+                        C_Emb10 --> C_Act10("Tanh"):::styleNorm
+
+                        C_Act10 --> Concat10_C("Concatenate"):::styleConcat
+                        Scalars10 --> Concat10_C
+
+                        subgraph ActorBranch10 ["Actor"]
                         direction TB
-                        Concat10 --> A10_1("Dense 192"):::styleMlp
+                        A10_1("Dense 192"):::styleMlp
                         A10_1 --> A10_2("Dense 64"):::styleMlp
-                        A10_2 --> AReLU10("ReLU"):::styleNorm
+                        A10_2 --> AReLU10("Tanh"):::styleNorm
                         AReLU10 --> Policy10("Logits: Linear 4"):::styleHead
                         end
 
-                        subgraph CriticBranch10 ["Critic Path"]
+                        subgraph CriticBranch10 ["Critic"]
                         direction TB
-                        Concat10 --> C10_1("Dense 192"):::styleMlp
+                        C10_1("Dense 192"):::styleMlp
                         C10_1 --> C10_2("Dense 64"):::styleMlp
-                        C10_2 --> CReLU10("ReLU"):::styleNorm
+                        C10_2 --> CReLU10("Tanh"):::styleNorm
                         CReLU10 --> Value10("Scalar: Linear 1"):::styleHead
                         end
+
+                        Concat10_A --> A10_1
+                        Concat10_C --> C10_1
+                        ActorBranch10 ~~~ CriticBranch10
                     </div>
                 </div>
             </div>
@@ -678,49 +714,58 @@
                         Scalars11(["Last Action + Last Reward"]):::styleInput
 
                         Obs11 --> Flat11("Flatten"):::styleMlp
-                        Flat11 --> Emb11("Dense 64"):::styleMlp
-                        Emb11 --> LN11("LayerNorm"):::styleNorm
-                        LN11 --> Act11("ReLU"):::styleNorm
 
-                        Act11 --> Concat11("Concatenate"):::styleConcat
-                        Scalars11 --> Concat11
-
-                        subgraph ActorRTU11 ["Actor RTU"]
-                        RTU_A11("RTU Actor 512"):::styleRnn
-                        end
-
-                        subgraph CriticRTU11 ["Critic RTU"]
-                        RTU_C11("RTU Critic 512"):::styleRnn
-                        end
-
-                        SkipA11("Join Skip Actor"):::styleConcat
-                        SkipC11("Join Skip Critic"):::styleConcat
-
-                        subgraph ActorHead11 ["Actor Head"]
+                        subgraph ActorPath11 ["Actor"]
                         direction TB
+                        A_Emb11("Dense 64"):::styleMlp
+                        A_LN11("LayerNorm"):::styleNorm
+                        A_Act11("Tanh"):::styleNorm
+                        A_Concat11("Concatenate"):::styleConcat
+                        RTU_A11("RTU 512"):::styleRnn
+                        SkipA11("Join Skip"):::styleConcat
                         AD11("Dense 64"):::styleMlp
                         ALN11("LayerNorm"):::styleNorm
-                        ALN11 --> AR11("ReLU"):::styleNorm
-                        AR11 --> Policy11("Logits: Linear 4"):::styleHead
+                        AR11("Tanh"):::styleNorm
+                        Policy11("Logits: Linear 4"):::styleHead
+
+                        A_Emb11 --> A_LN11 --> A_Act11 --> A_Concat11
+                        A_Concat11 --> RTU_A11
+                        A_Concat11 --> SkipA11
+                        RTU_A11 --> SkipA11
+                        SkipA11 --> AD11
+                        AD11 --> ALN11
+                        ALN11 --> AR11
+                        AR11 --> Policy11
                         end
 
-                        subgraph CriticHead11 ["Critic Head"]
+                        subgraph CriticPath11 ["Critic"]
                         direction TB
+                        C_Emb11("Dense 64"):::styleMlp
+                        C_LN11("LayerNorm"):::styleNorm
+                        C_Act11("Tanh"):::styleNorm
+                        C_Concat11("Concatenate"):::styleConcat
+                        RTU_C11("RTU 512"):::styleRnn
+                        SkipC11("Join Skip"):::styleConcat
                         CD11("Dense 64"):::styleMlp
                         CLN11("LayerNorm"):::styleNorm
-                        CLN11 --> CR11("ReLU"):::styleNorm
-                        CR11 --> Value11("Scalar: Linear 1"):::styleHead
+                        CR11("Tanh"):::styleNorm
+                        Value11("Scalar: Linear 1"):::styleHead
+
+                        C_Emb11 --> C_LN11 --> C_Act11 --> C_Concat11
+                        C_Concat11 --> RTU_C11
+                        C_Concat11 --> SkipC11
+                        RTU_C11 --> SkipC11
+                        SkipC11 --> CD11
+                        CD11 --> CLN11
+                        CLN11 --> CR11
+                        CR11 --> Value11
                         end
 
-                        Concat11 --> RTU_A11
-                        RTU_A11 --> SkipA11
-                        Concat11 --> SkipA11
-                        SkipA11 --> AD11
-
-                        Concat11 --> RTU_C11
-                        RTU_C11 --> SkipC11
-                        Concat11 --> SkipC11
-                        SkipC11 --> CD11
+                        Flat11 --> A_Emb11
+                        Flat11 --> C_Emb11
+                        Scalars11 --> A_Concat11
+                        Scalars11 --> C_Concat11
+                        ActorPath11 ~~~ CriticPath11
                     </div>
                 </div>
 
@@ -742,43 +787,58 @@
                         Scalars12(["Last Action + Last Reward"]):::styleInput
 
                         Obs12 --> Flat12("Flatten"):::styleMlp
-                        Flat12 --> Emb12("Dense 64"):::styleMlp
-                        Emb12 --> LN12("LayerNorm"):::styleNorm
-                        LN12 --> Act12("ReLU"):::styleNorm
 
-                        Act12 --> Concat12("Concatenate"):::styleConcat
-                        Scalars12 --> Concat12
+                        subgraph ActorPath12 ["Actor"]
+                        direction TB
+                        A_Emb12("Dense 64"):::styleMlp
+                        A_LN12("LayerNorm"):::styleNorm
+                        A_Act12("Tanh"):::styleNorm
+                        A_Concat12("Concatenate"):::styleConcat
+                        RTU_A12("RTU 192"):::styleRnn
+                        SkipA12("Join Skip"):::styleConcat
+                        AD12("Dense 64"):::styleMlp
+                        ALN12("LayerNorm"):::styleNorm
+                        AR12("Tanh"):::styleNorm
+                        Policy12("Logits: Linear 4"):::styleHead
 
-                        subgraph ActorPath12 ["Actor Path"]
-                        direction TB
-                        RTU_A12("RTU Actor 192"):::styleRnn
-                        RTU_A12 --> SkipA12("Join Skip Actor"):::styleConcat
-                        subgraph ActorHead12 ["Actor Head"]
-                        direction TB
-                        SkipA12 --> AD12("Dense 64"):::styleMlp
-                        AD12 --> ALN12("LayerNorm"):::styleNorm
-                        ALN12 --> AR12("ReLU"):::styleNorm
-                        AR12 --> Policy12("Logits: Linear 4"):::styleHead
-                        end
-                        end
-
-                        subgraph CriticPath12 ["Critic Path"]
-                        direction TB
-                        RTU_C12("RTU Critic 192"):::styleRnn
-                        RTU_C12 --> SkipC12("Join Skip Critic"):::styleConcat
-                        subgraph CriticHead12 ["Critic Head"]
-                        direction TB
-                        SkipC12 --> CD12("Dense 64"):::styleMlp
-                        CD12 --> CLN12("LayerNorm"):::styleNorm
-                        CLN12 --> CR12("ReLU"):::styleNorm
-                        CR12 --> Value12("Scalar: Linear 1"):::styleHead
-                        end
+                        A_Emb12 --> A_LN12 --> A_Act12 --> A_Concat12
+                        A_Concat12 --> RTU_A12
+                        A_Concat12 --> SkipA12
+                        RTU_A12 --> SkipA12
+                        SkipA12 --> AD12
+                        AD12 --> ALN12
+                        ALN12 --> AR12
+                        AR12 --> Policy12
                         end
 
-                        Concat12 --> RTU_A12
-                        Concat12 --> SkipA12
-                        Concat12 --> RTU_C12
-                        Concat12 --> SkipC12
+                        subgraph CriticPath12 ["Critic"]
+                        direction TB
+                        C_Emb12("Dense 64"):::styleMlp
+                        C_LN12("LayerNorm"):::styleNorm
+                        C_Act12("Tanh"):::styleNorm
+                        C_Concat12("Concatenate"):::styleConcat
+                        RTU_C12("RTU 192"):::styleRnn
+                        SkipC12("Join Skip"):::styleConcat
+                        CD12("Dense 64"):::styleMlp
+                        CLN12("LayerNorm"):::styleNorm
+                        CR12("Tanh"):::styleNorm
+                        Value12("Scalar: Linear 1"):::styleHead
+
+                        C_Emb12 --> C_LN12 --> C_Act12 --> C_Concat12
+                        C_Concat12 --> RTU_C12
+                        C_Concat12 --> SkipC12
+                        RTU_C12 --> SkipC12
+                        SkipC12 --> CD12
+                        CD12 --> CLN12
+                        CLN12 --> CR12
+                        CR12 --> Value12
+                        end
+
+                        Flat12 --> A_Emb12
+                        Flat12 --> C_Emb12
+                        Scalars12 --> A_Concat12
+                        Scalars12 --> C_Concat12
+                        ActorPath12 ~~~ CriticPath12
                     </div>
                 </div>
 
@@ -800,46 +860,52 @@
                         Scalars13(["Last Action + Last Reward"]):::styleInput
 
                         Obs13 --> Flat13("Flatten"):::styleMlp
-                        Flat13 --> Emb13("Dense 64"):::styleMlp
-                        Emb13 --> Act13("ReLU"):::styleNorm
 
-                        Act13 --> Concat13("Concatenate"):::styleConcat
-                        Scalars13 --> Concat13
-
-                        subgraph ActorRTU13 ["Actor RTU"]
-                        RTU_A13("RTU Actor 192"):::styleRnn
-                        end
-
-                        subgraph CriticRTU13 ["Critic RTU"]
-                        RTU_C13("RTU Critic 192"):::styleRnn
-                        end
-
-                        SkipA13("Join Skip Actor"):::styleConcat
-                        SkipC13("Join Skip Critic"):::styleConcat
-
-                        subgraph ActorHead13 ["Actor Head"]
+                        subgraph ActorPath13 ["Actor"]
                         direction TB
+                        A_Emb13("Dense 64"):::styleMlp
+                        A_Act13("Tanh"):::styleNorm
+                        A_Concat13("Concatenate"):::styleConcat
+                        RTU_A13("RTU 192"):::styleRnn
+                        SkipA13("Join Skip"):::styleConcat
                         AD13("Dense 64"):::styleMlp
-                        AD13 --> AR13("ReLU"):::styleNorm
-                        AR13 --> Policy13("Logits: Linear 4"):::styleHead
-                        end
+                        AR13("Tanh"):::styleNorm
+                        Policy13("Logits: Linear 4"):::styleHead
 
-                        subgraph CriticHead13 ["Critic Head"]
-                        direction TB
-                        CD13("Dense 64"):::styleMlp
-                        CD13 --> CR13("ReLU"):::styleNorm
-                        CR13 --> Value13("Scalar: Linear 1"):::styleHead
-                        end
-
-                        Concat13 --> RTU_A13
+                        A_Emb13 --> A_Act13 --> A_Concat13
+                        A_Concat13 --> RTU_A13
+                        A_Concat13 --> SkipA13
                         RTU_A13 --> SkipA13
-                        Concat13 --> SkipA13
                         SkipA13 --> AD13
+                        AD13 --> AR13
+                        AR13 --> Policy13
+                        end
 
-                        Concat13 --> RTU_C13
+                        subgraph CriticPath13 ["Critic"]
+                        direction TB
+                        C_Emb13("Dense 64"):::styleMlp
+                        C_Act13("Tanh"):::styleNorm
+                        C_Concat13("Concatenate"):::styleConcat
+                        RTU_C13("RTU 192"):::styleRnn
+                        SkipC13("Join Skip"):::styleConcat
+                        CD13("Dense 64"):::styleMlp
+                        CR13("Tanh"):::styleNorm
+                        Value13("Scalar: Linear 1"):::styleHead
+
+                        C_Emb13 --> C_Act13 --> C_Concat13
+                        C_Concat13 --> RTU_C13
+                        C_Concat13 --> SkipC13
                         RTU_C13 --> SkipC13
-                        Concat13 --> SkipC13
                         SkipC13 --> CD13
+                        CD13 --> CR13
+                        CR13 --> Value13
+                        end
+
+                        Flat13 --> A_Emb13
+                        Flat13 --> C_Emb13
+                        Scalars13 --> A_Concat13
+                        Scalars13 --> C_Concat13
+                        ActorPath13 ~~~ CriticPath13
                     </div>
                 </div>
             </div>
