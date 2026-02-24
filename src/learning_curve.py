@@ -84,6 +84,15 @@ def main():
         help="Frame numbers to draw vertical lines at.",
     )
     parser.add_argument(
+        "--horizontal-lines",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Horizontal lines to draw (e.g. upper bounds). "
+             "Format: 'value:label' or just 'value'. "
+             "Example: --horizontal-lines 0.95:Upperbound 0.5:Random",
+    )
+    parser.add_argument(
         "--grid",
         type=str,
         nargs="+",
@@ -96,6 +105,16 @@ def main():
     )
 
     args = parse_plotting_args(parser)
+
+    # Parse horizontal lines specification
+    horizontal_lines = []
+    if args.horizontal_lines:
+        for spec in args.horizontal_lines:
+            if ":" in spec:
+                value_str, label = spec.split(":", 1)
+            else:
+                value_str, label = spec, None
+            horizontal_lines.append((float(value_str), label))
 
     # Handle backward compatibility: --metric takes precedence over --metrics default
     if args.metric:
@@ -374,6 +393,17 @@ def main():
                 for x in args.vertical_lines:
                     ax.axvline(x=x, color="grey", linestyle=":", alpha=0.5)
 
+            for hline_val, hline_label in horizontal_lines:
+                ax.axhline(y=hline_val, color="grey", linestyle="--", alpha=0.7,
+                           label=hline_label)
+                if hline_label:
+                    ax.annotate(
+                        hline_label,
+                        xy=(1, hline_val),
+                        xycoords=("axes fraction", "data"),
+                        ha="right", va="bottom", fontsize=8, color="grey",
+                    )
+
             if args.ylim:
                 ax.set_ylim(args.ylim)
 
@@ -438,6 +468,17 @@ def main():
                 for x in args.vertical_lines:
                     ax.axvline(x=x, color="grey", linestyle=":", alpha=0.5)
 
+            for hline_val, hline_label in horizontal_lines:
+                ax.axhline(y=hline_val, color="grey", linestyle="--", alpha=0.7,
+                           label=hline_label)
+                if hline_label:
+                    ax.annotate(
+                        hline_label,
+                        xy=(1, hline_val),
+                        xycoords=("axes fraction", "data"),
+                        ha="right", va="bottom", fontsize=8, color="grey",
+                    )
+
             if args.ylim:
                 ax.set_ylim(args.ylim)
 
@@ -501,6 +542,17 @@ def main():
             if args.vertical_lines:
                 for x in args.vertical_lines:
                     ax.axvline(x=x, color="grey", linestyle=":", alpha=0.5)
+
+            for hline_val, hline_label in horizontal_lines:
+                ax.axhline(y=hline_val, color="grey", linestyle="--", alpha=0.7,
+                           label=hline_label)
+                if hline_label:
+                    ax.annotate(
+                        hline_label,
+                        xy=(1, hline_val),
+                        xycoords=("axes fraction", "data"),
+                        ha="right", va="bottom", fontsize=8, color="grey",
+                    )
 
             if args.ylim:
                 ax.set_ylim(args.ylim)

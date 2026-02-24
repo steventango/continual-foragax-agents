@@ -75,7 +75,11 @@ class TrainConfig:
     alpha_vf: float
     adam_eps_pi: float
     adam_eps_vf: float
-
+    adam_b1_pi: float
+    adam_b2_pi: float
+    adam_b1_vf: float
+    adam_b2_vf: float
+    
     sparsity: float
     spectral_radius: float
 
@@ -550,12 +554,12 @@ def experiment(rng, config: TrainConfig):
                 "pi": optax.chain(
                     optax.clip_by_global_norm(config.max_grad_norm),
                     optax.add_decayed_weights(config.l2_reg_pi),
-                    optax.adam(config.alpha_pi, eps=config.adam_eps_pi),
+                    optax.adam(config.alpha_pi, b1=config.adam_b1_pi, b2=config.adam_b2_pi, eps=config.adam_eps_pi)
                 ),
                 "vf": optax.chain(
                     optax.clip_by_global_norm(config.max_grad_norm),
                     optax.add_decayed_weights(config.l2_reg_vf),
-                    optax.adam(config.alpha_vf, eps=config.adam_eps_vf),
+                    optax.adam(config.alpha_vf, b1=config.adam_b1_vf, b2=config.adam_b2_vf, eps=config.adam_eps_vf)
                 ),
                 "frozen": optax.set_to_zero(),
             },
@@ -566,11 +570,11 @@ def experiment(rng, config: TrainConfig):
             {
                 "pi": optax.chain(
                     optax.add_decayed_weights(config.l2_reg_pi),
-                    optax.adam(config.alpha_pi, eps=config.adam_eps_pi),
+                    optax.adam(config.alpha_pi, b1=config.adam_b1_pi, b2=config.adam_b2_pi, eps=config.adam_eps_pi)
                 ),
                 "vf": optax.chain(
                     optax.add_decayed_weights(config.l2_reg_vf),
-                    optax.adam(config.alpha_vf, eps=config.adam_eps_vf),
+                    optax.adam(config.alpha_vf, b1=config.adam_b1_vf, b2=config.adam_b2_vf, eps=config.adam_eps_vf)
                 ),
                 "frozen": optax.set_to_zero(),
             },
@@ -942,6 +946,10 @@ def main():
             ),
             adam_eps_pi=float(hypers["optimizer_actor"]["eps"]),
             adam_eps_vf=float(hypers["optimizer_critic"]["eps"]),
+            adam_b1_pi=float(hypers["optimizer_actor"].get("beta1", 0.9)),
+            adam_b2_pi=float(hypers["optimizer_actor"].get("beta2", 0.999)),
+            adam_b1_vf=float(hypers["optimizer_critic"].get("beta1", 0.9)),
+            adam_b2_vf=float(hypers["optimizer_critic"].get("beta2", 0.999)),
             l2_reg_pi=float(hypers.get("l2_reg_pi", hypers.get("l2_reg", 0.0))),
             l2_reg_vf=float(hypers.get("l2_reg_vf", hypers.get("l2_reg", 0.0))),
             sparsity=hypers["representation"].get("sparsity", None),
