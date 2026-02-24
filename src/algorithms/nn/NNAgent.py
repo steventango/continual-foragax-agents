@@ -200,7 +200,7 @@ class NNAgent(BaseAgent):
         )
 
         dummy_hint = None
-        if isinstance(observations, Mapping) and "hint" in observations:
+        if isinstance(observations, Mapping) and "hint" in observations and "hint" in self.scalar_features:
             dummy_hint = jnp.zeros(observations["hint"])
 
         dummy_timestep = {
