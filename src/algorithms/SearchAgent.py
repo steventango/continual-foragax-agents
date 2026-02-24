@@ -1,6 +1,6 @@
 from dataclasses import replace
 from functools import partial
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Union, Mapping
 
 import jax
 import jax.numpy as jnp
@@ -121,6 +121,9 @@ class SearchAgent(BaseAgent):
         obs: jax.Array,
         extra: Optional[Dict[str, jax.Array]] = None,
     ) -> tuple[AgentState, jax.Array]:
+        if isinstance(obs, Mapping):
+            obs = obs["image"]
+
         height, width, num_channels = obs.shape
 
         if self.mode == "world":
@@ -138,6 +141,12 @@ class SearchAgent(BaseAgent):
             max_reward = jnp.max(original_priority_map)
             max_reward_map = (original_priority_map == max_reward).astype(jnp.int32)
             obstacle_map = (original_priority_map < 0).astype(jnp.int32)
+            for channel in range(len(self.priorities_array)):
+                channel_priority = self.priorities_array[channel]
+                obstacle_map = jnp.maximum(
+                    obstacle_map,
+                    (obs[:, :, channel] > 0).astype(jnp.int32) * (channel_priority < 0),
+                )
             priority_map = max_reward_map - obstacle_map
             highest_priority = 1
         elif self.temperature_prioritization and extra is not None:

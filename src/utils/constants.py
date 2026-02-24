@@ -22,8 +22,12 @@ LABEL_MAP = {
 
 frozen_label_map = {}
 for key in list(LABEL_MAP.keys()):
-    frozen_label_map[f"{key}_greedy_frozen_5M"] = f"{LABEL_MAP[key]} (Greedy Frozen @ 5M)"
-    frozen_label_map[f"{key}_greedy_frozen_1M"] = f"{LABEL_MAP[key]} (Greedy Frozen @ 1M)"
+    frozen_label_map[f"{key}_greedy_frozen_5M"] = (
+        f"{LABEL_MAP[key]} (Greedy Frozen @ 5M)"
+    )
+    frozen_label_map[f"{key}_greedy_frozen_1M"] = (
+        f"{LABEL_MAP[key]} (Greedy Frozen @ 1M)"
+    )
     frozen_label_map[f"{key}_frozen_1M"] = f"{LABEL_MAP[key]} (Frozen @ 1M)"
     frozen_label_map[f"{key}_frozen_5M"] = f"{LABEL_MAP[key]} (Frozen @ 5M)"
 LABEL_MAP.update(frozen_label_map)
@@ -55,7 +59,7 @@ TWO_BIOME_COLORS = {
 }
 
 WEATHER_BIOME_COLORS = {
-    "Cold": sunset_colormap(0.),
+    "Cold": sunset_colormap(0.0),
     "Neither": sunset_colormap(0.5),
-    "Hot": sunset_colormap(1.),
+    "Hot": sunset_colormap(1.0),
 }

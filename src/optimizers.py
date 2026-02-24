@@ -89,6 +89,7 @@ def selective_weight_reinitialization(
         decay_rate: exponential moving average decay for utility
         seed: random seed for reinitialization
     """
+
     def init_fn(params: optax.Params) -> SWRState:
         """Initialize optimizer state."""
         return SWRState(

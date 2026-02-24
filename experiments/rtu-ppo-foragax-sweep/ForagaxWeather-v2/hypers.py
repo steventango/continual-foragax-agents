@@ -4,6 +4,7 @@ from pathlib import Path
 from experiment.hypers import generate_hyper_sweep_table, update_best_config
 
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -39,7 +40,7 @@ def main():
         alg_reports = {}
         for alg_result in sub_results:
             alg = alg_result.filename
-            
+
             print(f"{env} {alg}")
 
             df = alg_result.load()
@@ -79,10 +80,7 @@ def main():
             ) as f:
                 json.dump(best_configuration, f, indent=4)
 
-            alg_reports[alg] = {
-                "result": alg_result,
-                "report": report
-            }
+            alg_reports[alg] = {"result": alg_result, "report": report}
 
             update_best_config(alg, report, exp_path)
         env_reports[env] = alg_reports

@@ -159,9 +159,11 @@ def main(
     ax.set_ylim(0, 100)
     ax.set_xlabel(f"{biome_names[0]} Occupancy (%)", fontsize=12)
     ax.set_ylabel(f"{biome_names[1]} Occupancy (%)", fontsize=12)
-    ax.set_title(f"{env} - {biome_names[0]} vs {biome_names[1]} Occupancy", fontsize=16, pad=20)
+    ax.set_title(
+        f"{env} - {biome_names[0]} vs {biome_names[1]} Occupancy", fontsize=16, pad=20
+    )
     ax.grid(False)
-    ax.set_aspect('equal')
+    ax.set_aspect("equal")
 
     # Plot points for each bar
     for bar_idx, points_list in enumerate(bar_points):
@@ -195,7 +197,7 @@ def main(
         save_type=save_type,
         f=fig,  # type: ignore
         width=1,
-        height_ratio=1/2,
+        height_ratio=1 / 2,
     )
 
 

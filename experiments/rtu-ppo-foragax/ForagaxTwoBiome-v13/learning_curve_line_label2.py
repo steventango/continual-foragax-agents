@@ -1,8 +1,10 @@
 import os
 import sys
 import tol_colors as tc
+
 # sys.path.append(os.getcwd() + "/src")
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -23,6 +25,7 @@ from rlevaluation.temporal import (
 from experiment.ExperimentModel import ExperimentModel
 from utils.results import ResultCollection
 
+
 # Helper: interpolate y at a given x for a Line2D
 def _interp_y_at_x(line, x):
     xdata = np.asarray(line.get_xdata(), dtype=float)
@@ -40,6 +43,7 @@ def _interp_y_at_x(line, x):
     if x < xdata[0] or x > xdata[-1]:
         return None
     return float(np.interp(x, xdata, ydata))
+
 
 # Helper function to label lines directly at an interior location
 def label_line(ax, line, label, x_frac=0.85, x_offset_points=5, y_offset_points=None):
@@ -67,7 +71,12 @@ def label_line(ax, line, label, x_frac=0.85, x_offset_points=5, y_offset_points=
             # fallback: try last finite point within view
             xdata = np.asarray(line.get_xdata(), dtype=float)
             ydata = np.asarray(line.get_ydata(), dtype=float)
-            mask = np.isfinite(xdata) & np.isfinite(ydata) & (xdata >= xmin) & (xdata <= xmax)
+            mask = (
+                np.isfinite(xdata)
+                & np.isfinite(ydata)
+                & (xdata >= xmin)
+                & (xdata <= xmax)
+            )
             if not np.any(mask):
                 return None, None
             return float(xdata[mask][-1]), float(ydata[mask][-1])
@@ -214,6 +223,7 @@ def label_line(ax, line, label, x_frac=0.85, x_offset_points=5, y_offset_points=
         clip_on=False,
     )
 
+
 setDefaultConference("jmlr")
 setFonts(20)
 
@@ -234,8 +244,8 @@ PALETTE = [
 # Linestyles to distinguish families
 LINESTYLES = {
     "RealTimeActorCriticMLP": "-",
-    "ActorCriticMLP":        "-", 
-    "Random": ":",                
+    "ActorCriticMLP": "-",
+    "Random": ":",
 }
 
 # LINESTYLES = {
@@ -250,18 +260,15 @@ LINESTYLES = {
 #     "Random": (0, (1, 1)),
 # }
 
-SINGLE = {
-    "Random",
-    "Search-Oracle",
-    "Search-Nearest",
-    "Search-Brown-Avoid-Green"
-}
+SINGLE = {"Random", "Search-Oracle", "Search-Nearest", "Search-Brown-Avoid-Green"}
 
 # Helper: strip optional "1M" token (with or without leading separator) so
 # color is shared between 1M and non-1M variants
 
+
 def base_without_1m(name: str) -> str:
     return re.sub(r"[-_]?1M", "", name)
+
 
 if __name__ == "__main__":
     results = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
@@ -294,7 +301,6 @@ if __name__ == "__main__":
     for (env, aperture), subs in by_aperture.items():
         env_to_apertures.setdefault(env, []).append(aperture)
 
-
     # --- Build a 2x3 figure for this env with specific comparisons ---
     fig, axes = plt.subplots(1, 1, squeeze=False, sharey=True, figsize=(15, 8))
 
@@ -310,7 +316,7 @@ if __name__ == "__main__":
 
     def is_ppo(name: str) -> bool:
         return name.startswith("ActorCriticMLP")
-    
+
     def is_dqn(name: str) -> bool:
         return name.startswith("DQN")
 
@@ -326,7 +332,11 @@ if __name__ == "__main__":
         # Map internal names to pretty labels requested in the prompt
         if raw_alg.startswith("Search-"):
             return raw_alg
-        fam = "RTU-PPO" if is_rtu(raw_alg) else ("PPO" if is_ppo(raw_alg) else ("DQN" if is_dqn(raw_alg) else raw_alg))
+        fam = (
+            "RTU-PPO"
+            if is_rtu(raw_alg)
+            else ("PPO" if is_ppo(raw_alg) else ("DQN" if is_dqn(raw_alg) else raw_alg))
+        )
         fov = f"FOV{aperture}" if aperture is not None else ""
         if variant == "1M":
             suffix = " frozen 1m"
@@ -357,7 +367,15 @@ if __name__ == "__main__":
         return base_color_map[base_key]
 
     # Utility to find and plot a single selection
-    def plot_selection(ax, family: str, aperture: int | None, desired_variant: str | None, require_l2: bool=False, require_world=False, color_index:int=0):
+    def plot_selection(
+        ax,
+        family: str,
+        aperture: int | None,
+        desired_variant: str | None,
+        require_l2: bool = False,
+        require_world=False,
+        color_index: int = 0,
+    ):
         # family in {"SINGLE:Search-Oracle", "SINGLE:Search-Nearest", "RTU", "PPO"}
         if family.startswith("SINGLE:"):
             single_name = family.split(":", 1)[1]
@@ -376,36 +394,47 @@ if __name__ == "__main__":
                 return
             cols = set(dd.hyper_cols).intersection(df.columns)
             hyper_vals = {col: df[col][0] for col in cols}
-            xs, ys = extract_learning_curves(df, hyper_vals=hyper_vals, metric="ewm_reward")
+            xs, ys = extract_learning_curves(
+                df, hyper_vals=hyper_vals, metric="ewm_reward"
+            )
             xs = np.asarray(xs)
             ys = np.asarray(ys)
             assert np.all(np.isclose(xs[0], xs))
             res = curve_percentile_bootstrap_ci(
-                rng=np.random.default_rng(0), y=ys, statistic=Statistic.mean, iterations=10000
+                rng=np.random.default_rng(0),
+                y=ys,
+                statistic=Statistic.mean,
+                iterations=10000,
             )
             base_key = f"SINGLE-{single_name}"
             variant_color = PALETTE_CYCLE[(color_index) % len(PALETTE_CYCLE)]
             label = pretty_label(single_name, None, "")
-            ax.plot(xs[0], res.sample_stat, label=label, color=variant_color, linewidth=1.0)
+            ax.plot(
+                xs[0], res.sample_stat, label=label, color=variant_color, linewidth=1.0
+            )
             if len(ys) >= 5:
-                ax.fill_between(xs[0], res.ci[0], res.ci[1], color=variant_color, alpha=0.1)
+                ax.fill_between(
+                    xs[0], res.ci[0], res.ci[1], color=variant_color, alpha=0.1
+                )
             else:
                 for y in ys:
                     ax.plot(xs[0], y, color=variant_color, linewidth=0.2)
             return
 
         # Family selections (RTU or PPO) for a specific aperture and variant
-        sub_results = by_aperture.get((env, aperture), []) if aperture is not None else []
+        sub_results = (
+            by_aperture.get((env, aperture), []) if aperture is not None else []
+        )
         # desired_variant in {None (any), "" (base), "1M", "5M"}
         for ar in sub_results:
             name = ar.filename
-            if require_world and 'world' not in name:
+            if require_world and "world" not in name:
                 continue
-            if not require_world and 'world' in name:
+            if not require_world and "world" in name:
                 continue
-            if require_l2 and '-l2' not in name:
+            if require_l2 and "-l2" not in name:
                 continue
-            if not require_l2 and '-l2' in name:
+            if not require_l2 and "-l2" in name:
                 continue
             if family == "RTU" and not is_rtu(name):
                 continue
@@ -429,19 +458,28 @@ if __name__ == "__main__":
                 return
             cols = set(dd.hyper_cols).intersection(df.columns)
             hyper_vals = {col: df[col][0] for col in cols}
-            xs, ys = extract_learning_curves(df, hyper_vals=hyper_vals, metric="ewm_reward")
+            xs, ys = extract_learning_curves(
+                df, hyper_vals=hyper_vals, metric="ewm_reward"
+            )
             xs = np.asarray(xs)
             ys = np.asarray(ys)
             assert np.all(np.isclose(xs[0], xs))
             res = curve_percentile_bootstrap_ci(
-                rng=np.random.default_rng(0), y=ys, statistic=Statistic.mean, iterations=10000
+                rng=np.random.default_rng(0),
+                y=ys,
+                statistic=Statistic.mean,
+                iterations=10000,
             )
             base_key = f"{family}-FOV{aperture}"
             variant_color = PALETTE_CYCLE[(color_index) % len(PALETTE_CYCLE)]
             label = pretty_label(name, aperture, vt)
-            ax.plot(xs[0], res.sample_stat, label=label, color=variant_color, linewidth=1.0)
+            ax.plot(
+                xs[0], res.sample_stat, label=label, color=variant_color, linewidth=1.0
+            )
             if len(ys) >= 5:
-                ax.fill_between(xs[0], res.ci[0], res.ci[1], color=variant_color, alpha=0.1)
+                ax.fill_between(
+                    xs[0], res.ci[0], res.ci[1], color=variant_color, alpha=0.1
+                )
             else:
                 for y in ys:
                     ax.plot(xs[0], y, color=variant_color, linewidth=0.2)
@@ -461,10 +499,10 @@ if __name__ == "__main__":
     # plot_selection(ax, "DQN", 9, "", color_index = 2)
     # plot_selection(ax, "DQN", 15, "", require_world=True, color_index = 3)
     # plot_selection(ax, "RTU", 15, "", color_index = 2)
-    plot_selection(ax, "RTU", 9, "", color_index = 0)
-    plot_selection(ax, "RTU", 9, "", require_l2=True,  color_index = 1)
-    plot_selection(ax, "PPO", 9, "", color_index = 2)
-    plot_selection(ax, "PPO", 9, "", require_l2=True,  color_index = 3)
+    plot_selection(ax, "RTU", 9, "", color_index=0)
+    plot_selection(ax, "RTU", 9, "", require_l2=True, color_index=1)
+    plot_selection(ax, "PPO", 9, "", color_index=2)
+    plot_selection(ax, "PPO", 9, "", require_l2=True, color_index=3)
     ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
     ax.set_xlabel("Time steps")
     ax.set_ylabel("Average Reward")

@@ -2,8 +2,10 @@ import os
 import sys
 import polars as pl
 import tol_colors as tc
+
 # sys.path.append(os.getcwd() + "/src")
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -43,8 +45,8 @@ PALETTE = [
 # Linestyles to distinguish families
 LINESTYLES = {
     "RealTimeActorCriticMLP": "-",
-    "ActorCriticMLP":        "-", 
-    "Random": ":",                
+    "ActorCriticMLP": "-",
+    "Random": ":",
 }
 
 # LINESTYLES = {
@@ -59,18 +61,15 @@ LINESTYLES = {
 #     "Random": (0, (1, 1)),
 # }
 
-SINGLE = {
-    "Random",
-    "Search-Oracle",
-    "Search-Nearest",
-    "Search-Brown-Avoid-Green"
-}
+SINGLE = {"Random", "Search-Oracle", "Search-Nearest", "Search-Brown-Avoid-Green"}
 
 # Helper: strip optional "1M" token (with or without leading separator) so
 # color is shared between 1M and non-1M variants
 
+
 def base_without_1m(name: str) -> str:
     return re.sub(r"[-_]?1M", "", name)
+
 
 if __name__ == "__main__":
     results = ResultCollection(Model=ExperimentModel, metrics=["pos"])
@@ -102,7 +101,6 @@ if __name__ == "__main__":
     env_to_apertures = {}
     for (env, aperture), subs in by_aperture.items():
         env_to_apertures.setdefault(env, []).append(aperture)
-
 
     # --- Build a 2x3 figure for this env with specific comparisons ---
     fig, axes = plt.subplots(1, 3, squeeze=False, sharey=True, figsize=(15, 8))
@@ -154,7 +152,14 @@ if __name__ == "__main__":
         return base_color_map[base_key]
 
     # Utility to find and plot a single selection
-    def plot_selection(ax, family: str, aperture: int | None, desired_variant: str | None, require_l2: bool=False, color_index:int=0):
+    def plot_selection(
+        ax,
+        family: str,
+        aperture: int | None,
+        desired_variant: str | None,
+        require_l2: bool = False,
+        color_index: int = 0,
+    ):
         # family in {"SINGLE:Search-Oracle", "SINGLE:Search-Nearest", "RTU", "PPO"}
         if family.startswith("SINGLE:"):
             single_name = family.split(":", 1)[1]
@@ -174,8 +179,10 @@ if __name__ == "__main__":
                 return
             cols = set(dd.hyper_cols).intersection(df.columns)
             hyper_vals = {col: df[col][0] for col in cols}
-            seed_df = df.filter(pl.col('seed') == seed)
-            xs, ys = extract_learning_curves(seed_df, hyper_vals=hyper_vals, metric="pos")
+            seed_df = df.filter(pl.col("seed") == seed)
+            xs, ys = extract_learning_curves(
+                seed_df, hyper_vals=hyper_vals, metric="pos"
+            )
             xs = np.asarray(xs)
             ys = np.asarray(ys)
             print("pos array shape:", ys.shape)
@@ -197,6 +204,7 @@ if __name__ == "__main__":
             # Create a simple animation of the 2D trajectory over time and save to MP4
             import matplotlib.animation as animation
             from pathlib import Path as _Path
+
             out_dir = _Path(__file__).resolve().parent / "plots" / "videos"
             out_dir.mkdir(parents=True, exist_ok=True)
             out_file = out_dir / f"{single_name}_pos.mp4"
@@ -215,8 +223,8 @@ if __name__ == "__main__":
             ax_anim.set_ylim(y_min - y_margin, y_max + y_margin)
 
             # plot objects: trajectory line and moving point
-            line, = ax_anim.plot([], [], linewidth=1.5)
-            point, = ax_anim.plot([], [], marker='o', markersize=6)
+            (line,) = ax_anim.plot([], [], linewidth=1.5)
+            (point,) = ax_anim.plot([], [], marker="o", markersize=6)
 
             T = pos.shape[0]
 
@@ -236,7 +244,9 @@ if __name__ == "__main__":
                 point.set_data([x], [y])
                 return line, point
 
-            ani = animation.FuncAnimation(fig_anim, update, frames=T, init_func=init, blit=True, interval=20)
+            ani = animation.FuncAnimation(
+                fig_anim, update, frames=T, init_func=init, blit=True, interval=20
+            )
 
             # Try to save with FFMpegWriter if available, otherwise fall back to saving PNG frames and (optionally) requiring external assembly.
             try:
@@ -252,8 +262,12 @@ if __name__ == "__main__":
                     update(fidx)
                     frame_path = frames_dir / f"frame_{fidx:04d}.png"
                     fig_anim.savefig(frame_path)
-                print(f"Saved {T} PNG frames to {frames_dir}. You can assemble them into a video with ffmpeg:")
-                print(f"ffmpeg -r 30 -i {frames_dir}/frame_%04d.png -c:v libx264 -pix_fmt yuv420p {out_file}")
+                print(
+                    f"Saved {T} PNG frames to {frames_dir}. You can assemble them into a video with ffmpeg:"
+                )
+                print(
+                    f"ffmpeg -r 30 -i {frames_dir}/frame_%04d.png -c:v libx264 -pix_fmt yuv420p {out_file}"
+                )
 
             plt.close(fig_anim)
 
@@ -261,16 +275,18 @@ if __name__ == "__main__":
             return
 
         # Family selections (RTU or PPO) for a specific aperture and variant
-        sub_results = by_aperture.get((env, aperture), []) if aperture is not None else []
+        sub_results = (
+            by_aperture.get((env, aperture), []) if aperture is not None else []
+        )
         # desired_variant in {None (any), "" (base), "1M", "5M"}
         for ar in sub_results:
             name = ar.filename
             # Exclude any agent with "world" in its name
             if "world" in name.lower():
                 continue
-            if require_l2 and '-l2' not in name:
+            if require_l2 and "-l2" not in name:
                 continue
-            if not require_l2 and '-l2' in name:
+            if not require_l2 and "-l2" in name:
                 continue
             if family == "RTU" and not is_rtu(name):
                 continue
@@ -293,8 +309,10 @@ if __name__ == "__main__":
             seed = 0
             cols = set(dd.hyper_cols).intersection(df.columns)
             hyper_vals = {col: df[col][0] for col in cols}
-            seed_df = df.filter(pl.col('seed') == seed)
-            xs, ys = extract_learning_curves(seed_df, hyper_vals=hyper_vals, metric="pos")
+            seed_df = df.filter(pl.col("seed") == seed)
+            xs, ys = extract_learning_curves(
+                seed_df, hyper_vals=hyper_vals, metric="pos"
+            )
             xs = np.asarray(xs)
             ys = np.asarray(ys)
             print("pos array shape:", ys.shape)
@@ -316,6 +334,7 @@ if __name__ == "__main__":
             # Create a simple animation of the 2D trajectory over time and save to MP4
             import matplotlib.animation as animation
             from pathlib import Path as _Path
+
             out_dir = _Path(__file__).resolve().parent / "plots" / "videos"
             out_dir.mkdir(parents=True, exist_ok=True)
             out_file = out_dir / f"{name}_{aperture}_pos.mp4"
@@ -334,8 +353,8 @@ if __name__ == "__main__":
             ax_anim.set_ylim(y_min - y_margin, y_max + y_margin)
 
             # plot objects: trajectory line and moving point
-            line, = ax_anim.plot([], [], linewidth=1.5)
-            point, = ax_anim.plot([], [], marker='o', markersize=6)
+            (line,) = ax_anim.plot([], [], linewidth=1.5)
+            (point,) = ax_anim.plot([], [], marker="o", markersize=6)
 
             T = pos.shape[0]
 
@@ -355,7 +374,9 @@ if __name__ == "__main__":
                 point.set_data([x], [y])
                 return line, point
 
-            ani = animation.FuncAnimation(fig_anim, update, frames=T, init_func=init, blit=True, interval=20)
+            ani = animation.FuncAnimation(
+                fig_anim, update, frames=T, init_func=init, blit=True, interval=20
+            )
 
             # Try to save with FFMpegWriter if available, otherwise fall back to saving PNG frames and (optionally) requiring external assembly.
             try:
@@ -371,8 +392,12 @@ if __name__ == "__main__":
                     update(fidx)
                     frame_path = frames_dir / f"frame_{fidx:04d}.png"
                     fig_anim.savefig(frame_path)
-                print(f"Saved {T} PNG frames to {frames_dir}. You can assemble them into a video with ffmpeg:")
-                print(f"ffmpeg -r 30 -i {frames_dir}/frame_%04d.png -c:v libx264 -pix_fmt yuv420p {out_file}")
+                print(
+                    f"Saved {T} PNG frames to {frames_dir}. You can assemble them into a video with ffmpeg:"
+                )
+                print(
+                    f"ffmpeg -r 30 -i {frames_dir}/frame_%04d.png -c:v libx264 -pix_fmt yuv420p {out_file}"
+                )
 
             plt.close(fig_anim)
 
@@ -388,9 +413,9 @@ if __name__ == "__main__":
     plot_selection(ax, "SINGLE:Search-Nearest", None, "")
     plot_selection(ax, "SINGLE:Search-Brown-Avoid-Green", None, "")
     # RTU/PPO at FOV 9 and 15 (base, non-frozen)
-    plot_selection(ax, "RTU", 9, "", color_index = 0)
+    plot_selection(ax, "RTU", 9, "", color_index=0)
     # plot_selection(ax, "PPO", 9, "", color_index = 1)
-    plot_selection(ax, "RTU", 15, "", color_index = 2)
+    plot_selection(ax, "RTU", 15, "", color_index=2)
     # plot_selection(ax, "PPO", 15, "", color_index = 3)
     assert False
     ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
@@ -480,7 +505,7 @@ if __name__ == "__main__":
         save_type="pdf",
         f=fig,
         width=5,
-        height_ratio=1/5,
+        height_ratio=1 / 5,
     )
 
     plt.close(fig)

@@ -25,12 +25,12 @@ def main():
             "../checkpoints/continual-foragax-agents/results/E98-baselines-vs-recurrent",
             "../checkpoints/continual-foragax-agents/results/E99-weather/foragax",
         ],
-        help="Directories to search recursively (default: results/E99-weather/foragax/ForagaxWeather-v5/)"
+        help="Directories to search recursively (default: results/E99-weather/foragax/ForagaxWeather-v5/)",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Show what would be done without actually renaming directories"
+        help="Show what would be done without actually renaming directories",
     )
 
     args = parser.parse_args()
@@ -61,6 +61,7 @@ def main():
             print(f"Moving {old_path} to {new_path}")
             os.rename(old_path, new_path)
         print(f"Renamed {len(dirs_to_rename)} directories.")
+
 
 if __name__ == "__main__":
     main()

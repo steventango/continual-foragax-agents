@@ -36,7 +36,5 @@ class BaseAgent(Protocol):
 
     @abstractmethod
     @partial(jax.jit, static_argnums=0)
-    def _end(
-        self, state: Any, reward: jax.Array, extra: dict[str, jax.Array]
-    ) -> Any:
+    def _end(self, state: Any, reward: jax.Array, extra: dict[str, jax.Array]) -> Any:
         raise NotImplementedError("Expected `_end` to be implemented")

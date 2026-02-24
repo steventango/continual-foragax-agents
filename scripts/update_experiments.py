@@ -4,6 +4,7 @@
 import glob
 import os
 
+
 def main():
     # Find all hypers_job.sh in E92 to E99
     for i in range(92, 100):
@@ -13,11 +14,13 @@ def main():
             # Determine the base config dir
             # hypers_job_path: experiments/E{i}-*/foragax-sweep/ForagaxTwoBiome-v*/hypers_job.sh
             # config_base: experiments/E{i}-*/foragax/ForagaxTwoBiome-v*/
-            config_base = hypers_job_path.replace('/foragax-sweep/', '/foragax/').replace('/hypers_job.sh', '')
+            config_base = hypers_job_path.replace(
+                "/foragax-sweep/", "/foragax/"
+            ).replace("/hypers_job.sh", "")
             config_9 = f"{config_base}/9"
             config_15 = f"{config_base}/15"
 
-            with open(hypers_job_path, 'r') as f:
+            with open(hypers_job_path, "r") as f:
                 content = f.read()
 
             # Check if calls already exist
@@ -35,11 +38,12 @@ def main():
                 print(f"Added call for {config_15}")
 
             if updated:
-                with open(hypers_job_path, 'w') as f:
+                with open(hypers_job_path, "w") as f:
                     f.write(content)
                 print(f"Updated {hypers_job_path}")
             else:
                 print(f"No changes needed for {hypers_job_path}")
+
 
 if __name__ == "__main__":
     main()

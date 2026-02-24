@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Network Architectures</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10.9.5/dist/mermaid.esm.min.mjs';
+
+        const transformerCSS = `
+            .node rect, .node circle, .node polygon, .node path {
+                stroke-width: 2px !important;
+                rx: 8px !important;
+                ry: 8px !important;
+            }
+            .styleInput rect { fill: #fbcfe8 !important; stroke: #f472b6 !important; }
+            .styleNorm rect { fill: #fef9c3 !important; stroke: #facc15 !important; }
+            .styleMlp rect { fill: #e0f2fe !important; stroke: #38bdf8 !important; }
+            .styleRnn rect { fill: #ffedd5 !important; stroke: #fb923c !important; }
+            .styleHead rect { fill: #fae8ff !important; stroke: #e879f9 !important; }
+            .styleOut rect { fill: #f0fdf4 !important; stroke: #4ade80 !important; }
+            .styleConcat rect { fill: #f8fafc !important; stroke: #64748b !important; stroke-dasharray: 4 4 !important; }
+            .nodeLabel, .labelText { color: #0f172a !important; font-weight: 600 !important; font-family: sans-serif !important; }
+            .cluster rect { fill: #f1f5f9 !important; stroke: #cbd5e1 !important; stroke-width: 2px !important; rx: 12px !important; ry: 12px !important; }
+            .cluster-label { color: #475569 !important; font-weight: 700 !important; font-family: sans-serif !important; }
+        `;
+
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#ffffff',
+                primaryTextColor: '#0f172a',
+                primaryBorderColor: '#0f172a',
+                lineColor: '#0f172a',
+                secondaryColor: '#f1f5f9',
+                tertiaryColor: '#ffffff',
+                fontSize: '14px',
+                fontFamily: 'sans-serif'
+            },
+            themeCSS: transformerCSS,
+            securityLevel: 'loose'
+        });
+        window.mermaid = mermaid;
+    </script>
+    <style>
+        body {
+            font-family: sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+            background-color: #f8fafc;
+            color: #0f172a;
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2.25rem;
+            font-weight: 800;
+            margin-bottom: 2rem;
+            text-align: center;
+            color: #1e293b;
+        }
+
+        .tabs-container {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            min-height: 700px;
+        }
+
+        .tabs-l1 {
+            display: flex;
+            background-color: #f1f5f9;
+            border-bottom: 2px solid #e2e8f0;
+            flex-wrap: wrap;
+        }
+
+        .tab-l1 {
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            font-weight: 700;
+            color: #64748b;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .tab-l1:hover {
+            color: #1e293b;
+            background-color: #e2e8f0;
+        }
+
+        .tab-l1.active {
+            color: #38bdf8;
+            border-bottom-color: #38bdf8;
+            background-color: white;
+        }
+
+        .tabs-l2 {
+            display: flex;
+            padding: 1rem;
+            background-color: #ffffff;
+            gap: 0.5rem;
+            border-bottom: 1px solid #f1f5f9;
+            flex-wrap: wrap;
+        }
+
+        .tab-l2 {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #94a3b8;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s;
+        }
+
+        .tab-l2:hover {
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+
+        .tab-l2.active {
+            background-color: #38bdf8;
+            color: white;
+            border-color: #0ea5e9;
+        }
+
+        .group-content {
+            display: none;
+        }
+
+        .group-content.active {
+            display: block;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 2rem;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .agent-info {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background-color: #f8fafc;
+            border-radius: 0.5rem;
+            border-left: 4px solid #38bdf8;
+        }
+
+        .agent-info h3 {
+            margin: 0 0 0.5rem 0;
+            color: #1e293b;
+        }
+
+        .agent-info p {
+            margin: 0;
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+            min-height: 400px;
+            width: 100%;
+            overflow: visible;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .mermaid[data-processed="true"] {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Learning Agent Architectures</h1>
+
+        <div class="tabs-container">
+            <!-- Level 1 Tabs -->
+            <div class="tabs-l1">
+                <div class="tab-l1 active" data-target="dqn-group">DQN Variants</div>
+                <div class="tab-l1" data-target="drqn-group">DRQN Variants</div>
+                <div class="tab-l1" data-target="ppo-group">PPO Variants</div>
+                <div class="tab-l1" data-target="ppo-rtu-group">PPO-RTU Variants</div>
+            </div>
+
+            <!-- DQN Group -->
+            <div id="dqn-group" class="group-content active">
+                <div class="tabs-l2">
+                    <div class="tab-l2 active" data-target="dqn-ln-rt">DQN_LN_RT</div>
+                    <div class="tab-l2" data-target="dqn-ln">DQN_LN</div>
+                    <div class="tab-l2" data-target="dqn-base">DQN</div>
+                </div>
+
+                <div id="dqn-ln-rt" class="tab-content active">
+                    <div class="agent-info">
+                        <h3>DQN_LN_RT</h3>
+                        <p>DQN with LayerNorm and Reward Trace tracking.</p>
+                    </div>
+                    <div class="mermaid">
+                        graph TD
+                        classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a
+                        classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a
+                        classDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a
+                        classDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a
+                        classDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a
+                        classDef styleOut fill:#f0fdf4,stroke:#4ade80,color:#0f172a
+                        classDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a
+
+                        Obs1(["Observation 5x5x3"]):::styleInput
+                        Scalars1(["Last A, Last R, R Trace"]):::styleInput
+
+                        Obs1 --> Conv1("Conv2D 16x3x1"):::styleMlp
+                        Conv1 --> ReLU1_1("ReLU"):::styleNorm
+                        ReLU1_1 --> Flat1("Flatten"):::styleMlp
+
+                        Flat1 --> Concat1("Concatenate"):::styleConcat
+                        Scalars1 --> Concat1
+
+                        subgraph ForagerNet1 ["ForagerNet (Representation)"]
+                        direction TB
+                        Concat1 --> L1_1("Linear 64"):::styleMlp
+                        L1_1 --> LN1_1("LayerNorm"):::styleNorm
+                        LN1_1 --> ReLU1_2("ReLU"):::styleNorm
+                        ReLU1_2 --> L1_2("Linear 64"):::styleMlp
+                        L1_2 --> LN1_2("LayerNorm"):::styleNorm
+                        LN1_2 --> ReLU1_3("ReLU"):::styleNorm
+                        end
+
+                        ReLU1_3 --> QHead1("Q-Head: Linear 4"):::styleHead
+                    </div>
+                </div>
+
+                <div id="dqn-ln" class="tab-content">
+                    <div class="agent-info">
+                        <h3>DQN_LN</h3>
+                        <p>DQN with LayerNorm in representation layers.</p>
+                    </div>
+                    <div class="mermaid">
+                        graph TD
+                        classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a
+                        classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a
+                        classDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a
+                        classDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a
+                        classDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a
+                        classDef styleOut fill:#f0fdf4,stroke:#4ade80,color:#0f172a
+                        classDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a
+
+                        Obs2(["Observation 5x5x3"]):::styleInput
+                        Scalars2(["Last Action + Last Reward"]):::styleInput
+
+                        Obs2 --> Conv2("Conv2D 16x3x1"):::styleMlp
+                        Conv2 --> ReLU2_1("ReLU"):::styleNorm
+                        ReLU2_1 --> Flat2("Flatten"):::styleMlp
+
+                        Flat2 --> Concat2("Concatenate"):::styleConcat
+                        Scalars2 --> Concat2
+
+                        subgraph ForagerNet2 ["ForagerNet (Representation)"]
+                        direction TB
+                        Concat2 --> L2_1("Linear 64"):::styleMlp
+                        L2_1 --> LN2_1("LayerNorm"):::styleNorm
+                        LN2_1 --> ReLU2_2("ReLU"):::styleNorm
+                        ReLU2_2 --> L2_2("Linear 64"):::styleMlp
+                        L2_2 --> LN2_2("LayerNorm"):::styleNorm
+                        LN2_2 --> ReLU2_3("ReLU"):::styleNorm
+                        end
+
+                        ReLU2_3 --> QHead2("Q-Head: Linear 4"):::styleHead
+                    </div>
+                </div>
+
+                <div id="dqn-base" class="tab-content">
+                    <div class="agent-info">
+                        <h3>DQN</h3>
+                        <p>Baseline DQN without LayerNorm.</p>
+                    </div>
+                    <div class="mermaid">
+                        graph TD
+                        classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a
+                        classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a
+                        classDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a
+                        classDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a
+                        classDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a
+                        classDef styleOut fill:#f0fdf4,stroke:#4ade80,color:#0f172a
+                        classDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a
+
+                        Obs3(["Observation 5x5x3"]):::styleInput
+                        Scalars3(["Last Action + Last Reward"]):::styleInput
+
+                        Obs3 --> Conv3("Conv2D 16x3x1"):::styleMlp
+                        Conv3 --> ReLU3_1("ReLU"):::styleNorm
+                        ReLU3_1 --> Flat3("Flatten"):::styleMlp
+
+                        Flat3 --> Concat3("Concatenate"):::styleConcat
+                        Scalars3 --> Concat3
+
+                        subgraph ForagerNet3 ["ForagerNet (Representation)"]
+                        direction TB
+                        Concat3 --> L3_1("Linear 64"):::styleMlp
+                        L3_1 --> ReLU3_2("ReLU"):::styleNorm
+                        ReLU3_2 --> L3_2("Linear 64"):::styleMlp
+                        L3_2 --> ReLU3_3("ReLU"):::styleNorm
+                        end
+
+                        ReLU3_3 --> QHead3("Q-Head: Linear 4"):::styleHead
+                    </div>
+                </div>
+            </div>
+
+            <!-- DRQN Group -->
+            <div id="drqn-group" class="group-content">
+                <div class="tabs-l2">
+                    <div class="tab-l2 active" data-target="drqn-ln-0-2">DRQN_LN_0_2</div>
+                    <div class="tab-l2" data-target="drqn-ln-1-1">DRQN_LN_1_1</div>
+                    <div class="tab-l2" data-target="drqn-0-2">DRQN_0_2</div>
+                    <div class="tab-l2" data-target="drqn-1-1">DRQN_1_1</div>
+                </div>
+
+                <div id="drqn-ln-0-2" class="tab-content active">
+                    <div class="agent-info">
+                        <h3>DRQN_LN_0_2</h3>
+                        <p>Recurrent DQN with 0 pre-GRU and 2 post-GRU layers.</p>
+                    </div>
+                    <div class="mermaid">
+                        graph TD
+                        classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a
+                        classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a
+                        classDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a
+                        classDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a
+                        classDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a
+                        classDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a
+
+                        Obs4(["Seq Obs 5x5x3"]):::styleInput
+                        Scalars4(["Seq Scalars"]):::styleInput
+
+                        Obs4 --> Conv4("Conv2D 16x3x1"):::styleMlp
+                        Conv4 --> ReLU4_1("ReLU"):::styleNorm
+                        ReLU4_1 --> Flat4("Flatten"):::styleMlp
+
+                        Flat4 --> Concat4("Concatenate"):::styleConcat
+                        Scalars4 --> Concat4
+
+                        Concat4 --> GRU4("GRU Unit 64"):::styleRnn
+                        GRU4 --> ReLU4_2("ReLU"):::styleNorm
+
+                        ReLU4_2 --> Skip4("Concatenate Skip"):::styleConcat
+                        Concat4 --> Skip4
+
+                        subgraph PostGRU4 ["Post-GRU Layers"]
+                        direction TB
+                        Skip4 --> Post4_1("Linear 64"):::styleMlp
+                        Post4_1 --> LN4_1("LayerNorm"):::styleNorm
+                        LN4_1 --> ReLU4_3("ReLU"):::styleNorm
+                        ReLU4_3 --> Post4_2("Linear 64"):::styleMlp
+                        Post4_2 --> LN4_2("LayerNorm"):::styleNorm
+                        LN4_2 --> ReLU4_4("ReLU"):::styleNorm
+                        end
+
+                        ReLU4_4 --> QHead4("Q-Head: Linear 4"):::styleHead
+                    </div>
+                </div>
+
+                <div id="drqn-ln-1-1" class="tab-content">
+                    <div class="agent-info">
+                        <h3>DRQN_LN_1_1</h3>
+                        <p>Recurrent DQN with 1 pre-GRU and 1 post-GRU layer.</p>
+                    </div>
+                    <div class="mermaid">
+                        graph TD
+                        classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a
+                        classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a
+                        classDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a
+                        classDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a
+                        classDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a
+                        classDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a
+
+                        Obs5(["Seq Obs 5x5x3"]):::styleInput
+                        Scalars5(["Seq Scalars"]):::styleInput
+
+                        Obs5 --> Conv5("Conv2D 16x3x1"):::styleMlp
+                        Conv5 --> ReLU5_1("ReLU"):::styleNorm
+                        ReLU5_1 --> Flat5("Flatten"):::styleMlp
+
+                        Flat5 --> Concat5("Concatenate"):::styleConcat
+                        Scalars5 --> Concat5
+
+                        subgraph PreGRU5 ["Pre-GRU Layers"]
+                        direction TB
+                        Concat5 --> Pre5("Linear 64"):::styleMlp
+                        Pre5 --> PreLN5("LayerNorm"):::styleNorm
+                        PreLN5 --> PreReLU5("ReLU"):::styleNorm
+                        end
+
+                        PreReLU5 --> GRU5("GRU Unit 64"):::styleRnn
+                        GRU5 --> ReLU5_2("ReLU"):::styleNorm
+
+                        ReLU5_2 --> Skip5("Concatenate Skip"):::styleConcat
+                        PreReLU5 --> Skip5
+
+                        subgraph PostGRU5 ["Post-GRU Layers"]
+                        direction TB
+                        Skip5 --> Post5("Linear 64"):::styleMlp
+                        Post5 --> PostLN5("LayerNorm"):::styleNorm
+                        PostLN5 --> PostReLU5("ReLU"):::styleNorm
+                        end
+
+                        PostReLU5 --> QHead5("Q-Head: Linear 4"):::styleHead
+                    </div>
+                </div>
+
+                <div id="drqn-0-2" class="tab-content">
+                    <div class="agent-info">
+                        <h3>DRQN_0_2</h3>
+                        <p>Recurrent DQN without LayerNorm.</p>
+                    </div>
+                    <div class="mermaid">
+                        graph TD
+                        classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a
+                        classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a
+                        classDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a
+                        classDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a
+                        classDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a
+                        classDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a
+
+                        Obs6(["Seq Obs 5x5x3"]):::styleInput
+                        Scalars6(["Seq Scalars"]):::styleInput
+
+                        Obs6 --> Conv6("Conv2D 16x3x1"):::styleMlp
+                        Conv6 --> ReLU6_1("ReLU"):::styleNorm
+                        ReLU6_1 --> Flat6("Flatten"):::styleMlp
+
+                        Flat6 --> Concat6("Concatenate"):::styleConcat
+                        Scalars6 --> Concat6
+
+                        Concat6 --> GRU6("GRU Unit 64"):::styleRnn
+                        GRU6 --> ReLU6_2("ReLU"):::styleNorm
+
+                        ReLU6_2 --> Skip6("Concatenate Skip"):::styleConcat
+                        Concat6 --> Skip6
+
+                        subgraph PostGRU6 ["Post-GRU Layers"]
+                        direction TB
+                        Skip6 --> Post6_1("Linear 64"):::styleMlp
+                        Post6_1 --> ReLU6_3("ReLU"):::styleNorm
+                        ReLU6_3 --> Post6_2("Linear 64"):::styleMlp
+                        Post6_2 --> ReLU6_4("ReLU"):::styleNorm
+                        end
+
+                        ReLU6_4 --> QHead6("Q-Head: Linear 4"):::styleHead
+                    </div>
+                </div>
+
+                <div id="drqn-1-1" class="tab-content">
+                    <div class="agent-info">
+                        <h3>DRQN_1_1</h3>
+                        <p>Recurrent DQN without LayerNorm, 1 pre/post config.</p>
+                    </div>
+                    <div class="mermaid">
+                        graph TD
+                        classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a
+                        classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a
+                        classDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a
+                        classDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a
+                        classDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a
+                        classDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a
+
+                        Obs7(["Seq Obs 5x5x3"]):::styleInput
+                        Scalars7(["Seq Scalars"]):::styleInput
+
+                        Obs7 --> Conv7("Conv2D 16x3x1"):::styleMlp
+                        Conv7 --> ReLU7_1("ReLU"):::styleNorm
+                        ReLU7_1 --> Flat7("Flatten"):::styleMlp
+
+                        Flat7 --> Concat7("Concatenate"):::styleConcat
+                        Scalars7 --> Concat7
+
+                        subgraph PreGRU7 ["Pre-GRU Layers"]
+                        direction TB
+                        Concat7 --> Pre7("Linear 64"):::styleMlp
+                        Pre7 --> PreReLU7("ReLU"):::styleNorm
+                        end
+
+                        PreReLU7 --> GRU7("GRU Unit 64"):::styleRnn
+                        GRU7 --> ReLU7_2("ReLU"):::styleNorm
+
+                        ReLU7_2 --> Skip7("Concatenate Skip"):::styleConcat
+                        PreReLU7 --> Skip7
+
+                        subgraph PostGRU7 ["Post-GRU Layers"]
+                        direction TB
+                        Skip7 --> Post7("Linear 64"):::styleMlp
+                        Post7 --> PostReLU7("ReLU"):::styleNorm
+                        end
+
+                        PostReLU7 --> QHead7("Q-Head: Linear 4"):::styleHead
+                    </div>
+                </div>
+            </div>
+
+            <!-- PPO Group -->
+            <div id="ppo-group" class="group-content">
+                <div class="tabs-l2">
+                    <div class="tab-l2 active" data-target="ppo-ln-rt">PPO_LN_RT_128</div>
+                    <div class="tab-l2" data-target="ppo-ln">PPO_LN_128</div>
+                    <div class="tab-l2" data-target="ppo-base">PPO_128</div>
+                </div>
+
+                <div id="ppo-ln-rt" class="tab-content active">
+                    <div class="agent-info">
+                        <h3>PPO_LN_RT_128</h3>
+                        <p>PPO with LayerNorm and Reward Trace.</p>
+                    </div>
+                    <div class="mermaid">
+                        graph TD
+                        classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a
+                        classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a
+                        classDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a
+                        classDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a
+                        classDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a
+
+                        Obs8(["Observation 5x5x3"]):::styleInput
+                        Scalars8(["L. Act, L. Rew, R Trace"]):::styleInput
+
+                        Obs8 --> Flat8("Flatten"):::styleMlp
+                        Flat8 --> Emb8("Dense 64"):::styleMlp
+                        Emb8 --> LN8("LayerNorm"):::styleNorm
+                        LN8 --> ReLU8_1("ReLU"):::styleNorm
+
+                        ReLU8_1 --> Concat8("Concatenate"):::styleConcat
+                        Scalars8 --> Concat8
+
+                        subgraph ActorBranch8 ["Actor Path"]
+                        direction TB
+                        Concat8 --> A8_1("Dense 192"):::styleMlp
+                        A8_1 --> A8_2("Dense 64"):::styleMlp
+                        A8_2 --> ALN8("LayerNorm"):::styleNorm
+                        ALN8 --> AReLU8("ReLU"):::styleNorm
+                        AReLU8 --> Policy8("Logits: Linear 4"):::styleHead
+                        end
+
+                        subgraph CriticBranch8 ["Critic Path"]
+                        direction TB
+                        Concat8 --> C8_1("Dense 192"):::styleMlp
+                        C8_1 --> C8_2("Dense 64"):::styleMlp
+                        C8_2 --> CLN8("LayerNorm"):::styleNorm
+                        CLN8 --> CReLU8("ReLU"):::styleNorm
+                        CReLU8 --> Value8("Scalar: Linear 1"):::styleHead
+                        end
+                    </div>
+                </div>
+
+                <div id="ppo-ln" class="tab-content">
+                    <div class="agent-info">
+                        <h3>PPO_LN_128</h3>
+                        <p>PPO with LayerNorm in all layers.</p>
+                    </div>
+                    <div class="mermaid">
+                        graph TD
+                        classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a
+                        classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a
+                        classDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a
+                        classDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a
+                        classDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a
+
+                        Obs9(["Observation 5x5x3"]):::styleInput
+                        Scalars9(["Last Action + Last Reward"]):::styleInput
+
+                        Obs9 --> Flat9("Flatten"):::styleMlp
+                        Flat9 --> Emb9("Dense 64"):::styleMlp
+                        Emb9 --> LN9("LayerNorm"):::styleNorm
+                        LN9 --> ReLU9_1("ReLU"):::styleNorm
+
+                        ReLU9_1 --> Concat9("Concatenate"):::styleConcat
+                        Scalars9 --> Concat9
+
+                        subgraph ActorBranch9 ["Actor Path"]
+                        direction TB
+                        Concat9 --> A9_1("Dense 192"):::styleMlp
+                        A9_1 --> A9_2("Dense 64"):::styleMlp
+                        A9_2 --> ALN9("LayerNorm"):::styleNorm
+                        ALN9 --> AReLU9("ReLU"):::styleNorm
+                        AReLU9 --> Policy9("Logits: Linear 4"):::styleHead
+                        end
+
+                        subgraph CriticBranch9 ["Critic Path"]
+                        direction TB
+                        Concat9 --> C9_1("Dense 192"):::styleMlp
+                        C9_1 --> C9_2("Dense 64"):::styleMlp
+                        C9_2 --> CLN9("LayerNorm"):::styleNorm
+                        CLN9 --> CReLU9("ReLU"):::styleNorm
+                        CReLU9 --> Value9("Scalar: Linear 1"):::styleHead
+                        end
+                    </div>
+                </div>
+
+                <div id="ppo-base" class="tab-content">
+                    <div class="agent-info">
+                        <h3>PPO_128</h3>
+                        <p>Baseline PPO without LayerNorm.</p>
+                    </div>
+                    <div class="mermaid">
+                        graph TD
+                        classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a
+                        classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a
+                        classDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a
+                        classDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a
+                        classDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a
+
+                        Obs10(["Observation 5x5x3"]):::styleInput
+                        Scalars10(["Last Action + Last Reward"]):::styleInput
+
+                        Obs10 --> Flat10("Flatten"):::styleMlp
+                        Flat10 --> Emb10("Dense 64"):::styleMlp
+                        Emb10 --> ReLU10_1("ReLU"):::styleNorm
+
+                        ReLU10_1 --> Concat10("Concatenate"):::styleConcat
+                        Scalars10 --> Concat10
+
+                        subgraph ActorBranch10 ["Actor Path"]
+                        direction TB
+                        Concat10 --> A10_1("Dense 192"):::styleMlp
+                        A10_1 --> A10_2("Dense 64"):::styleMlp
+                        A10_2 --> AReLU10("ReLU"):::styleNorm
+                        AReLU10 --> Policy10("Logits: Linear 4"):::styleHead
+                        end
+
+                        subgraph CriticBranch10 ["Critic Path"]
+                        direction TB
+                        Concat10 --> C10_1("Dense 192"):::styleMlp
+                        C10_1 --> C10_2("Dense 64"):::styleMlp
+                        C10_2 --> CReLU10("ReLU"):::styleNorm
+                        CReLU10 --> Value10("Scalar: Linear 1"):::styleHead
+                        end
+                    </div>
+                </div>
+            </div>
+
+            <!-- PPO-RTU Group -->
+            <div id="ppo-rtu-group" class="group-content">
+                <div class="tabs-l2">
+                    <div class="tab-l2 active" data-target="rtu-ln-128-512">PPO-RTU_LN_128_512</div>
+                    <div class="tab-l2" data-target="rtu-ln-128">PPO-RTU_LN_128</div>
+                    <div class="tab-l2" data-target="rtu-base">PPO-RTU_128</div>
+                </div>
+
+                <div id="rtu-ln-128-512" class="tab-content active">
+                    <div class="agent-info">
+                        <h3>PPO-RTU_LN_128_512</h3>
+                        <p>RTU PPO with d_hidden 512 and skip connections.</p>
+                    </div>
+                    <div class="mermaid">
+                        graph TD
+                        classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a
+                        classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a
+                        classDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a
+                        classDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a
+                        classDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a
+                        classDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a
+
+                        Obs11(["Observation 5x5x3"]):::styleInput
+                        Scalars11(["Last Action + Last Reward"]):::styleInput
+
+                        Obs11 --> Flat11("Flatten"):::styleMlp
+                        Flat11 --> Emb11("Dense 64"):::styleMlp
+                        Emb11 --> LN11("LayerNorm"):::styleNorm
+                        LN11 --> Act11("ReLU"):::styleNorm
+
+                        Act11 --> Concat11("Concatenate"):::styleConcat
+                        Scalars11 --> Concat11
+
+                        subgraph ActorRTU11 ["Actor RTU"]
+                        RTU_A11("RTU Actor 512"):::styleRnn
+                        end
+
+                        subgraph CriticRTU11 ["Critic RTU"]
+                        RTU_C11("RTU Critic 512"):::styleRnn
+                        end
+
+                        SkipA11("Join Skip Actor"):::styleConcat
+                        SkipC11("Join Skip Critic"):::styleConcat
+
+                        subgraph ActorHead11 ["Actor Head"]
+                        direction TB
+                        AD11("Dense 64"):::styleMlp
+                        ALN11("LayerNorm"):::styleNorm
+                        ALN11 --> AR11("ReLU"):::styleNorm
+                        AR11 --> Policy11("Logits: Linear 4"):::styleHead
+                        end
+
+                        subgraph CriticHead11 ["Critic Head"]
+                        direction TB
+                        CD11("Dense 64"):::styleMlp
+                        CLN11("LayerNorm"):::styleNorm
+                        CLN11 --> CR11("ReLU"):::styleNorm
+                        CR11 --> Value11("Scalar: Linear 1"):::styleHead
+                        end
+
+                        Concat11 --> RTU_A11
+                        RTU_A11 --> SkipA11
+                        Concat11 --> SkipA11
+                        SkipA11 --> AD11
+
+                        Concat11 --> RTU_C11
+                        RTU_C11 --> SkipC11
+                        Concat11 --> SkipC11
+                        SkipC11 --> CD11
+                    </div>
+                </div>
+
+                <div id="rtu-ln-128" class="tab-content">
+                    <div class="agent-info">
+                        <h3>PPO-RTU_LN_128</h3>
+                        <p>RTU PPO with d_hidden 192.</p>
+                    </div>
+                    <div class="mermaid">
+                        graph TD
+                        classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a
+                        classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a
+                        classDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a
+                        classDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a
+                        classDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a
+                        classDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a
+
+                        Obs12(["Observation 5x5x3"]):::styleInput
+                        Scalars12(["Last Action + Last Reward"]):::styleInput
+
+                        Obs12 --> Flat12("Flatten"):::styleMlp
+                        Flat12 --> Emb12("Dense 64"):::styleMlp
+                        Emb12 --> LN12("LayerNorm"):::styleNorm
+                        LN12 --> Act12("ReLU"):::styleNorm
+
+                        Act12 --> Concat12("Concatenate"):::styleConcat
+                        Scalars12 --> Concat12
+
+                        subgraph ActorPath12 ["Actor Path"]
+                        direction TB
+                        RTU_A12("RTU Actor 192"):::styleRnn
+                        RTU_A12 --> SkipA12("Join Skip Actor"):::styleConcat
+                        subgraph ActorHead12 ["Actor Head"]
+                        direction TB
+                        SkipA12 --> AD12("Dense 64"):::styleMlp
+                        AD12 --> ALN12("LayerNorm"):::styleNorm
+                        ALN12 --> AR12("ReLU"):::styleNorm
+                        AR12 --> Policy12("Logits: Linear 4"):::styleHead
+                        end
+                        end
+
+                        subgraph CriticPath12 ["Critic Path"]
+                        direction TB
+                        RTU_C12("RTU Critic 192"):::styleRnn
+                        RTU_C12 --> SkipC12("Join Skip Critic"):::styleConcat
+                        subgraph CriticHead12 ["Critic Head"]
+                        direction TB
+                        SkipC12 --> CD12("Dense 64"):::styleMlp
+                        CD12 --> CLN12("LayerNorm"):::styleNorm
+                        CLN12 --> CR12("ReLU"):::styleNorm
+                        CR12 --> Value12("Scalar: Linear 1"):::styleHead
+                        end
+                        end
+
+                        Concat12 --> RTU_A12
+                        Concat12 --> SkipA12
+                        Concat12 --> RTU_C12
+                        Concat12 --> SkipC12
+                    </div>
+                </div>
+
+                <div id="rtu-base" class="tab-content">
+                    <div class="agent-info">
+                        <h3>PPO-RTU_128</h3>
+                        <p>RTU PPO without LayerNorm.</p>
+                    </div>
+                    <div class="mermaid">
+                        graph TD
+                        classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a
+                        classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a
+                        classDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a
+                        classDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a
+                        classDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a
+                        classDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a
+
+                        Obs13(["Observation 5x5x3"]):::styleInput
+                        Scalars13(["Last Action + Last Reward"]):::styleInput
+
+                        Obs13 --> Flat13("Flatten"):::styleMlp
+                        Flat13 --> Emb13("Dense 64"):::styleMlp
+                        Emb13 --> Act13("ReLU"):::styleNorm
+
+                        Act13 --> Concat13("Concatenate"):::styleConcat
+                        Scalars13 --> Concat13
+
+                        subgraph ActorRTU13 ["Actor RTU"]
+                        RTU_A13("RTU Actor 192"):::styleRnn
+                        end
+
+                        subgraph CriticRTU13 ["Critic RTU"]
+                        RTU_C13("RTU Critic 192"):::styleRnn
+                        end
+
+                        SkipA13("Join Skip Actor"):::styleConcat
+                        SkipC13("Join Skip Critic"):::styleConcat
+
+                        subgraph ActorHead13 ["Actor Head"]
+                        direction TB
+                        AD13("Dense 64"):::styleMlp
+                        AD13 --> AR13("ReLU"):::styleNorm
+                        AR13 --> Policy13("Logits: Linear 4"):::styleHead
+                        end
+
+                        subgraph CriticHead13 ["Critic Head"]
+                        direction TB
+                        CD13("Dense 64"):::styleMlp
+                        CD13 --> CR13("ReLU"):::styleNorm
+                        CR13 --> Value13("Scalar: Linear 1"):::styleHead
+                        end
+
+                        Concat13 --> RTU_A13
+                        RTU_A13 --> SkipA13
+                        Concat13 --> SkipA13
+                        SkipA13 --> AD13
+
+                        Concat13 --> RTU_C13
+                        RTU_C13 --> SkipC13
+                        Concat13 --> SkipC13
+                        SkipC13 --> CD13
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const l1Tabs = document.querySelectorAll('.tab-l1');
+            const l2Tabs = document.querySelectorAll('.tab-l2');
+
+            async function renderActiveTab() {
+                // Find the visible group first
+                const activeGroup = document.querySelector('.group-content.active');
+                if (!activeGroup) return;
+
+                // Find the active tab inside THAT group
+                const activeTabContent = activeGroup.querySelector('.tab-content.active');
+                if (!activeTabContent) return;
+
+                const mermaidDiv = activeTabContent.querySelector('.mermaid');
+                // Only render if not already processed
+                if (!mermaidDiv || mermaidDiv.getAttribute('data-processed') === 'true') {
+                    console.log("Already processed or no div:", activeTabContent.id);
+                    return;
+                }
+
+                // Wait for display:block to take effect so SVG dimensions are calculated correctly
+                await new Promise(r => setTimeout(r, 50));
+
+                const selector = '#' + activeTabContent.id + ' .mermaid';
+                console.log("Surgical render for:", selector);
+
+                if (window.mermaid) {
+                    try {
+                        await window.mermaid.run({
+                            querySelector: selector
+                        });
+                        console.log("Render success:", selector);
+                    } catch (e) {
+                        console.error("Mermaid surgical run failed", e);
+                    }
+                }
+            }
+
+            l1Tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const currentL1 = document.querySelector('.tab-l1.active');
+                    const currentGroup = document.querySelector('.group-content.active');
+
+                    if (currentL1) currentL1.classList.remove('active');
+                    if (currentGroup) currentGroup.classList.remove('active');
+
+                    tab.classList.add('active');
+                    const target = document.getElementById(tab.dataset.target);
+                    if (target) {
+                        target.classList.add('active');
+                        // Use a slightly longer timeout for L1 switches to allow parent display to settle
+                        setTimeout(renderActiveTab, 100);
+                    }
+                });
+            });
+
+            l2Tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const group = tab.closest('.group-content');
+                    if (!group) return;
+
+                    const currentL2 = group.querySelector('.tab-l2.active');
+                    const currentContent = group.querySelector('.tab-content.active');
+
+                    if (currentL2) currentL2.classList.remove('active');
+                    if (currentContent) currentContent.classList.remove('active');
+
+                    tab.classList.add('active');
+                    const target = group.querySelector('#' + tab.dataset.target);
+                    if (target) {
+                        target.classList.add('active');
+                        renderActiveTab();
+                    }
+                });
+            });
+
+            // Initial render call
+            setTimeout(renderActiveTab, 500);
+        });
+    </script>
+</body>
+
+</html>

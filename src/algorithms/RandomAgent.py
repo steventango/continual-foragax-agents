@@ -12,8 +12,16 @@ from algorithms.BaseAgent import BaseAgent
 class AgentState:
     key: jax.Array
 
+
 class RandomAgent(BaseAgent):
-    def __init__(self, observations: Tuple[int, ...], actions: int, params: Dict, collector: Collector, seed: int):
+    def __init__(
+        self,
+        observations: Tuple[int, ...],
+        actions: int,
+        params: Dict,
+        collector: Collector,
+        seed: int,
+    ):
         super().__init__(observations, actions, params, collector, seed)
         self.state = AgentState(
             key=self.key,
@@ -21,7 +29,9 @@ class RandomAgent(BaseAgent):
 
     @partial(jax.jit, static_argnums=0)
     def act(
-        self, state: AgentState, obs: jax.Array,
+        self,
+        state: AgentState,
+        obs: jax.Array,
     ) -> tuple[AgentState, jax.Array]:
         state.key, sample_key = jax.random.split(state.key)
         a = jax.random.choice(sample_key, self.actions)
@@ -43,7 +53,13 @@ class RandomAgent(BaseAgent):
         return a
 
     @partial(jax.jit, static_argnums=0)
-    def _step(self, state: AgentState, reward: jax.Array, obs: jax.Array, extra: Dict[str, jax.Array]):
+    def _step(
+        self,
+        state: AgentState,
+        reward: jax.Array,
+        obs: jax.Array,
+        extra: Dict[str, jax.Array],
+    ):
         return self.act(state, obs)
 
     def end(self, reward: jax.Array, extra: Dict[str, jax.Array]):

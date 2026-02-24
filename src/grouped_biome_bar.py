@@ -18,8 +18,12 @@ from plotting_utils import (
 
 def main():
     parser = PlottingArgumentParser(description="Plot grouped biome occupancy bars.")
-    parser.add_argument("--sample-type", type=str, default="end", help="Sample type to plot.")
-    parser.add_argument("--window", type=int, default=1000, help="Occupancy window size.")
+    parser.add_argument(
+        "--sample-type", type=str, default="end", help="Sample type to plot."
+    )
+    parser.add_argument(
+        "--window", type=int, default=1000, help="Occupancy window size."
+    )
     args = parse_plotting_args(parser)
 
     df = load_data(args.experiment_path)
@@ -42,10 +46,11 @@ def main():
 
     # Filter to the last frame for the given sample type
     if args.sample_type == "end":
-        df = df.filter(pl.col('frame') == pl.col('frame').max().over(['alg', 'aperture', 'seed']))
+        df = df.filter(
+            pl.col("frame") == pl.col("frame").max().over(["alg", "aperture", "seed"])
+        )
     else:
         df = df.filter(pl.col("sample_type") == args.sample_type)
-
 
     # Reshape data to be long-form for seaborn
     id_vars = ["alg", "aperture", "seed"]
@@ -53,17 +58,30 @@ def main():
     # Check which value_vars are actually in the dataframe
     value_vars = [v for v in value_vars if v in df.columns]
 
-    long_df = df.melt(id_vars=id_vars, value_vars=value_vars, variable_name="metric", value_name="occupancy")
+    long_df = df.melt(
+        id_vars=id_vars,
+        value_vars=value_vars,
+        variable_name="metric",
+        value_name="occupancy",
+    )
 
     long_df = long_df.with_columns(
-        pl.col("metric").str.extract(r"biome_(-?\d+)_.*", 1).cast(pl.Int64).replace(biome_mapping).alias("biome")
+        pl.col("metric")
+        .str.extract(r"biome_(-?\d+)_.*", 1)
+        .cast(pl.Int64)
+        .replace(biome_mapping)
+        .alias("biome")
     )
 
     # Create a combined label for the x-axis
     long_df = long_df.with_columns(
-        (pl.col("alg").replace(LABEL_MAP).fill_null(pl.col("alg")) + pl.lit(" (A:") + pl.col("aperture").cast(pl.Utf8) + pl.lit(")")).alias("config_label")
+        (
+            pl.col("alg").replace(LABEL_MAP).fill_null(pl.col("alg"))
+            + pl.lit(" (A:")
+            + pl.col("aperture").cast(pl.Utf8)
+            + pl.lit(")")
+        ).alias("config_label")
     )
-
 
     # Plotting
     fig, ax = plt.subplots(layout="constrained")

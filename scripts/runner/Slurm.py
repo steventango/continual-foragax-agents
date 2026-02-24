@@ -12,14 +12,16 @@ from PyExpUtils.utils.cmdline import flagString
 @dataclass
 class SingleNodeOptions(Slurm.SingleNodeOptions):
     gpus: int | str | None = None
-    tasks_per_core: int = 1
+    tasks_per_core: int | float = 1
     tasks_per_vmap: int = 1
+
 
 @dataclass
 class MultiNodeOptions(Slurm.MultiNodeOptions):
     gpus: int | str | None = None
-    tasks_per_core: int = 1
+    tasks_per_core: int | float = 1
     tasks_per_vmap: int = 1
+
 
 def check_account(account: str):
     assert (
@@ -85,15 +87,15 @@ def to_cmdline_flags(
 
     if isinstance(options, SingleNodeOptions):
         args += [
-            ("--ntasks", options.cores),
+            ("--ntasks", math.ceil(options.cores / options.threads_per_task)),
             ("--nodes", 1),
-            ("--cpus-per-task", 1),
+            ("--cpus-per-task", options.threads_per_task),
         ]
 
     elif isinstance(options, MultiNodeOptions):
         args += [
-            ("--ntasks", options.cores),
-            ("--cpus-per-task", 1),
+            ("--ntasks", math.ceil(options.cores / options.threads_per_task)),
+            ("--cpus-per-task", options.threads_per_task),
         ]
 
     if options.gpus is not None:
@@ -118,7 +120,7 @@ def buildParallel(
         tasks_per_core = opts.tasks_per_core
         tasks_per_vmap = opts.tasks_per_vmap
 
-    jobs = math.ceil(int(opts.cores / threads) * tasks_per_core / tasks_per_vmap)
+    jobs = math.ceil(math.ceil(opts.cores / threads) * tasks_per_core / tasks_per_vmap)
 
     parallel_exec = f"srun -N1 -n{threads} --exclusive {executable}"
     if isinstance(opts, SingleNodeOptions):

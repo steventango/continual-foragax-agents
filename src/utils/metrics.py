@@ -19,7 +19,9 @@ def calculate_ewm_reward(df: pl.DataFrame):
 
     for exp in range(1, 10):
         df = df.with_columns(
-            pl.col("rewards").ewm_mean(alpha=10**-exp, adjust=True).alias(f"ewm_reward_{exp}"),
+            pl.col("rewards")
+            .ewm_mean(alpha=10**-exp, adjust=True)
+            .alias(f"ewm_reward_{exp}"),
         )
 
     df = df.with_columns(pl.col("ewm_reward").mean().alias("mean_ewm_reward"))
@@ -113,5 +115,75 @@ def calculate_biome_occupancy(df: pl.DataFrame):
                 .rolling_mean(window_size=window_size)
                 .alias(f"biome_{i}_occupancy_{window_size}")
             )
+
+    return df
+
+
+def calculate_biome_regret(df: pl.DataFrame):
+    """Calculate exponentially weighted moving average of biome regret.
+
+    Args:
+        df: Polars DataFrame with 'biome_regret' column
+
+    Returns:
+        Polars DataFrame with 'ewm_biome_regret' columns added
+    """
+    if "biome_regret" not in df.columns:
+        return df
+
+    df = df.with_columns(
+        pl.col("biome_regret")
+        .ewm_mean(alpha=1e-3, adjust=True)
+        .alias("ewm_biome_regret"),
+    )
+
+    for exp in range(1, 10):
+        df = df.with_columns(
+            pl.col("biome_regret")
+            .ewm_mean(alpha=10**-exp, adjust=True)
+            .alias(f"ewm_biome_regret_{exp}"),
+        )
+
+    window_sizes = [10, 100, 1000, 10000, 100000, 1000000]
+    for window_size in window_sizes:
+        df = df.with_columns(
+            pl.col("biome_regret")
+            .rolling_mean(window_size=window_size)
+            .alias(f"rolling_biome_regret_{window_size}"),
+        )
+
+    return df
+
+
+def calculate_biome_rank(df: pl.DataFrame):
+    """Calculate exponentially weighted moving average and rolling averages of biome rank.
+
+    Args:
+        df: Polars DataFrame with 'biome_rank' column
+
+    Returns:
+        Polars DataFrame with 'ewm_biome_rank' and rolling columns added
+    """
+    if "biome_rank" not in df.columns:
+        return df
+
+    df = df.with_columns(
+        pl.col("biome_rank").ewm_mean(alpha=1e-3, adjust=True).alias("ewm_biome_rank"),
+    )
+
+    for exp in range(1, 10):
+        df = df.with_columns(
+            pl.col("biome_rank")
+            .ewm_mean(alpha=10**-exp, adjust=True)
+            .alias(f"ewm_biome_rank_{exp}"),
+        )
+
+    window_sizes = [10, 100, 1000, 10000, 100000, 1000000]
+    for window_size in window_sizes:
+        df = df.with_columns(
+            pl.col("biome_rank")
+            .rolling_mean(window_size=window_size)
+            .alias(f"rolling_biome_rank_{window_size}"),
+        )
 
     return df

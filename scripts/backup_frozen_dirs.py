@@ -36,7 +36,7 @@ def main():
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Show what would be done without actually renaming directories"
+        help="Show what would be done without actually renaming directories",
     )
 
     args = parser.parse_args()
@@ -77,6 +77,7 @@ def main():
             os.rename(old_path, new_path)
         action = "restored" if args.restore else "backed up"
         print(f"{action.capitalize()} {len(dirs_to_rename)} directories.")
+
 
 if __name__ == "__main__":
     main()

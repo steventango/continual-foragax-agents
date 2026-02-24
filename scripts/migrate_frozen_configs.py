@@ -19,12 +19,12 @@ def main():
         "root_dir",
         default="experiments",
         nargs="?",
-        help="Root directory to search for JSON configs (default: experiments)"
+        help="Root directory to search for JSON configs (default: experiments)",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Show what would be done without actually modifying files"
+        help="Show what would be done without actually modifying files",
     )
 
     args = parser.parse_args()
@@ -40,7 +40,7 @@ def main():
 
     for json_path in sorted(json_files):
         try:
-            with open(json_path, 'r') as f:
+            with open(json_path, "r") as f:
                 config = json.load(f)
         except json.JSONDecodeError:
             print(f"Warning: Could not parse {json_path}, skipping")
@@ -53,7 +53,9 @@ def main():
         # Check if greedy_when_frozen exists
         meta = config.get("metaParameters", {})
         if "greedy_when_frozen" not in meta:
-            print(f"Warning: {json_path} has frozen agent but no greedy_when_frozen, skipping")
+            print(
+                f"Warning: {json_path} has frozen agent but no greedy_when_frozen, skipping"
+            )
             continue
 
         # New agent name: insert 'greedy_' before 'frozen'
@@ -74,11 +76,11 @@ def main():
         else:
             # Update the config for the new file
             config["agent"] = new_agent
-            with open(new_path, 'w') as f:
+            with open(new_path, "w") as f:
                 json.dump(config, f, indent=4)
 
             # Create the copy
-            with open(json_path, 'w') as f:
+            with open(json_path, "w") as f:
                 json.dump(copy_config, f, indent=4)
 
             print(f"Renamed {json_path} to {new_path} and updated agent to {new_agent}")

@@ -3,6 +3,7 @@ import sys
 
 # sys.path.append(os.getcwd() + "/src")
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -25,31 +26,31 @@ setDefaultConference("jmlr")
 setFonts(20)
 
 COLORS = {
-    "RealTimeActorCriticConv-3": "#1f77b4",        # Muted blue
-    "RealTimeActorCriticConvEmb-3": "#2ca02c",     # Muted green
-    "RealTimeActorCriticConvEmbNE-3": "#d62728",   # Muted red
-    "RealTimeActorCriticConvNE-3": "#9467bd",      # Muted purple
-    "RealTimeActorCriticConvPooling-3": "#ff7f0e", # Muted orange
-    "RealTimeActorCriticConvPoolingNE-3": "#8c564b", # Muted brown
-    "RealTimeActorCriticMLP-3": "#17becf",         # Muted teal
-    "RealTimeActorCriticMLPNE-3": "#e377c2",       # Muted pink
-    "RealTimeActorCriticConv-7": "#1f77b4",        # Muted blue
-    "RealTimeActorCriticConvEmb-7": "#2ca02c",     # Muted green
-    "RealTimeActorCriticConvEmbNE-7": "#d62728",   # Muted red
-    "RealTimeActorCriticConvNE-7": "#9467bd",      # Muted purple
-    "RealTimeActorCriticConvPooling-7": "#ff7f0e", # Muted orange
-    "RealTimeActorCriticConvPoolingNE-7": "#8c564b", # Muted brown
-    "RealTimeActorCriticMLP-7": "#17becf",         # Muted teal
-    "RealTimeActorCriticMLPNE-7": "#e377c2",       # Muted pink
-    "RealTimeActorCriticConv-11": "#1f77b4",        # Muted blue
-    "RealTimeActorCriticConvEmb-11": "#2ca02c",     # Muted green
-    "RealTimeActorCriticConvEmbNE-11": "#d62728",   # Muted red
-    "RealTimeActorCriticConvNE-11": "#9467bd",      # Muted purple
-    "RealTimeActorCriticConvPooling-11": "#ff7f0e", # Muted orange
-    "RealTimeActorCriticConvPoolingNE-11": "#8c564b", # Muted brown
-    "RealTimeActorCriticMLP-11": "#17becf",         # Muted teal
-    "RealTimeActorCriticMLPNE-11": "#e377c2",       # Muted pink
-    "Random": "#7f7f7f",                           # Gray
+    "RealTimeActorCriticConv-3": "#1f77b4",  # Muted blue
+    "RealTimeActorCriticConvEmb-3": "#2ca02c",  # Muted green
+    "RealTimeActorCriticConvEmbNE-3": "#d62728",  # Muted red
+    "RealTimeActorCriticConvNE-3": "#9467bd",  # Muted purple
+    "RealTimeActorCriticConvPooling-3": "#ff7f0e",  # Muted orange
+    "RealTimeActorCriticConvPoolingNE-3": "#8c564b",  # Muted brown
+    "RealTimeActorCriticMLP-3": "#17becf",  # Muted teal
+    "RealTimeActorCriticMLPNE-3": "#e377c2",  # Muted pink
+    "RealTimeActorCriticConv-7": "#1f77b4",  # Muted blue
+    "RealTimeActorCriticConvEmb-7": "#2ca02c",  # Muted green
+    "RealTimeActorCriticConvEmbNE-7": "#d62728",  # Muted red
+    "RealTimeActorCriticConvNE-7": "#9467bd",  # Muted purple
+    "RealTimeActorCriticConvPooling-7": "#ff7f0e",  # Muted orange
+    "RealTimeActorCriticConvPoolingNE-7": "#8c564b",  # Muted brown
+    "RealTimeActorCriticMLP-7": "#17becf",  # Muted teal
+    "RealTimeActorCriticMLPNE-7": "#e377c2",  # Muted pink
+    "RealTimeActorCriticConv-11": "#1f77b4",  # Muted blue
+    "RealTimeActorCriticConvEmb-11": "#2ca02c",  # Muted green
+    "RealTimeActorCriticConvEmbNE-11": "#d62728",  # Muted red
+    "RealTimeActorCriticConvNE-11": "#9467bd",  # Muted purple
+    "RealTimeActorCriticConvPooling-11": "#ff7f0e",  # Muted orange
+    "RealTimeActorCriticConvPoolingNE-11": "#8c564b",  # Muted brown
+    "RealTimeActorCriticMLP-11": "#17becf",  # Muted teal
+    "RealTimeActorCriticMLPNE-11": "#e377c2",  # Muted pink
+    "Random": "#7f7f7f",  # Gray
 }
 
 # LINESTYLES = {
@@ -64,9 +65,7 @@ COLORS = {
 #     "Random": (0, (1, 1)),
 # }
 
-SINGLE = {
-    "Random"
-}
+SINGLE = {"Random"}
 
 
 if __name__ == "__main__":
@@ -82,7 +81,7 @@ if __name__ == "__main__":
 
     fig, ax = plt.subplots(1, 1)
     best_by_aperture = {}
-    
+
     ax.axhline(y=1.2, label="Oracle", color="black")  # Muted purple
     # ax.axhline(y=0.8, label="DQN-3-7", color="#ff7f0e")  # Muted orange
     # ax.axhline(y=1.0, label="Search Nearest", color="#17becf")  # Muted teal
@@ -107,7 +106,7 @@ if __name__ == "__main__":
             df = alg_result.load()
             if df is None:
                 continue
-            
+
             cols = set(dd.hyper_cols).intersection(df.columns)
             hyper_vals = {col: df[col][0] for col in cols}
 
@@ -166,7 +165,13 @@ if __name__ == "__main__":
             linewidth=1.5,
         )
         if entry["has_many_seeds"]:
-            ax.fill_between(entry["xs"], entry["ci"][0], entry["ci"][1], color=entry["color"], alpha=0.2)
+            ax.fill_between(
+                entry["xs"],
+                entry["ci"][0],
+                entry["ci"][1],
+                color=entry["color"],
+                alpha=0.2,
+            )
         else:
             for y in entry["all_ys"]:
                 ax.plot(entry["xs"], y, color=entry["color"], linewidth=0.2)

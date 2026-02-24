@@ -19,6 +19,8 @@ from PyExpUtils.results.tools import getHeader, getParamsAsDict
 
 from utils.metrics import (
     calculate_biome_occupancy,
+    calculate_biome_rank,
+    calculate_biome_regret,
     calculate_ewm_reward,
     calculate_mean_reward,
     calculate_object_traces,
@@ -58,7 +60,11 @@ def read_metrics_from_data(
         lengths = {k: v.shape[0] for k, v in data_dict.items()}
         if len(lengths) == 0:
             continue
-        base_key = 'rewards' if 'rewards' in lengths else max(lengths, key=lambda k: lengths[k])
+        base_key = (
+            "rewards"
+            if "rewards" in lengths
+            else max(lengths, key=lambda k: lengths[k])
+        )
         base_len = lengths[base_key]
 
         aligned = {}
@@ -113,6 +119,32 @@ def read_metrics_from_data(
             or any(m.startswith("biome_") for m in metrics)
         ):
             datas[run_id] = calculate_biome_occupancy(datas[run_id])
+
+        # Calculate biome regret if requested
+        if "biome_regret" in datas[run_id].columns and (
+            metrics is None
+            or not metrics
+            or any(
+                m.startswith("biome_regret")
+                or m.startswith("ewm_biome_regret")
+                or m.startswith("rolling_biome_regret")
+                for m in metrics
+            )
+        ):
+            datas[run_id] = calculate_biome_regret(datas[run_id])
+
+        # Calculate biome rank if requested
+        if "biome_rank" in datas[run_id].columns and (
+            metrics is None
+            or not metrics
+            or any(
+                m.startswith("biome_rank")
+                or m.startswith("ewm_biome_rank")
+                or m.startswith("rolling_biome_rank")
+                for m in metrics
+            )
+        ):
+            datas[run_id] = calculate_biome_rank(datas[run_id])
         if start is not None or end is not None:
             start_idx = start if start is not None else 0
             length = (end - start_idx) if end is not None else None

@@ -21,6 +21,7 @@ from rlevaluation.temporal import (
 from experiment.ExperimentModel import ExperimentModel
 from utils.results import ResultCollection
 
+
 def main():
     results = ResultCollection(Model=ExperimentModel, metrics=["mean_ewm_reward"])
     results.paths = [path for path in results.paths if "hypers" not in path]
@@ -75,10 +76,7 @@ def main():
             ) as f:
                 json.dump(best_configuration, f, indent=4)
 
-            alg_reports[alg] = {
-                "result": alg_result,
-                "report": report
-            }
+            alg_reports[alg] = {"result": alg_result, "report": report}
 
             update_best_config(alg, report, exp_path)
         env_reports[env] = alg_reports

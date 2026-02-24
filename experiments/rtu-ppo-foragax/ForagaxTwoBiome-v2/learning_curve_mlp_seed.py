@@ -1,8 +1,10 @@
 import os
 import sys
 import tol_colors as tc
+
 # sys.path.append(os.getcwd() + "/src")
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 SRC_PATH = ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -38,8 +40,8 @@ PALETTE = [
 # Linestyles to distinguish families
 LINESTYLES = {
     "RealTimeActorCriticMLP": "-",
-    "ActorCriticMLP":        "-", 
-    "Random": ":",                
+    "ActorCriticMLP": "-",
+    "Random": ":",
 }
 
 # LINESTYLES = {
@@ -54,15 +56,15 @@ LINESTYLES = {
 #     "Random": (0, (1, 1)),
 # }
 
-SINGLE = {
-    "Random"
-}
+SINGLE = {"Random"}
 
 # Helper: strip optional "1M" token (with or without leading separator) so
 # color is shared between 1M and non-1M variants
 
+
 def base_without_1m(name: str) -> str:
     return re.sub(r"[-_]?1M", "", name)
+
 
 if __name__ == "__main__":
     results = ResultCollection(Model=ExperimentModel, metrics=["ewm_reward"])
@@ -146,7 +148,9 @@ if __name__ == "__main__":
                 base_label = base_alg if alg in SINGLE else f"{base_alg}-{aperture}"
 
                 if base_label not in label_to_color:
-                    label_to_color[base_label] = palette_cycle[color_i % len(palette_cycle)]
+                    label_to_color[base_label] = palette_cycle[
+                        color_i % len(palette_cycle)
+                    ]
                     color_i += 1
 
             # Plot each algorithm's curve(s)
@@ -205,7 +209,9 @@ if __name__ == "__main__":
                         alpha=0.3,
                     )
 
-            ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0), useMathText=True)
+            ax.ticklabel_format(
+                axis="x", style="sci", scilimits=(0, 0), useMathText=True
+            )
             ax.set_xlabel("Time steps")
             ax.set_ylabel("Average Reward")
             ax.set_title(f"{env} — FOV {aperture}")
@@ -217,7 +223,7 @@ if __name__ == "__main__":
         # Hide any unused subplots
         for j in range(n, nrows * ncols):
             r, c = divmod(j, ncols)
-            axes[r][c].axis('off')
+            axes[r][c].axis("off")
 
         # Save one figure per env containing the grid
         path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
@@ -226,7 +232,7 @@ if __name__ == "__main__":
             plot_name=f"{env}_grid",
             save_type="pdf",
             f=fig,
-            width = 2,
+            width=2,
             height_ratio=2 / 3,
         )
 
