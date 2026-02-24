@@ -124,7 +124,7 @@ class NNAgent(BaseAgent):
 
         if isinstance(observations, Mapping):
             image_shape = observations["image"]
-            if "hint" in self.scalar_features:
+            if "hint" in observations:
                 self.scalars_size += observations["hint"][0]
         else:
             image_shape = observations

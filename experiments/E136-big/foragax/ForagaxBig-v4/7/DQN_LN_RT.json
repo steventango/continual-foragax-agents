@@ -33,9 +33,11 @@
             "layers": 2,
             "use_layernorm": true,
             "scalar_features": [
-                "last_action",
-                "last_reward",
-                "reward_trace"
+                [
+                    "last_action",
+                    "last_reward",
+                    "reward_trace"
+                ]
             ]
         },
         "update_freq": 4
