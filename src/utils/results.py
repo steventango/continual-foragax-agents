@@ -213,7 +213,7 @@ def load_all_results_from_data(
     )
 
     if "_metadata_" not in tables:
-        return df
+        return df.collect()
 
     meta = cx.read_sql(
         f"sqlite://{db_path}",
