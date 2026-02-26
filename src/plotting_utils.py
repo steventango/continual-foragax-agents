@@ -16,9 +16,9 @@ from matplotlib.lines import Line2D
 def save(save_path: str, plot_name: str, save_type: str, f: Figure, **kwargs):
     """Save matplotlib figure to file."""
     save_dir = Path(save_path)
-    save_dir.mkdir(parents=True, exist_ok=True)
 
     file_path = save_dir / f"{plot_name}.{save_type}"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
     f.savefig(file_path, bbox_inches="tight", **kwargs)
     print(f"Plot saved to: {file_path}")
 
@@ -57,6 +57,8 @@ plt.rcParams["ytick.labelsize"] = FONTSIZE  # Y-tick labels
 LABEL_MAP: Dict[str, str] = {
     "PPO": "PPO",
     "PPO_128": "PPO",
+    "PPO_LN_128": "PPO (LN)",
+    "PPO_LN_RT_128": "PPO (LN, RT)",
     "PPO_L2": "PPO (L2)",
     "ActorCriticMLP": "PPO",
     "ActorCriticMLP-l2": "PPO (L2)",
@@ -66,12 +68,14 @@ LABEL_MAP: Dict[str, str] = {
     "PPO-RTU": "RTU",
     "PPO-RTU_128": "RTU",
     "PPO-RTU_L2": "RTU (L2)",
+    "PPO-RTU_LN_128": "RTU (LN)",
+    "PPO-RTU_LN_128_512": "RTU (LN, H512)",
     "RealTimeActorCriticMLP-world": "RTU (World)",
     "DQN": "DQN",
     "DQN_CReLU": "DQN (CReLU)",
     "DQN_L2": "DQN (L2)",
     "DQN_L2_Init": "DQN (L2 Init)",
-    "DQN_LN": "DQN (LayerNorm)",
+    "DQN_LN": "DQN (LN)",
     "DQN_Reset_Head": "DQN (Head Reset)",
     "DQN_Hare_and_Tortoise": "DQN (Hare & Tortoise)",
     "DQN_Shrink_and_Perturb": "DQN (Shrink & Perturb)",
