@@ -225,7 +225,7 @@ def load_all_results_from_data(
     meta = meta.lazy()
 
     if "id" not in df.columns:
-        return meta
+        return meta.collect()
 
     df = df.join(meta, how="left", on=["id"]).collect()
     del meta
