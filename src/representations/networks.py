@@ -230,6 +230,7 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 layers=params.get("layers", 0),
                 use_layernorm=params.get("use_layernorm", False),
                 name="phi",
+                conv=params.get("conv", "Conv2D"),
             )
             return net(x, *args, **kwargs)
 
@@ -1213,6 +1214,7 @@ class ForagerNet(hk.Module):
         layers: int = 0,
         use_layernorm=False,
         name: str = "",
+        conv: str = "Conv2D",
     ):
         super().__init__(name=name)
         self.hidden = hidden
@@ -1221,10 +1223,21 @@ class ForagerNet(hk.Module):
         self.use_layernorm = use_layernorm
         w_init = hk.initializers.Orthogonal(np.sqrt(2))
 
-        self.conv = hk.Conv2D(16, 3, 1, w_init=w_init, name="phi")
-        self.conv_layer_norm = hk.LayerNorm(
-            axis=-1, create_scale=True, create_offset=True
-        )
+        conv_layers = []
+        if conv == "PConv2D":
+            conv_layers.append(hk.Conv2D(16, 1, 1, w_init=w_init, name="phi"))
+            if self.use_layernorm:
+                conv_layers.append(
+                    hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
+                )
+            conv_layers.append(jax.nn.relu)
+        conv_layers.append(hk.Conv2D(16, 3, 1, w_init=w_init, name="phi"))
+        if self.use_layernorm:
+            conv_layers.append(
+                hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
+            )
+        conv_layers.append(jax.nn.relu)
+        self.conv = hk.Sequential(conv_layers)
 
         self.flatten = hk.Flatten(preserve_dims=1, name="flatten")
 
@@ -1248,9 +1261,6 @@ class ForagerNet(hk.Module):
         **kwargs,
     ) -> hku.AccumulatedOutput:
         h = self.conv(x)
-        if self.use_layernorm:
-            h = self.conv_layer_norm(h)
-        h = jax.nn.relu(h)
 
         h = self.flatten(h)
 
