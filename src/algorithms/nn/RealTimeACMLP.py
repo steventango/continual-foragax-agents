@@ -65,9 +65,6 @@ class RealTimeActorCriticMLP(nn.Module):
         actor_embedding = jnp.concatenate(
             (actor_embedding, last_action_encoded, last_reward_plus), axis=-1
         )
-        actor_embedding = nn.Dense(self.hidden_size, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="actor_dense2")(actor_embedding)
-        actor_embedding = nn.LayerNorm(epsilon=1e-05, name="actor_ln2")(actor_embedding)
-        actor_embedding = activation(actor_embedding)
         actor_embedding_skip = actor_embedding
 
         critic_embedding = nn.Dense(
@@ -82,9 +79,6 @@ class RealTimeActorCriticMLP(nn.Module):
         critic_embedding = jnp.concatenate(
             (critic_embedding, last_action_encoded, last_reward_plus), axis=-1
         )
-        critic_embedding = nn.Dense(self.hidden_size, kernel_init=orthogonal(np.sqrt(2)), bias_init=constant(0.0), name="critic_dense2")(critic_embedding)
-        critic_embedding = nn.LayerNorm(epsilon=1e-05, name="critic_ln2")(critic_embedding)
-        critic_embedding = activation(critic_embedding)
         critic_embedding_skip = critic_embedding
 
         actor_hidden, actor_embedding = seq_model(self.d_hidden, params_type="exp_exp", name="actor_rtu")(actor_hidden, actor_embedding)
@@ -93,7 +87,8 @@ class RealTimeActorCriticMLP(nn.Module):
         critic_embedding = jnp.concatenate((critic_embedding, critic_embedding_skip), axis=-1)
 
         actor_mean = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="actor_dense2")(actor_embedding)
-        actor_mean = nn.LayerNorm(epsilon=1e-05, name="actor_ln2")(actor_mean)
+        if self.use_layernorm:
+            actor_mean = nn.LayerNorm(epsilon=1e-05, name="actor_layernorm2")(actor_mean)
         actor_mean = activation(actor_mean)
         actor_mean = nn.Dense(
             self.action_dim,

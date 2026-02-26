@@ -1,5 +1,9 @@
 # Modified from esraaelelimy/continuing_ppo
+import sys
 
+# Ensure third-party libraries that expect older JAX internals can import.
+# This sets a small compatibility alias if needed before importing distrax/tfp.
+import utils.jax_compat
 import socket
 import time
 import logging
@@ -58,7 +62,6 @@ class TrainConfig:
     gradient_clipping: bool = struct.field(pytree_node=False)
     num_updates: int = struct.field(pytree_node=False)
     env_id: str = struct.field(pytree_node=False)
-    video: bool = struct.field(pytree_node=False)
     aperture_size: int = struct.field(pytree_node=False)
     render_mode: str = struct.field(pytree_node=False)
     env_kwargs: Any = struct.field(pytree_node=False)
@@ -1046,7 +1049,9 @@ def main():
         context = exp.buildSaveContext(idx, base=args.save_path)
         save_path = context.resolve("results.db")
         data_path = context.resolve(f"data/{idx}.npz")
+        video_path = context.resolve(f"videos/{idx}")
         context.ensureExists(data_path, is_file=True)
+        context.ensureExists(video_path, is_file=True)
 
         start_time = time.time()
         if config.allocate_frames:

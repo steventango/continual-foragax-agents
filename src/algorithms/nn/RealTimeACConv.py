@@ -19,6 +19,7 @@ class RealTimeActorCriticConv(nn.Module):
 
     use_sinusoidal_encoding: bool = False
     use_reward_trace: bool = False
+    use_layernorm: bool = False
     @nn.compact
     def __call__(self, hidden, obs):
         """
@@ -55,7 +56,8 @@ class RealTimeActorCriticConv(nn.Module):
             bias_init=constant(0.0),
             name="actor_conv1",
         )(obs)
-        actor_embedding = nn.LayerNorm(epsilon=1e-05, name="actor_ln1")(actor_embedding)
+        if self.use_layernorm:
+            actor_embedding = nn.LayerNorm(epsilon=1e-05, name="actor_layernorm1")(actor_embedding)
         actor_embedding = activation(actor_embedding)
         actor_embedding = jnp.reshape(actor_embedding, (actor_embedding.shape[0], -1))
         actor_embedding = jnp.concatenate((
@@ -68,7 +70,8 @@ class RealTimeActorCriticConv(nn.Module):
             kernel_init=orthogonal(np.sqrt(2)),
             bias_init=constant(0.0),
             name="actor_dense2")(actor_embedding)
-        actor_embedding = nn.LayerNorm(epsilon=1e-05, name="actor_ln2",
+        if self.use_layernorm:
+            actor_embedding = nn.LayerNorm(epsilon=1e-05, name="actor_layernorm2",
         )(actor_embedding)
         actor_embedding = activation(actor_embedding)
         actor_embedding_skip = actor_embedding
@@ -81,7 +84,8 @@ class RealTimeActorCriticConv(nn.Module):
             bias_init=constant(0.0),
             name="critic_conv1",
         )(obs)
-        critic_embedding = nn.LayerNorm(epsilon=1e-05, name="critic_ln1")(critic_embedding)
+        if self.use_layernorm:
+            critic_embedding = nn.LayerNorm(epsilon=1e-05, name="critic_layernorm1")(critic_embedding)
         critic_embedding = activation(critic_embedding)
         critic_embedding = jnp.reshape(
             critic_embedding, (critic_embedding.shape[0], -1)
@@ -96,7 +100,8 @@ class RealTimeActorCriticConv(nn.Module):
             kernel_init=orthogonal(np.sqrt(2)),
             bias_init=constant(0.0),
             name="critic_dense2")(critic_embedding)
-        critic_embedding = nn.LayerNorm(epsilon=1e-05, name="critic_ln2",
+        if self.use_layernorm:
+            critic_embedding = nn.LayerNorm(epsilon=1e-05, name="critic_layernorm2",
         )(critic_embedding)
         critic_embedding = activation(critic_embedding)
         critic_embedding_skip = critic_embedding
@@ -107,7 +112,8 @@ class RealTimeActorCriticConv(nn.Module):
         critic_embedding = jnp.concatenate((critic_embedding, critic_embedding_skip), axis=-1)
 
         actor_mean = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="actor_dense3")(actor_embedding)
-        actor_mean = nn.LayerNorm(epsilon=1e-05, name="actor_ln3")(actor_mean)
+        if self.use_layernorm:
+            actor_mean = nn.LayerNorm(epsilon=1e-05, name="actor_layernorm3")(actor_mean)
         actor_mean = activation(actor_mean)
         actor_mean = nn.Dense(
             self.action_dim,
@@ -130,7 +136,8 @@ class RealTimeActorCriticConv(nn.Module):
             bias_init=constant(0.0),
             name="critic_dense3",
         )(critic_embedding)
-        critic = nn.LayerNorm(epsilon=1e-05, name="critic_ln3")(critic)
+        if self.use_layernorm:
+            critic = nn.LayerNorm(epsilon=1e-05, name="critic_layernorm3")(critic)
         critic = activation(critic)
         critic = nn.Dense(
             1, kernel_init=orthogonal(1.0), bias_init=constant(0.0), name="critic_value"
