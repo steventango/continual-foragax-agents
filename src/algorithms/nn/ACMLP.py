@@ -41,15 +41,10 @@ class ActorCriticMLP(nn.Module):
                 (last_reward_plus, reward_trace), axis=-1
             )
 
-        obs_hidden_size = (
-            self.hidden_size
-            - last_action_encoded.shape[-1]
-            - last_reward_plus.shape[-1]
-        )
         obs = jnp.reshape(obs, (obs.shape[0], -1))
 
         actor_embedding = nn.Dense(
-            obs_hidden_size,
+            self.hidden_size,
             kernel_init=orthogonal(np.sqrt(2)),
             bias_init=constant(0.0),
             name="actor_dense1",
@@ -62,7 +57,7 @@ class ActorCriticMLP(nn.Module):
         )
 
         critic_embedding = nn.Dense(
-            obs_hidden_size,
+            self.hidden_size,
             kernel_init=orthogonal(np.sqrt(2)),
             bias_init=constant(0.0),
             name="critic_dense1",

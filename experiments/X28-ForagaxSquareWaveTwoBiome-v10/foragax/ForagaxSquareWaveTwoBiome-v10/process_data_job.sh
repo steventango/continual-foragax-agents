@@ -1,0 +1,22 @@
+#!/bin/bash
+#SBATCH --account=aip-amw8
+#SBATCH --job-name=X28-ForagaxSquareWaveTwoBiome-v10_foragax_ForagaxSquareWaveTwoBiome-v10_process_data
+#SBATCH --mem-per-cpu=8G
+#SBATCH --ntasks=16
+#SBATCH --output={$SCRATCH}/slurm-%j.out
+#SBATCH --time=01:59:00
+
+module load arrow/19
+
+cp -R .venv $SLURM_TMPDIR
+
+export MPLBACKEND=TKAgg
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NPROC=1
+export XLA_FLAGS="--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
+export JAX_PLATFORMS=cpu
+
+$SLURM_TMPDIR/.venv/bin/python src/process_data.py experiments/X28-ForagaxSquareWaveTwoBiome-v10/foragax/ForagaxSquareWaveTwoBiome-v10
