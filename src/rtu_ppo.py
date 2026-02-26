@@ -526,7 +526,17 @@ def experiment(rng, config: TrainConfig):
         jnp.zeros((1, 1)),
     )
 
-    init_hstate = agent.initialize_memory(1, config.d_hidden, config.hidden_size)
+    if "conv" not in config.agent_type.lower():
+        # d_input to RTU = hidden_size (Dense output) + action_dim + last_reward (1)
+        #                  + sinusoidal_encoding (2 if enabled) + reward_trace (1 if enabled)
+        d_input = config.hidden_size + action_dim + 1
+        if config.use_sinusoidal_encoding:
+            d_input += 2
+        if config.use_reward_trace:
+            d_input += 1
+    else:
+        d_input = config.hidden_size
+    init_hstate = agent.initialize_memory(1, config.d_hidden, d_input)
     network_params = network.init(_rng, init_hstate, init_x)
 
     def make_label_tree(params):

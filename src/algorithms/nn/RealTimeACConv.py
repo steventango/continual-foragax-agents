@@ -100,18 +100,14 @@ class RealTimeActorCriticConv(nn.Module):
         )(critic_embedding)
         critic_embedding = activation(critic_embedding)
         critic_embedding_skip = critic_embedding
-        
-        actor_hidden, actor_embedding = seq_model(self.d_hidden, params_type="exp_exp", activation="linear", name="actor_rtu")(actor_hidden, actor_embedding)
-        actor_embedding = nn.LayerNorm(epsilon=1e-05, name="actor_ln3")(actor_embedding)
-        actor_embedding = activation(actor_embedding)
-        critic_hidden, critic_embedding = seq_model(self.d_hidden, params_type="exp_exp", activation="linear", name="critic_rtu")(critic_hidden, critic_embedding)
-        critic_embedding = nn.LayerNorm(epsilon=1e-05, name="critic_ln3")(critic_embedding)
-        critic_embedding = activation(critic_embedding)
+
+        actor_hidden, actor_embedding = seq_model(self.d_hidden, params_type="exp_exp", name="actor_rtu")(actor_hidden, actor_embedding)
+        critic_hidden, critic_embedding = seq_model(self.d_hidden, params_type="exp_exp", name="critic_rtu")(critic_hidden, critic_embedding)
         actor_embedding = jnp.concatenate((actor_embedding, actor_embedding_skip), axis=-1)
         critic_embedding = jnp.concatenate((critic_embedding, critic_embedding_skip), axis=-1)
-        
-        actor_mean = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="actor_dense4")(actor_embedding)
-        actor_mean = nn.LayerNorm(epsilon=1e-05, name="actor_ln4")(actor_mean)
+
+        actor_mean = nn.Dense(self.hidden_size, kernel_init=orthogonal(2), bias_init=constant(0.0), name="actor_dense3")(actor_embedding)
+        actor_mean = nn.LayerNorm(epsilon=1e-05, name="actor_ln3")(actor_mean)
         actor_mean = activation(actor_mean)
         actor_mean = nn.Dense(
             self.action_dim,
@@ -132,9 +128,9 @@ class RealTimeActorCriticConv(nn.Module):
             self.hidden_size,
             kernel_init=orthogonal(2),
             bias_init=constant(0.0),
-            name="critic_dense4",
+            name="critic_dense3",
         )(critic_embedding)
-        critic = nn.LayerNorm(epsilon=1e-05, name="critic_ln4")(critic)
+        critic = nn.LayerNorm(epsilon=1e-05, name="critic_ln3")(critic)
         critic = activation(critic)
         critic = nn.Dense(
             1, kernel_init=orthogonal(1.0), bias_init=constant(0.0), name="critic_value"

@@ -56,6 +56,12 @@ def main():
         help="Minimum frame to include in the plot (default: 1000 to skip warm-up)",
     )
     parser.add_argument(
+        "--end-frame",
+        type=int,
+        default=None,
+        help="Maximum frame to include in the plot",
+    )
+    parser.add_argument(
         "--legend",
         action="store_true",
         help="Use legend instead of auto-labeling",
@@ -161,6 +167,8 @@ def main():
         df = df.filter(pl.col("seed").is_in(args.filter_seeds))
 
     df = df.filter(pl.col("frame") >= args.start_frame)
+    if args.end_frame is not None:
+        df = df.filter(pl.col("frame") <= args.end_frame)
 
     # # Patch temperature data for Weather environments (after filtering to reduce memory usage)
     env = df["env"][0]
@@ -381,6 +389,7 @@ def main():
             ax.xaxis.set_major_formatter(
                 ticker.FuncFormatter(lambda x, _: f"{x / 1000000:g}")
             )
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
             despine(ax)
 
             # Handle legend for multi-algorithm cells
@@ -462,6 +471,7 @@ def main():
             ax.xaxis.set_major_formatter(
                 ticker.FuncFormatter(lambda x, _: f"{x / 1000000:g}")
             )
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
             despine(ax)
 
             if args.vertical_lines:
@@ -533,10 +543,11 @@ def main():
                 ax.set_xlabel(r"Time steps $(\times 10^6)$")
             else:
                 ax.set_xlabel("")  # Remove x-label for non-last subplots
-            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=1))
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
             ax.xaxis.set_major_formatter(
                 ticker.FuncFormatter(lambda x, _: f"{x / 1000000:g}")
             )
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
             despine(ax)
 
             if args.vertical_lines:
