@@ -80,7 +80,13 @@ def main(experiment_path: Path):
                 if df is not None:
                     dfs.append(df)
 
-    dfs = [df for df in dfs if not df.is_empty()]
+    collected_dfs = []
+    for df in dfs:
+        if isinstance(df, pl.LazyFrame):
+            df = df.collect()
+        if not df.is_empty():
+            collected_dfs.append(df)
+    dfs = collected_dfs
     if not dfs:
         print("No data found to concatenate")
         return

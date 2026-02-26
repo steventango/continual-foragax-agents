@@ -1,0 +1,49 @@
+{
+    "agent": "DRQN_LN_1_1_frozen_500K",
+    "problem": "Foragax",
+    "total_steps": 1000000,
+    "episode_cutoff": -1,
+    "metaParameters": {
+        "epsilon": 0.05,
+        "target_refresh": 1,
+        "buffer_size": 1000,
+        "buffer_min_size": 50,
+        "batch": 32,
+        "environment": {
+            "env_id": "ForagaxBig-v4",
+            "aperture_size": 15,
+            "observation_type": "rgb"
+        },
+        "experiment": {
+            "seed_offset": 0,
+            "video_length": 10000,
+            "video_every": 100000
+        },
+        "gamma": 0.99,
+        "optimizer": {
+            "name": "Adam",
+            "alpha": 0.0001,
+            "beta1": 0.9,
+            "beta2": 0.9,
+            "eps": 1e-08
+        },
+        "representation": {
+            "type": "ForagerGRUNetReLU",
+            "hidden": 64,
+            "layers": 2,
+            "use_layernorm": true,
+            "pre_gru_layers": 1,
+            "post_gru_layers": 1
+        },
+        "update_freq": 4,
+        "sequence_length": 128,
+        "burn_in_steps": 16,
+        "scalar_features": [
+            [
+                "last_action",
+                "last_reward"
+            ]
+        ],
+        "freeze_steps": 500000
+    }
+}

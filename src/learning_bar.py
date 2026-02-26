@@ -59,8 +59,16 @@ def main():
     env = df["env"][0]
 
     if not bars:
-        unique_algs = df["alg"].unique().to_list()
-        bars = [(alg, None, "every", None) for alg in unique_algs]
+        if args.filter_alg_apertures:
+            bars = []
+            for faa in args.filter_alg_apertures:
+                parts = faa.split(":")
+                alg = parts[0]
+                aperture = int(parts[1]) if len(parts) > 1 else None
+                bars.append((alg, aperture, "every", None))
+        else:
+            unique_algs = df["alg"].unique().to_list()
+            bars = [(alg, None, "every", None) for alg in unique_algs]
 
     plot_data = []
     for alg, aperture, sample_type, seeds in bars:

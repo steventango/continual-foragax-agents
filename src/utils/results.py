@@ -49,6 +49,7 @@ def read_metrics_from_data(
             run_id_paths[run_id] = path
     else:
         run_id_paths = {run_id: Path(data_path) / f"{run_id}.npz" for run_id in run_ids}
+
     datas: dict[int, pl.DataFrame] = {}
     for run_id, path in run_id_paths.items():
         if not path.exists():
@@ -213,7 +214,7 @@ def load_all_results_from_data(
     )
 
     if "_metadata_" not in tables:
-        return df
+        return df.collect()
 
     meta = cx.read_sql(
         f"sqlite://{db_path}",
@@ -225,7 +226,7 @@ def load_all_results_from_data(
     meta = meta.lazy()
 
     if "id" not in df.columns:
-        return meta
+        return pl.DataFrame()
 
     df = df.join(meta, how="left", on=["id"]).collect()
     del meta

@@ -61,12 +61,16 @@ class DRQN(NNAgent):
         else:
             image_shape = observations
 
+        dummy_hint = None
+        if isinstance(observations, Mapping) and "hint" in observations and "hint" in self.scalar_features:
+            dummy_hint = jnp.zeros(observations["hint"])
+
         dummy_timestep = {
             "x": jnp.zeros(image_shape),
             "carry": jnp.zeros(self.hidden_size),
             "reset": jnp.bool(True),
             "scalars": self.encode_scalar_features(
-                jnp.int32(0), jnp.float32(0), jnp.float32(0)
+                jnp.int32(0), jnp.float32(0), jnp.float32(0), dummy_hint
             ),
             "a": jnp.int32(0),
             "r": jnp.float32(0),

@@ -11,6 +11,7 @@ import pickle
 import socket
 import time
 import traceback
+from collections.abc import Mapping
 
 import jax
 import jax.numpy as jnp
@@ -214,6 +215,8 @@ if isinstance(glues[0].environment, Foragax):
     datas["biome_regret"] = np.empty((len(indices), n), dtype=np.float16)
     datas["biome_rank"] = np.empty((len(indices), n), dtype=np.int32)
     datas["object_collected_id"] = np.empty((len(indices), n), dtype=np.int32)
+    datas["hint"] = np.full((len(indices), n), -1, dtype=np.int32)
+
     if "Weather" in glues[0].environment.env.name:
         datas["temperatures"] = np.empty(
             (len(indices), n, len(glues[0].environment.env.objects)), dtype=np.float16
@@ -235,6 +238,18 @@ if isinstance(glues[0].environment, Foragax):
             "abs_td_error": abs_td_error,
             "loss": loss,
         }
+
+        if isinstance(interaction.obs, Mapping) and "hint" in interaction.obs:
+            hint = interaction.obs["hint"]
+            # hint is a one hot vector, store -1 if it is all zero.
+            # store index of 1 if it is one-hot.
+            hint_val = jnp.where(
+                jnp.any(hint > 0, axis=-1), jnp.argmax(hint, axis=-1), -1
+            )
+            data["hint"] = hint_val
+        elif "hint" in datas:
+            data["hint"] = jnp.full(interaction.reward.shape, -1, dtype=jnp.int32)
+
         if "Weather" in glues[0].environment.env.name:
             data["temperatures"] = interaction.extra["temperatures"]
         return data
@@ -298,6 +313,7 @@ for i, idx in enumerate(indices):
                     datas["object_collected_id"] = np.empty(
                         (len(indices), n), dtype=np.int32
                     )
+                    datas["hint"] = np.full((len(indices), n), -1, dtype=np.int32)
                     if "Weather" in glues[0].environment.env.name:
                         datas["temperatures"] = np.empty(
                             (len(indices), n, len(glues[0].environment.env.objects)),

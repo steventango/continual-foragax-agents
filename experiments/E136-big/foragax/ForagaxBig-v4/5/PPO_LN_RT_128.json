@@ -11,7 +11,7 @@
         "experiment": {
             "seed_offset": 0,
             "video_length": 10000,
-            "video_every": 10000000
+            "video_every": 100000
         },
         "gamma": 0.99,
         "gae_lambda": 0.95,

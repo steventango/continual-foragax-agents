@@ -10,8 +10,8 @@ do
     python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-256.json --time 03:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E136-big/foragax-sweep/ForagaxBig-v4/${fov}/DQN.json
     python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-256.json --time 03:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E136-big/foragax-sweep/ForagaxBig-v4/${fov}/DQN_LN.json
     python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-256.json --time 03:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E136-big/foragax-sweep/ForagaxBig-v4/${fov}/DQN_LN_RT.json
-    python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-256.json --time 03:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E136-big/foragax-sweep/ForagaxBig-v4/${fov}/DRQN_1_1.json
-    python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-256.json --time 03:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E136-big/foragax-sweep/ForagaxBig-v4/${fov}/DRQN_0_2.json
-    python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-256.json --time 03:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E136-big/foragax-sweep/ForagaxBig-v4/${fov}/DRQN_LN_1_1.json
-    python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-256.json --time 03:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E136-big/foragax-sweep/ForagaxBig-v4/${fov}/DRQN_LN_0_2.json
+    python scripts/slurm.py --cluster clusters/vulcan-gpu-mps.json --time 09:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E136-big/foragax-sweep/ForagaxBig-v4/${fov}/DRQN_1_1.json
+    python scripts/slurm.py --cluster clusters/vulcan-gpu-mps.json --time 09:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E136-big/foragax-sweep/ForagaxBig-v4/${fov}/DRQN_0_2.json
+    python scripts/slurm.py --cluster clusters/vulcan-gpu-mps.json --time 09:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E136-big/foragax-sweep/ForagaxBig-v4/${fov}/DRQN_LN_1_1.json
+    python scripts/slurm.py --cluster clusters/vulcan-gpu-mps.json --time 09:00:00 --runs 5 --entry src/continuing_main.py --force -e experiments/E136-big/foragax-sweep/ForagaxBig-v4/${fov}/DRQN_LN_0_2.json
 done
