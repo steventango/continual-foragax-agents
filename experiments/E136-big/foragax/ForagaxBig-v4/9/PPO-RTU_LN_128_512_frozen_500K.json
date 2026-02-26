@@ -1,5 +1,5 @@
 {
-    "agent": "PPO_LN_128",
+    "agent": "PPO-RTU_LN_128_512_frozen_500K",
     "problem": "Foragax",
     "total_steps": 1000000,
     "metaParameters": {
@@ -39,8 +39,9 @@
         },
         "representation": {
             "hidden": 64,
-            "d_hidden": 192,
+            "d_hidden": 512,
             "use_layernorm": true
-        }
+        },
+        "freeze_steps": 500000
     }
 }

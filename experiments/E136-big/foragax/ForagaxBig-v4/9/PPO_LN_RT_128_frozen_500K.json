@@ -1,5 +1,5 @@
 {
-    "agent": "PPO_LN_128",
+    "agent": "PPO_LN_RT_128_frozen_500K",
     "problem": "Foragax",
     "total_steps": 1000000,
     "metaParameters": {
@@ -22,7 +22,7 @@
         "gradient_clipping": true,
         "max_grad_norm": 0.5,
         "vf_coef": 0.5,
-        "entropy_coef": 0.1,
+        "entropy_coef": 0.001,
         "optimizer_actor": {
             "name": "Adam",
             "alpha": 3e-05,
@@ -40,7 +40,9 @@
         "representation": {
             "hidden": 64,
             "d_hidden": 192,
-            "use_layernorm": true
-        }
+            "use_layernorm": true,
+            "use_reward_trace": true
+        },
+        "freeze_steps": 500000
     }
 }

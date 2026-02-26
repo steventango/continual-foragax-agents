@@ -1,7 +1,7 @@
 {
     "clip_eps": 0.2,
     "entropy_coef": 0.1,
-    "environment.aperture_size": 9,
+    "environment.aperture_size": 5,
     "environment.env_id": "ForagaxBig-v4",
     "environment.observation_type": "rgb",
     "epochs": 4,
@@ -11,7 +11,7 @@
     "gradient_clipping": 1,
     "max_grad_norm": 0.5,
     "num_mini_batch": 32,
-    "optimizer_actor.alpha": 3e-05,
+    "optimizer_actor.alpha": 0.0001,
     "optimizer_actor.beta1": 0.9,
     "optimizer_actor.beta2": 0.999,
     "optimizer_actor.eps": 1e-05,
@@ -21,9 +21,9 @@
     "optimizer_critic.eps": 1e-05,
     "optimizer_critic.lr_scale": 0.1,
     "optimizer_critic.name": "Adam",
-    "representation.d_hidden": 512,
+    "representation.d_hidden": 192,
     "representation.hidden": 64,
-    "representation.use_layernorm": 0,
+    "representation.use_layernorm": 1,
     "rollout_steps": 128,
     "vf_coef": 0.5
 }

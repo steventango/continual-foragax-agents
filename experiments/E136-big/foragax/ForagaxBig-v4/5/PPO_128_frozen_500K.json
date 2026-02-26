@@ -1,11 +1,11 @@
 {
-    "agent": "PPO_LN_128",
+    "agent": "PPO_128_frozen_500K",
     "problem": "Foragax",
     "total_steps": 1000000,
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxBig-v4",
-            "aperture_size": 9,
+            "aperture_size": 5,
             "observation_type": "rgb"
         },
         "experiment": {
@@ -39,8 +39,8 @@
         },
         "representation": {
             "hidden": 64,
-            "d_hidden": 192,
-            "use_layernorm": true
-        }
+            "d_hidden": 192
+        },
+        "freeze_steps": 500000
     }
 }
