@@ -8,7 +8,7 @@
         "target_refresh": 128,
         "buffer_size": 1000,
         "buffer_min_size": 50,
-        "batch": 32,
+        "batch": 4,
         "environment": {
             "env_id": "ForagaxBig-v4",
             "aperture_size": 9,
@@ -25,7 +25,7 @@
             "alpha": 0.0003,
             "beta1": 0.9,
             "beta2": 0.9,
-            "eps": 1e-08
+            "eps": 1e-5
         },
         "representation": {
             "type": "ForagerGRUNetReLU",
@@ -36,7 +36,7 @@
             "post_gru_layers": 2
         },
         "update_freq": 4,
-        "sequence_length": 128,
+        "sequence_length": 64,
         "burn_in_steps": 16
     }
 }

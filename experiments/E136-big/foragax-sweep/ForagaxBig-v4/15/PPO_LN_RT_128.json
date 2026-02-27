@@ -21,7 +21,6 @@
         "max_grad_norm": 0.5,
         "vf_coef": 0.5,
         "entropy_coef": [
-            0.001,
             0.01,
             0.1,
             1.0
@@ -29,14 +28,12 @@
         "optimizer_actor": {
             "name": "Adam",
             "alpha": [
-                0.001,
-                0.0003,
                 0.0001,
                 3e-05,
                 1e-05
             ],
             "beta1": 0.9,
-            "beta2": 0.999,
+            "beta2": [0.999, 0.9],
             "eps": 1e-05
         },
         "optimizer_critic": {
@@ -47,7 +44,7 @@
                 0.1
             ],
             "beta1": 0.9,
-            "beta2": 0.999,
+            "beta2": [0.999, 0.9],
             "eps": 1e-05
         },
         "representation": {
