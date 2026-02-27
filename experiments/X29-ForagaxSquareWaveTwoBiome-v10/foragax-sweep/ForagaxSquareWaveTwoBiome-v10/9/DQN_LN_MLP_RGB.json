@@ -1,22 +1,18 @@
 {
-    "agent": "DQN_LN_Color",
+    "agent": "DQN_LN_MLP_RGB",
     "problem": "Foragax",
-    "total_steps": 1000000,
+    "total_steps": 100000,
     "episode_cutoff": -1,
     "metaParameters": {
         "epsilon": 0.05,
-        "target_refresh": [
-            1,
-            128
-        ],
+        "target_refresh": 128,
         "buffer_size": 1000,
         "buffer_min_size": 50,
         "batch": 32,
         "environment": {
             "env_id": "ForagaxSquareWaveTwoBiome-v10",
             "aperture_size": 9,
-            "random_shift_max_steps": 10000000,
-            "observation_type": "color"
+            "observation_type": "rgb"
         },
         "experiment": {
             "seed_offset": 1000000
@@ -25,29 +21,23 @@
         "optimizer": {
             "name": "Adam",
             "alpha": [
-                0.003,
                 0.001,
                 0.0003,
-                0.0001,
-                3e-05,
-                1e-05
+                0.0001
             ],
             "beta1": 0.9,
             "beta2": [
                 0.9,
                 0.999
             ],
-            "eps": [
-                0.01,
-                1e-08
-            ]
+            "eps": 1e-5
         },
         "representation": {
             "type": "ForagerNet",
             "hidden": 64,
             "layers": 2,
             "use_layernorm": true,
-            "conv": "Conv2D"
+            "conv": "None"
         },
         "update_freq": 4
     }

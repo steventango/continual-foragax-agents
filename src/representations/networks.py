@@ -232,6 +232,7 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 balanced=params.get("balanced", False),
                 name="phi",
                 conv=params.get("conv", "Conv2D"),
+                coord=params.get("coord", False),
             )
             return net(x, *args, **kwargs)
 
@@ -1293,21 +1294,23 @@ class ForagerNet(hk.Module):
         w_init = hk.initializers.Orthogonal(np.sqrt(2))
 
         conv_layers = []
-        if conv == "PConv2D":
+        if conv == "PConv2D" or conv == "PConv2DConv2D":
             conv_layers.append(hk.Conv2D(16, 1, 1, w_init=w_init, name="phi"))
             if self.use_layernorm:
                 conv_layers.append(
                     hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
                 )
             conv_layers.append(jax.nn.relu)
-        if self.coord:
+        if self.coord_conv:
             conv_layers.append(self._add_coord_channels)
-        conv_layers.append(hk.Conv2D(16, 3, 1, w_init=w_init, name="phi"))
-        if self.use_layernorm:
-            conv_layers.append(
-                hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
-            )
-        conv_layers.append(jax.nn.relu)
+        if conv == "PConv2DConv2D" or conv == "Conv2D":
+            conv_layers.append(hk.Conv2D(16, 3, 1, w_init=w_init, name="phi"))
+            if self.use_layernorm:
+                conv_layers.append(
+                    hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
+                )
+            conv_layers.append(jax.nn.relu)
+
         self.conv = hk.Sequential(conv_layers)
 
         self.flatten = hk.Flatten(preserve_dims=1, name="flatten")
