@@ -37,12 +37,6 @@
         },
         "update_freq": 4,
         "sequence_length": 128,
-        "burn_in_steps": 16,
-        "scalar_features": [
-            [
-                "last_action",
-                "last_reward"
-            ]
-        ]
+        "burn_in_steps": 16
     }
 }
