@@ -13,7 +13,7 @@ from experiment.tools import parseCmdLineArgs
 from experiment.ExperimentModel import ExperimentModel
 from utils.results import ResultCollection
 
-
+import polars as pl
 from PyExpPlotting.matplot import save, setDefaultConference
 import rlevaluation.hypers as Hypers
 from rlevaluation.statistics import Statistic
@@ -46,6 +46,10 @@ if __name__ == "__main__":
             print(df)
             if df is None:
                 continue
+            df = df.with_columns([
+                pl.col("mean_ewm_reward").cast(pl.Float32),
+                pl.col("ewm_reward").cast(pl.Float32),
+            ])
 
             report = Hypers.select_best_hypers(
                 df,
