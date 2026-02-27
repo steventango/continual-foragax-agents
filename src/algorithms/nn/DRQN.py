@@ -1,6 +1,7 @@
+from collections.abc import Mapping
+from dataclasses import replace
 from functools import partial
 from typing import Any, Dict, Tuple, Union
-from dataclasses import replace
 
 import haiku as hk
 import jax
@@ -8,7 +9,6 @@ import jax.numpy as jnp
 import optax
 from jax.flatten_util import ravel_pytree
 from ml_instrumentation.Collector import Collector
-from collections.abc import Mapping
 
 import utils.chex as cxu
 from algorithms.nn.NNAgent import AgentState as BaseAgentState
@@ -62,15 +62,26 @@ class DRQN(NNAgent):
             image_shape = observations
 
         dummy_hint = None
+        dummy_hint_trace = None
         if isinstance(observations, Mapping) and "hint" in observations and "hint" in self.scalar_features:
             dummy_hint = jnp.zeros(observations["hint"])
+        if (
+            isinstance(observations, Mapping)
+            and "hint" in observations
+            and "hint_trace" in self.scalar_features
+        ):
+            dummy_hint_trace = jnp.zeros(observations["hint"])
 
         dummy_timestep = {
             "x": jnp.zeros(image_shape),
             "carry": jnp.zeros(self.hidden_size),
             "reset": jnp.bool(True),
             "scalars": self.encode_scalar_features(
-                jnp.int32(0), jnp.float32(0), jnp.float32(0), dummy_hint
+                jnp.int32(0),
+                jnp.float32(0),
+                jnp.float32(0),
+                dummy_hint,
+                dummy_hint_trace,
             ),
             "a": jnp.int32(0),
             "r": jnp.float32(0),

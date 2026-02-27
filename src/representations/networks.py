@@ -229,6 +229,7 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 scalars=params["scalars"],
                 layers=params.get("layers", 0),
                 use_layernorm=params.get("use_layernorm", False),
+                balanced=params.get("balanced", False),
                 name="phi",
                 conv=params.get("conv", "Conv2D"),
             )
@@ -276,8 +277,13 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
             net = ForagerGRUNetReLU(
                 hidden=hidden,
                 scalars=params["scalars"],
+                hint_size=params.get("hint_size", 0),
+                hint_gru_only=params.get("hint_gru_only", False),
+                balanced=params.get("balanced", False),
                 pre_gru_layers=params.get("pre_gru_layers", 0),
+                post_gru_layers=params.get("post_gru_layers", 0),
                 learn_initial_h=params.get("learn_initial_h", True),
+                use_layernorm=params.get("use_layernorm", False),
                 name="ForagerGRUNetReLU",
             )
             return net(x, *args, **kwargs)
@@ -847,6 +853,9 @@ class ForagerGRUNetReLU(hk.Module):
         self,
         hidden: int,
         scalars: int = 0,
+        hint_size: int = 0,
+        hint_gru_only: bool = False,
+        balanced: bool = False,
         pre_gru_layers: int = 0,
         post_gru_layers: int = 0,
         learn_initial_h=True,
@@ -856,6 +865,10 @@ class ForagerGRUNetReLU(hk.Module):
         super().__init__(name=name)
         self.hidden = hidden
         self.scalars = scalars
+        self.hint_size = hint_size
+        self.hint_gru_only = hint_gru_only
+        self.balanced = balanced
+        self.other_scalars = scalars - hint_size
         self.use_layernorm = use_layernorm
         self.pre_gru_layers = pre_gru_layers
         self.post_gru_layers = post_gru_layers
@@ -867,6 +880,25 @@ class ForagerGRUNetReLU(hk.Module):
         )
 
         self.flatten = hk.Flatten(preserve_dims=2, name="flatten")
+
+        # Balanced mode: project vision and scalars to equal-sized embeddings
+        if self.balanced:
+            vision_proj = [hk.Linear(self.hidden, w_init=w_init, name="vision_proj")]
+            if use_layernorm:
+                vision_proj.append(
+                    hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
+                )
+            vision_proj.append(jax.nn.relu)
+            self.vision_proj = hk.Sequential(vision_proj)
+
+            if self.scalars > 0:
+                scalars_proj = [hk.Linear(self.hidden, w_init=w_init, name="scalars_proj")]
+                if use_layernorm:
+                    scalars_proj.append(
+                        hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
+                    )
+                scalars_proj.append(jax.nn.relu)
+                self.scalars_proj = hk.Sequential(scalars_proj)
 
         if pre_gru_layers > 0:
             layers = []
@@ -907,8 +939,9 @@ class ForagerGRUNetReLU(hk.Module):
           x: Input tensor with shape [N, T, ...]
           scalars: Optional scalar features with shape [N, T, S]
           reset: Optional binary flag sequence with shape [N, T] indicating when to reset the GRU state.
-                 For example, at episode boundaries.
           carry: The initial hidden state for RNN.
+          hint_gru_only: When True, only the hint portion of scalars is fed through
+                         the GRU while vision remains feedforward.
 
         Returns:
           outputs_sequence: Representation vectors sequence.
@@ -933,23 +966,54 @@ class ForagerGRUNetReLU(hk.Module):
 
         h = self.flatten(h)
 
+        # Balanced mode: project vision and scalars to equal-sized embeddings
+        if self.balanced:
+            h = self.vision_proj(h)
+
         if self.scalars > 0:
             if scalars is None:
                 scalars = jnp.zeros((N, T, self.scalars))
             elif len(scalars.shape) < 3:
                 scalars = jnp.broadcast_to(scalars, (N, T, self.scalars))
+            if self.balanced:
+                scalars = self.scalars_proj(scalars)
 
-            h = jnp.concatenate([h, scalars], axis=-1)
+        if self.hint_gru_only and self.hint_size > 0:
+            # GRU on hint only; vision + other scalars stay feedforward
+            other = scalars[..., : self.other_scalars] if self.scalars > 0 else None
+            hint = (
+                scalars[..., self.other_scalars :]
+                if self.scalars > 0
+                else jnp.zeros((N, T, self.hint_size))
+            )
 
-        if self.pre_gru_layers > 0:
-            h = self.pre_gru_mlp(h)
+            gru_in = hint
+            if self.pre_gru_layers > 0:
+                gru_in = self.pre_gru_mlp(gru_in)
 
-        outputs_sequence, states_sequence, initial_carry = self.gru(
-            h, reset, carry, is_target=is_target
-        )
-        outputs_sequence = jax.nn.relu(outputs_sequence)
+            gru_out, states_sequence, initial_carry = self.gru(
+                gru_in, reset, carry, is_target=is_target
+            )
+            gru_out = jax.nn.relu(gru_out)
 
-        outputs_sequence = jnp.concatenate([outputs_sequence, h], axis=-1)
+            # Concat: vision + gru_out + skip(hint) + other_scalars
+            parts = [h, gru_out, hint]
+            if other is not None and self.other_scalars > 0:
+                parts.append(other)
+            outputs_sequence = jnp.concatenate(parts, axis=-1)
+        else:
+            # Standard: concat all then GRU on everything
+            if self.scalars > 0:
+                h = jnp.concatenate([h, scalars], axis=-1)
+
+            if self.pre_gru_layers > 0:
+                h = self.pre_gru_mlp(h)
+
+            outputs_sequence, states_sequence, initial_carry = self.gru(
+                h, reset, carry, is_target=is_target
+            )
+            outputs_sequence = jax.nn.relu(outputs_sequence)
+            outputs_sequence = jnp.concatenate([outputs_sequence, h], axis=-1)
 
         if self.post_gru_layers > 0:
             outputs_sequence = self.post_gru_mlp(outputs_sequence)
@@ -1213,14 +1277,19 @@ class ForagerNet(hk.Module):
         scalars: int = 0,
         layers: int = 0,
         use_layernorm=False,
+        balanced=False,
         name: str = "",
         conv: str = "Conv2D",
+        coord: bool = False,
+        **kwargs,
     ):
         super().__init__(name=name)
         self.hidden = hidden
         self.scalars = scalars
         self.layers = layers
         self.use_layernorm = use_layernorm
+        self.balanced = balanced
+        self.coord_conv = coord
         w_init = hk.initializers.Orthogonal(np.sqrt(2))
 
         conv_layers = []
@@ -1231,6 +1300,8 @@ class ForagerNet(hk.Module):
                     hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
                 )
             conv_layers.append(jax.nn.relu)
+        if self.coord:
+            conv_layers.append(self._add_coord_channels)
         conv_layers.append(hk.Conv2D(16, 3, 1, w_init=w_init, name="phi"))
         if self.use_layernorm:
             conv_layers.append(
@@ -1240,6 +1311,25 @@ class ForagerNet(hk.Module):
         self.conv = hk.Sequential(conv_layers)
 
         self.flatten = hk.Flatten(preserve_dims=1, name="flatten")
+
+        # Balanced mode: project vision and scalars to equal-sized embeddings
+        if self.balanced:
+            vision_proj = [hk.Linear(self.hidden, w_init=w_init, name="vision_proj")]
+            if use_layernorm:
+                vision_proj.append(
+                    hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
+                )
+            vision_proj.append(jax.nn.relu)
+            self.vision_proj = hk.Sequential(vision_proj)
+
+            if self.scalars > 0:
+                scalars_proj = [hk.Linear(self.hidden, w_init=w_init, name="scalars_proj")]
+                if use_layernorm:
+                    scalars_proj.append(
+                        hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
+                    )
+                scalars_proj.append(jax.nn.relu)
+                self.scalars_proj = hk.Sequential(scalars_proj)
 
         if layers > 0:
             mlp_layers = []
@@ -1254,6 +1344,25 @@ class ForagerNet(hk.Module):
 
         self.phi = hk.Flatten(preserve_dims=1, name="phi")
 
+    @staticmethod
+    def _add_coord_channels(x: jnp.ndarray) -> jnp.ndarray:
+        """Append normalised (x, y) coordinate channels to image tensor.
+
+        Works for shapes (..., H, W, C).  Coordinates are in [-1, 1].
+        """
+        *batch, h, w, _c = x.shape
+        # Row coords (y) and column coords (x), normalised to [-1, 1]
+        y_coords = jnp.linspace(-1.0, 1.0, h)[:, None]          # (H, 1)
+        x_coords = jnp.linspace(-1.0, 1.0, w)[None, :]          # (1, W)
+        y_grid = jnp.broadcast_to(y_coords, (h, w))[..., None]   # (H, W, 1)
+        x_grid = jnp.broadcast_to(x_coords, (h, w))[..., None]   # (H, W, 1)
+        coords = jnp.concatenate([x_grid, y_grid], axis=-1)      # (H, W, 2)
+        # Broadcast across batch dims
+        for _ in batch:
+            coords = coords[None, ...]
+        coords = jnp.broadcast_to(coords, (*batch, h, w, 2))
+        return jnp.concatenate([x, coords], axis=-1)
+
     def __call__(
         self,
         x: jnp.ndarray,
@@ -1264,11 +1373,20 @@ class ForagerNet(hk.Module):
 
         h = self.flatten(h)
 
-        if self.scalars > 0:
-            if scalars is None:
-                scalars = jnp.zeros(x.shape[:-3] + (self.scalars,))
-
-            h = jnp.concatenate([h, scalars], axis=-1)
+        if self.balanced:
+            h = self.vision_proj(h)
+            parts = [h]
+            if self.scalars > 0:
+                if scalars is not None:
+                    parts.append(self.scalars_proj(scalars))
+                else:
+                    parts.append(jnp.zeros(x.shape[:-3] + (self.hidden,)))
+            h = jnp.concatenate(parts, axis=-1)
+        else:
+            if self.scalars > 0:
+                if scalars is None:
+                    scalars = jnp.zeros(x.shape[:-3] + (self.scalars,))
+                h = jnp.concatenate([h, scalars], axis=-1)
 
         if self.layers > 0:
             h = self.mlp(h)
