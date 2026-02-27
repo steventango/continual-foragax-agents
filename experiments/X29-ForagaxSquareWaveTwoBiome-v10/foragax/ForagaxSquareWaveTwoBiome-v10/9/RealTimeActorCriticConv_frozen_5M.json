@@ -1,5 +1,5 @@
 {
-    "agent": "RealTimeActorCriticMLP_frozen_5M",
+    "agent": "RealTimeActorCriticConv_frozen_5M",
     "problem": "Foragax",
     "total_steps": 10000000,
     "metaParameters": {
