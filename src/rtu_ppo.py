@@ -1,41 +1,39 @@
 # Modified from esraaelelimy/continuing_ppo
-import sys
-
-# Ensure third-party libraries that expect older JAX internals can import.
-# This sets a small compatibility alias if needed before importing distrax/tfp.
-import utils.jax_compat
-import socket
-import time
+import argparse
 import logging
-from jax.tree_util import tree_map
-import numpy as np
-from flax import struct
+import os
+import socket
+import sys
+import time
 from collections.abc import Mapping
 from functools import partial
-from typing import NamedTuple, Any, Callable, Tuple
+from typing import Any, Callable, NamedTuple, Tuple
+
 import jax
 import jax.numpy as jnp
-from jax_tqdm.scan_pbar import scan_tqdm
-from jax_tqdm.base import PBar
+import numpy as np
+import optax
+from flax import struct, traverse_util
+from flax.training.train_state import TrainState
 from gymnasium.utils.save_video import save_video
+from jax.tree_util import tree_map
+from jax_tqdm.base import PBar
+from jax_tqdm.scan_pbar import scan_tqdm
 from ml_instrumentation.Collector import Collector
 from ml_instrumentation.metadata import attach_metadata
 from ml_instrumentation.Sampler import Ignore, MovingAverage, Subsample
 from ml_instrumentation.utils import Pipe
 from PyExpUtils.results.tools import getParamsAsDict
-from flax import traverse_util
+
+# Ensure third-party libraries that expect older JAX internals can import.
+# This sets a small compatibility alias if needed before importing distrax/tfp.
+import utils.jax_compat
+from algorithms.PPORegistry import getAgent
 from experiment import ExperimentModel
 from utils.checkpoint import Checkpoint
 from utils.ml_instrumentation.Sampler import Mean
 from utils.ml_instrumentation.utils import Last
 from utils.preempt import TimeoutHandler
-from algorithms.PPORegistry import getAgent
-
-import optax
-from flax.training.train_state import TrainState
-import argparse
-
-import os
 
 sys.path.insert(0, os.path.abspath("/tmp/src"))
 from foragax.registry import make
@@ -67,7 +65,9 @@ class TrainConfig:
     env_kwargs: Any = struct.field(pytree_node=False)
     use_sinusoidal_encoding: bool = struct.field(pytree_node=False)
     use_reward_trace: bool = struct.field(pytree_node=False)
+    use_hint_trace: bool = struct.field(pytree_node=False)
     use_layernorm: bool = struct.field(pytree_node=False)
+    balanced: bool = struct.field(pytree_node=False)
     allocate_frames: bool = struct.field(pytree_node=False)
     video_length: int = struct.field(pytree_node=False)
     # ---- DYNAMIC (may vary per idx; arithmetic only) ----
@@ -82,19 +82,21 @@ class TrainConfig:
     adam_b2_pi: float
     adam_b1_vf: float
     adam_b2_vf: float
-    
+
     sparsity: float
     spectral_radius: float
 
     id: int
     reward_trace_decay: float
+    hint_trace_decay: float
     gamma: float
     gae_lambda: float
     clip_eps: float
     vf_coef: float
     entropy_coef: float
     freeze_steps: int = -1
-    
+
+
 class GymnaxEnvState(struct.PyTreeNode):
     to_render: bool = struct.field(pytree_node=True)
     cond_render: Callable = struct.field(pytree_node=False)
@@ -231,6 +233,7 @@ def env_step(runner_state, _):
         last_action,
         last_reward,
         reward_trace,
+        hint_trace,
         rng,
         hstate,
     ) = runner_state
@@ -245,6 +248,15 @@ def env_step(runner_state, _):
         obs_img = last_obs["image"]
         hint = last_obs["hint"]
         last_reward_encoded = jnp.concatenate((last_reward_encoded, hint), axis=-1)
+        # Compute hint trace EMA
+        hint_trace = (
+            config.hint_trace_decay * hint_trace
+            + (1.0 - config.hint_trace_decay) * hint
+        )
+        if config.use_hint_trace:
+            last_reward_encoded = jnp.concatenate(
+                (last_reward_encoded, hint_trace), axis=-1
+            )
     else:
         obs_img = last_obs
 
@@ -312,6 +324,7 @@ def env_step(runner_state, _):
         action.squeeze(),
         reward,
         reward_trace,
+        hint_trace,
         rng,
         last_hidden,
     )
@@ -444,9 +457,11 @@ def update_step(update_state):
 
 def experiment(rng, config: TrainConfig):
     kwargs = dict(config.env_kwargs)
-        
-    print(f"Creating env {config.env_id} with aperture size {config.aperture_size} and kwargs {kwargs}")
-        
+
+    print(
+        f"Creating env {config.env_id} with aperture size {config.aperture_size} and kwargs {kwargs}"
+    )
+
     env = make(config.env_id, aperture_size=config.aperture_size, **kwargs)
 
     rng, reset_rng = jax.random.split(rng)
@@ -491,13 +506,13 @@ def experiment(rng, config: TrainConfig):
     action_dim = 4
 
     agent = getAgent(config.agent_type)
-    
+
     kwargs = {}
     if config.sparsity is not None:
         kwargs["sparsity"] = config.sparsity
     if config.spectral_radius is not None:
         kwargs["spectral_radius"] = config.spectral_radius
-    
+
     # Create and initialize the network.
     network = agent(
         action_dim=action_dim,
@@ -508,6 +523,7 @@ def experiment(rng, config: TrainConfig):
         use_sinusoidal_encoding=config.use_sinusoidal_encoding,
         use_reward_trace=config.use_reward_trace,
         use_layernorm=config.use_layernorm,
+        balanced=config.balanced,
         **kwargs,
     )
 
@@ -515,7 +531,11 @@ def experiment(rng, config: TrainConfig):
 
     if isinstance(obs, Mapping):
         obs_img_shape = obs["image"].shape
-        hint_shape = (1 + obs["hint"].shape[-1],)
+        hint_dim = obs["hint"].shape[-1]
+        hint_shape_size = 1 + hint_dim
+        if config.use_hint_trace:
+            hint_shape_size += hint_dim
+        hint_shape = (hint_shape_size,)
     else:
         obs_img_shape = obs.shape
         hint_shape = (1,)
@@ -605,6 +625,12 @@ def experiment(rng, config: TrainConfig):
         zeros = jnp.zeros((config.epochs, config.num_mini_batch), dtype=jnp.float32)
         return (zeros, (zeros, zeros, zeros))
 
+    hint_trace_init = (
+        jnp.zeros(obs["hint"].shape[-1:])
+        if isinstance(obs, Mapping)
+        else jnp.float32(0)
+    )
+
     env_step_state = (
         train_state,
         gymnax_state,
@@ -614,6 +640,7 @@ def experiment(rng, config: TrainConfig):
         0,
         0,
         0,
+        hint_trace_init,
         rng,
         init_hstate,
     )
@@ -630,6 +657,7 @@ def experiment(rng, config: TrainConfig):
             last_action,
             last_reward,
             reward_trace,
+            hint_trace,
             rng,
             hstate,
         ) = env_step_state
@@ -657,6 +685,7 @@ def experiment(rng, config: TrainConfig):
             last_action,
             last_reward,
             reward_trace,
+            hint_trace,
             rng,
             hstate,
         )
@@ -675,6 +704,7 @@ def experiment(rng, config: TrainConfig):
             last_action,
             last_reward,
             reward_trace,
+            hint_trace,
             rng,
             last_hstate,
         ) = env_step_state
@@ -688,6 +718,15 @@ def experiment(rng, config: TrainConfig):
             obs_img = last_obs["image"]
             hint = last_obs["hint"]
             last_reward_encoded = jnp.concatenate((last_reward_encoded, hint), axis=-1)
+            # Compute hint trace EMA for bootstrap
+            hint_trace = (
+                config.hint_trace_decay * hint_trace
+                + (1.0 - config.hint_trace_decay) * hint
+            )
+            if config.use_hint_trace:
+                last_reward_encoded = jnp.concatenate(
+                    (last_reward_encoded, hint_trace), axis=-1
+                )
         else:
             obs_img = last_obs
 
@@ -921,7 +960,7 @@ def main():
 
         seed = exp.getRun(idx) + hypers.get("seed_offset", 0)
         rng = jax.random.PRNGKey(seed)
-        
+
         freeze_steps = hypers.get("freeze_after_steps", hypers.get("freeze_steps", -1))
         if "freeze_steps_end" in hypers:
             # TODO: this is to match the key for the env reset, that is the jax.random.PRNGKey(seed)[1] is used to reset the env
@@ -969,6 +1008,13 @@ def main():
             spectral_radius=hypers["representation"].get("spectral_radius", None),
             use_sinusoidal_encoding=bool(hypers.get("use_sinusoidal_encoding", False)),
             use_reward_trace=bool(hypers.get("use_reward_trace", False)),
+            use_hint_trace=bool(hypers.get("use_hint_trace", False)),
+            balanced=bool(
+                hypers.get(
+                    "balanced",
+                    hypers.get("representation", {}).get("balanced", False),
+                )
+            ),
             use_layernorm=bool(
                 hypers.get(
                     "use_layernorm",
@@ -976,13 +1022,18 @@ def main():
                 )
             ),
             reward_trace_decay=float(hypers.get("reward_trace_decay", 1.0)),
+            hint_trace_decay=float(hypers.get("hint_trace_decay", 0.9)),
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
             render_mode=hypers["environment"].get("render_mode", "world_reward"),
-            env_kwargs=tuple(sorted(
-                (k, v) for k, v in hypers["environment"].items() 
-                if k not in ["aperture_size", "env_id", "render_mode"] and v is not None
-            )),
+            env_kwargs=tuple(
+                sorted(
+                    (k, v)
+                    for k, v in hypers["environment"].items()
+                    if k not in ["aperture_size", "env_id", "render_mode"]
+                    and v is not None
+                )
+            ),
             env_id=hypers["environment"]["env_id"],
             gamma=float(hypers["gamma"]),
             gae_lambda=float(hypers["gae_lambda"]),

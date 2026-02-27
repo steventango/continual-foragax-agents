@@ -2,6 +2,8 @@ from algorithms.nn.RealTimeACConv import RealTimeActorCriticConv
 from algorithms.nn.RealTimeACConvPooling import RealTimeActorCriticConvPooling
 from algorithms.nn.RealTimeACMLPMulti import RealTimeActorCriticMLPMulti
 from algorithms.nn.RealTimeACMLP import RealTimeActorCriticMLP
+from algorithms.nn.ACCoordConv import ActorCriticCoordConv
+from algorithms.nn.ACPConv import ActorCriticPConv
 from algorithms.nn.ACConv import ActorCriticConv
 from algorithms.nn.ACMLP import ActorCriticMLP
 from algorithms.nn.ESMAC import ESMAC
@@ -16,7 +18,13 @@ def getAgent(name):
 
     if name.startswith("RealTimeActorCriticMLPMulti"):
         return RealTimeActorCriticMLPMulti
-    
+
+    if name.startswith("ActorCriticCoordConv"):
+        return ActorCriticCoordConv
+
+    if name.startswith("ActorCriticPConv"):
+        return ActorCriticPConv
+
     if name.startswith("ActorCriticConv"):
         return ActorCriticConv
 

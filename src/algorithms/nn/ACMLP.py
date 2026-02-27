@@ -18,6 +18,7 @@ class ActorCriticMLP(nn.Module):
     use_sinusoidal_encoding: bool = False
     use_reward_trace: bool = False
     use_layernorm: bool = False
+    balanced: bool = False
 
     @nn.compact
     def __call__(self, hidden, obs):
@@ -52,8 +53,21 @@ class ActorCriticMLP(nn.Module):
         if self.use_layernorm:
             actor_embedding = nn.LayerNorm(name="actor_layernorm1")(actor_embedding)
         actor_embedding = activation(actor_embedding)
+        scalars = jnp.concatenate(
+            (last_action_encoded, last_reward_plus), axis=-1
+        )
+        if self.balanced:
+            scalars = nn.Dense(
+                self.hidden_size,
+                kernel_init=orthogonal(np.sqrt(2)),
+                bias_init=constant(0.0),
+                name="actor_scalars_proj",
+            )(scalars)
+            if self.use_layernorm:
+                scalars = nn.LayerNorm(name="actor_scalars_layernorm")(scalars)
+            scalars = activation(scalars)
         actor_embedding = jnp.concatenate(
-            (actor_embedding, last_action_encoded, last_reward_plus), axis=-1
+            (actor_embedding, scalars), axis=-1
         )
 
         critic_embedding = nn.Dense(
@@ -65,8 +79,21 @@ class ActorCriticMLP(nn.Module):
         if self.use_layernorm:
             critic_embedding = nn.LayerNorm(name="critic_layernorm1")(critic_embedding)
         critic_embedding = activation(critic_embedding)
+        scalars = jnp.concatenate(
+            (last_action_encoded, last_reward_plus), axis=-1
+        )
+        if self.balanced:
+            scalars = nn.Dense(
+                self.hidden_size,
+                kernel_init=orthogonal(np.sqrt(2)),
+                bias_init=constant(0.0),
+                name="critic_scalars_proj",
+            )(scalars)
+            if self.use_layernorm:
+                scalars = nn.LayerNorm(name="critic_scalars_layernorm")(scalars)
+            scalars = activation(scalars)
         critic_embedding = jnp.concatenate(
-            (critic_embedding, last_action_encoded, last_reward_plus), axis=-1
+            (critic_embedding, scalars), axis=-1
         )
 
         actor_embedding = nn.Dense(
