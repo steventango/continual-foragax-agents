@@ -40,15 +40,16 @@ if __name__ == "__main__":
         fig, ax = plt.subplots(1, 1)
         for alg_result in sub_results:
             alg = alg_result.filename
-            print(alg)
 
             df = alg_result.load(end=1000000)
-            print(df)
             if df is None:
                 continue
+
+            print(alg)
+            print(df)
             df = df.with_columns([
                 pl.col("mean_ewm_reward").cast(pl.Float32),
-                pl.col("ewm_reward").cast(pl.Float32),
+                pl.col("ewm_reward_5").cast(pl.Float32),
             ])
 
             report = Hypers.select_best_hypers(
@@ -64,7 +65,7 @@ if __name__ == "__main__":
             xs, ys = extract_learning_curves(
                 df,
                 hyper_vals=report.best_configuration,
-                metric='ewm_reward',
+                metric='ewm_reward_5',
             )
 
             xs = np.asarray(xs)
@@ -78,12 +79,16 @@ if __name__ == "__main__":
                 iterations=10000,
             )
 
-            ax.plot(xs[0], res.sample_stat, label=alg, linewidth=1.0)
-            ax.fill_between(xs[0], res.ci[0], res.ci[1], alpha=0.2)
+            linestyle = '-' if "RGB" in alg else '--'
+
+            line = ax.plot(xs[0], res.sample_stat, label=alg, linewidth=1.0, linestyle=linestyle)
+            for y in ys:
+                ax.plot(xs[0], y, color=line[0].get_color(), alpha=0.2, linewidth=0.5)
+            ax.fill_between(xs[0], res.ci[0], res.ci[1], alpha=0.1)
 
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        
+
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize='small')
 
         path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
