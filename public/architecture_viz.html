@@ -221,20 +221,24 @@
         // ── Tab groups definition ────────────────────────────────────────────
         const GROUPS = [
             {
-                id: "dqn-group", label: "DQN Variants",
+                id: "dqn-group", label: "DQN",
                 variants: ["DQN_LN_RT", "DQN_LN", "DQN"]
             },
             {
-                id: "drqn-group", label: "DRQN Variants",
-                variants: ["DRQN_LN_0_2", "DRQN_LN_1_1", "DRQN_0_2", "DRQN_1_1"]
+                id: "dqn-ext-group", label: "DQN Extensions",
+                variants: ["DQN_LN_PConv", "DQN_LN_CoordConv", "DQN_LN_hint", "DQN_LN_hint_trace", "DQN_LN_Balanced"]
             },
             {
-                id: "ppo-group", label: "PPO Variants",
-                variants: ["PPO_LN_RT_128", "PPO_LN_128", "PPO_128"]
+                id: "drqn-group", label: "DRQN",
+                variants: ["DRQN_LN_0_2", "DRQN_LN_1_1", "DRQN_0_2", "DRQN_1_1", "DRQN_LN_hint_gru"]
             },
             {
-                id: "ppo-rtu-group", label: "PPO-RTU Variants",
-                variants: ["PPO-RTU_LN_128_512", "PPO-RTU_LN_128", "PPO-RTU_128_512", "PPO-RTU_128"]
+                id: "ppo-group", label: "PPO",
+                variants: ["PPO_LN_RT_128", "PPO_LN_128", "PPO_128", "ActorCriticConv", "ActorCriticMLP-hint", "ActorCriticMLP-hint-trace", "ActorCriticMLP-balanced"]
+            },
+            {
+                id: "ppo-rtu-group", label: "PPO-RTU",
+                variants: ["PPO-RTU_LN_128_512", "PPO-RTU_LN_128", "PPO-RTU_128_512", "PPO-RTU_128", "PPO-RTU-balanced"]
             },
         ];
 

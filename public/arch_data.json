@@ -11,6 +11,7 @@
     ],
     "scalars": 10,
     "has_rt": true,
+    "has_hint_trace": false,
     "use_layernorm": true,
     "conv_out": 1296,
     "concat_size": 1306,
@@ -25,6 +26,9 @@
     },
     "has_hint": true,
     "hints_size": 4,
+    "conv_type": "Conv2D",
+    "balanced": false,
+    "hint_gru_only": false,
     "graph": {
       "nodes": {
         "Obs": {
@@ -163,6 +167,7 @@
     ],
     "scalars": 9,
     "has_rt": false,
+    "has_hint_trace": false,
     "use_layernorm": true,
     "conv_out": 1296,
     "concat_size": 1305,
@@ -177,6 +182,9 @@
     },
     "has_hint": true,
     "hints_size": 4,
+    "conv_type": "Conv2D",
+    "balanced": false,
+    "hint_gru_only": false,
     "graph": {
       "nodes": {
         "Obs": {
@@ -315,6 +323,7 @@
     ],
     "scalars": 9,
     "has_rt": false,
+    "has_hint_trace": false,
     "use_layernorm": false,
     "conv_out": 1296,
     "concat_size": 1305,
@@ -326,6 +335,9 @@
     },
     "has_hint": true,
     "hints_size": 4,
+    "conv_type": "Conv2D",
+    "balanced": false,
+    "hint_gru_only": false,
     "graph": {
       "nodes": {
         "Obs": {
@@ -437,7 +449,7 @@
   "DRQN_LN_0_2": {
     "variant": "DRQN_LN_0_2",
     "fov": 9,
-    "total_params": 268248,
+    "total_params": 354916,
     "obs_shape": "9\u00d79\u00d73",
     "obs_shape_tuple": [
       9,
@@ -446,17 +458,26 @@
     ],
     "scalars": 9,
     "has_rt": false,
+    "has_hint_trace": false,
     "use_layernorm": true,
     "conv_out": 1296,
     "concat_size": 1305,
     "modules": {
       "phi/ForagerGRUNetReLU/~/phi": 448,
+      "phi/ForagerGRUNetReLU/~/layer_norm": 32,
       "phi/ForagerGRUNetReLU/~/gru": 64,
       "phi/ForagerGRUNetReLU/~/gru/~/gru_inner": 262272,
-      "q/q": 5464
+      "phi/ForagerGRUNetReLU/~/linear": 87424,
+      "phi/ForagerGRUNetReLU/~/layer_norm_1": 128,
+      "phi/ForagerGRUNetReLU/~/linear_1": 4160,
+      "phi/ForagerGRUNetReLU/~/layer_norm_2": 128,
+      "q/q": 260
     },
     "has_hint": true,
     "hints_size": 4,
+    "conv_type": "Conv2D",
+    "balanced": false,
+    "hint_gru_only": false,
     "pre_gru_layers": 0,
     "post_gru_layers": 2,
     "graph": {
@@ -500,11 +521,11 @@
           "type": "styleConcat"
         },
         "PostDense1": {
-          "label": "Dense\\n1369\u219264",
+          "label": "Dense\\n1369\u219264\\n87,424 params",
           "type": "styleMlp"
         },
         "PostLN1": {
-          "label": "LayerNorm\\n64",
+          "label": "LayerNorm\\n64\\n32 params",
           "type": "styleNorm"
         },
         "PostAct1": {
@@ -512,11 +533,11 @@
           "type": "styleNorm"
         },
         "PostDense2": {
-          "label": "Dense\\n64\u219264",
+          "label": "Dense\\n64\u219264\\n4,160 params",
           "type": "styleMlp"
         },
         "PostLN2": {
-          "label": "LayerNorm\\n64",
+          "label": "LayerNorm\\n64\\n128 params",
           "type": "styleNorm"
         },
         "PostAct2": {
@@ -524,7 +545,7 @@
           "type": "styleNorm"
         },
         "QHead": {
-          "label": "Q-Head\\n64\u21924\\n5,464 params",
+          "label": "Q-Head\\n64\u21924\\n260 params",
           "type": "styleHead"
         }
       },
@@ -628,12 +649,12 @@
     },
     "title": "DRQN_LN_0_2",
     "description": "Recurrent DQN with LayerNorm, 0 pre-GRU layers.",
-    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    QHead(\"Q-Head\\n64\u21924\\n5,464 params\"):::styleHead\n    subgraph ForagerNet [\"DRQN (ForagerGRUNetReLU)\"]\n    direction TB\n    Obs(\"Seq Obs\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params\"):::styleMlp\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    Concat(\"Concat\\n\u21921305\"):::styleConcat\n    GRU(\"GRU 64\\n1305\u219264\\n262,336 params\"):::styleRnn\n    ReLU2(\"ReLU\"):::styleNorm\n    Skip(\"Concat Skip\\n\u21921369\"):::styleConcat\n        subgraph PostGRU [\"Post-GRU\"]\n        direction TB\n        PostDense1(\"Dense\\n1369\u219264\"):::styleMlp\n        PostLN1(\"LayerNorm\\n64\"):::styleNorm\n        PostAct1(\"ReLU\"):::styleNorm\n        PostDense2(\"Dense\\n64\u219264\"):::styleMlp\n        PostLN2(\"LayerNorm\\n64\"):::styleNorm\n        PostAct2(\"ReLU\"):::styleNorm\n        PostDense1 --> PostLN1\n        PostLN1 --> PostAct1\n        PostAct1 --> PostDense2\n        PostDense2 --> PostLN2\n        PostLN2 --> PostAct2\n        end\n    Obs --> Conv\n    Conv --> ReLU1\n    ReLU1 --> Flat\n    Flat --> Concat\n    Scalars --> Concat\n    Concat --> GRU\n    Concat --> Skip\n    GRU --> ReLU2\n    ReLU2 --> Skip\n    end\n    Skip --> PostDense1\n    PostAct2 --> QHead"
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    QHead(\"Q-Head\\n64\u21924\\n260 params\"):::styleHead\n    subgraph ForagerNet [\"DRQN (ForagerGRUNetReLU)\"]\n    direction TB\n    Obs(\"Seq Obs\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params\"):::styleMlp\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    Concat(\"Concat\\n\u21921305\"):::styleConcat\n    GRU(\"GRU 64\\n1305\u219264\\n262,336 params\"):::styleRnn\n    ReLU2(\"ReLU\"):::styleNorm\n    Skip(\"Concat Skip\\n\u21921369\"):::styleConcat\n        subgraph PostGRU [\"Post-GRU\"]\n        direction TB\n        PostDense1(\"Dense\\n1369\u219264\\n87,424 params\"):::styleMlp\n        PostLN1(\"LayerNorm\\n64\\n32 params\"):::styleNorm\n        PostAct1(\"ReLU\"):::styleNorm\n        PostDense2(\"Dense\\n64\u219264\\n4,160 params\"):::styleMlp\n        PostLN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n        PostAct2(\"ReLU\"):::styleNorm\n        PostDense1 --> PostLN1\n        PostLN1 --> PostAct1\n        PostAct1 --> PostDense2\n        PostDense2 --> PostLN2\n        PostLN2 --> PostAct2\n        end\n    Obs --> Conv\n    Conv --> ReLU1\n    ReLU1 --> Flat\n    Flat --> Concat\n    Scalars --> Concat\n    Concat --> GRU\n    Concat --> Skip\n    GRU --> ReLU2\n    ReLU2 --> Skip\n    end\n    Skip --> PostDense1\n    PostAct2 --> QHead"
   },
   "DRQN_LN_1_1": {
     "variant": "DRQN_LN_1_1",
     "fov": 9,
-    "total_params": 109124,
+    "total_params": 117412,
     "obs_shape": "9\u00d79\u00d73",
     "obs_shape_tuple": [
       9,
@@ -642,18 +663,26 @@
     ],
     "scalars": 9,
     "has_rt": false,
+    "has_hint_trace": false,
     "use_layernorm": true,
     "conv_out": 1296,
     "concat_size": 1305,
     "modules": {
       "phi/ForagerGRUNetReLU/~/phi": 448,
+      "phi/ForagerGRUNetReLU/~/layer_norm": 32,
       "phi/ForagerGRUNetReLU/~/linear": 83328,
+      "phi/ForagerGRUNetReLU/~/layer_norm_1": 128,
       "phi/ForagerGRUNetReLU/~/gru": 64,
       "phi/ForagerGRUNetReLU/~/gru/~/gru_inner": 24768,
-      "q/q": 516
+      "phi/ForagerGRUNetReLU/~/linear_1": 8256,
+      "phi/ForagerGRUNetReLU/~/layer_norm_2": 128,
+      "q/q": 260
     },
     "has_hint": true,
     "hints_size": 4,
+    "conv_type": "Conv2D",
+    "balanced": false,
+    "hint_gru_only": false,
     "pre_gru_layers": 1,
     "post_gru_layers": 1,
     "graph": {
@@ -701,7 +730,7 @@
           "type": "styleMlp"
         },
         "PreLN": {
-          "label": "LayerNorm\\n64",
+          "label": "LayerNorm\\n64\\n32 params",
           "type": "styleNorm"
         },
         "PreAct": {
@@ -713,7 +742,7 @@
           "type": "styleMlp"
         },
         "PostLN1": {
-          "label": "LayerNorm\\n64",
+          "label": "LayerNorm\\n64\\n128 params",
           "type": "styleNorm"
         },
         "PostAct1": {
@@ -721,7 +750,7 @@
           "type": "styleNorm"
         },
         "QHead": {
-          "label": "Q-Head\\n64\u21924\\n516 params",
+          "label": "Q-Head\\n64\u21924\\n260 params",
           "type": "styleHead"
         }
       },
@@ -831,12 +860,12 @@
     },
     "title": "DRQN_LN_1_1",
     "description": "Recurrent DQN with LayerNorm, 1 pre-GRU layer.",
-    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    QHead(\"Q-Head\\n64\u21924\\n516 params\"):::styleHead\n    subgraph ForagerNet [\"DRQN (ForagerGRUNetReLU)\"]\n    direction TB\n    Obs(\"Seq Obs\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params\"):::styleMlp\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    Concat(\"Concat\\n\u21921305\"):::styleConcat\n    GRU(\"GRU 64\\n64\u219264\\n24,832 params\"):::styleRnn\n    ReLU2(\"ReLU\"):::styleNorm\n    Skip(\"Concat Skip\\n\u2192128\"):::styleConcat\n        subgraph PreGRU [\"Pre-GRU\"]\n        direction TB\n        Pre(\"Dense\\n1305\u219264\\n83,328 params\"):::styleMlp\n        PreLN(\"LayerNorm\\n64\"):::styleNorm\n        PreAct(\"ReLU\"):::styleNorm\n        Pre --> PreLN\n        PreLN --> PreAct\n        end\n        subgraph PostGRU [\"Post-GRU\"]\n        direction TB\n        PostDense1(\"Dense\\n128\u219264\\n83,328 params\"):::styleMlp\n        PostLN1(\"LayerNorm\\n64\"):::styleNorm\n        PostAct1(\"ReLU\"):::styleNorm\n        PostDense1 --> PostLN1\n        PostLN1 --> PostAct1\n        end\n    Obs --> Conv\n    Conv --> ReLU1\n    ReLU1 --> Flat\n    Flat --> Concat\n    Scalars --> Concat\n    GRU --> ReLU2\n    ReLU2 --> Skip\n    end\n    Concat --> Pre\n    PreAct --> GRU\n    PreAct --> Skip\n    Skip --> PostDense1\n    PostAct1 --> QHead"
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    QHead(\"Q-Head\\n64\u21924\\n260 params\"):::styleHead\n    subgraph ForagerNet [\"DRQN (ForagerGRUNetReLU)\"]\n    direction TB\n    Obs(\"Seq Obs\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params\"):::styleMlp\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    Concat(\"Concat\\n\u21921305\"):::styleConcat\n    GRU(\"GRU 64\\n64\u219264\\n24,832 params\"):::styleRnn\n    ReLU2(\"ReLU\"):::styleNorm\n    Skip(\"Concat Skip\\n\u2192128\"):::styleConcat\n        subgraph PreGRU [\"Pre-GRU\"]\n        direction TB\n        Pre(\"Dense\\n1305\u219264\\n83,328 params\"):::styleMlp\n        PreLN(\"LayerNorm\\n64\\n32 params\"):::styleNorm\n        PreAct(\"ReLU\"):::styleNorm\n        Pre --> PreLN\n        PreLN --> PreAct\n        end\n        subgraph PostGRU [\"Post-GRU\"]\n        direction TB\n        PostDense1(\"Dense\\n128\u219264\\n83,328 params\"):::styleMlp\n        PostLN1(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n        PostAct1(\"ReLU\"):::styleNorm\n        PostDense1 --> PostLN1\n        PostLN1 --> PostAct1\n        end\n    Obs --> Conv\n    Conv --> ReLU1\n    ReLU1 --> Flat\n    Flat --> Concat\n    Scalars --> Concat\n    GRU --> ReLU2\n    ReLU2 --> Skip\n    end\n    Concat --> Pre\n    PreAct --> GRU\n    PreAct --> Skip\n    Skip --> PostDense1\n    PostAct1 --> QHead"
   },
   "DRQN_0_2": {
     "variant": "DRQN_0_2",
     "fov": 9,
-    "total_params": 268248,
+    "total_params": 354628,
     "obs_shape": "9\u00d79\u00d73",
     "obs_shape_tuple": [
       9,
@@ -845,6 +874,7 @@
     ],
     "scalars": 9,
     "has_rt": false,
+    "has_hint_trace": false,
     "use_layernorm": false,
     "conv_out": 1296,
     "concat_size": 1305,
@@ -852,10 +882,15 @@
       "phi/ForagerGRUNetReLU/~/phi": 448,
       "phi/ForagerGRUNetReLU/~/gru": 64,
       "phi/ForagerGRUNetReLU/~/gru/~/gru_inner": 262272,
-      "q/q": 5464
+      "phi/ForagerGRUNetReLU/~/linear": 87424,
+      "phi/ForagerGRUNetReLU/~/linear_1": 4160,
+      "q/q": 260
     },
     "has_hint": true,
     "hints_size": 4,
+    "conv_type": "Conv2D",
+    "balanced": false,
+    "hint_gru_only": false,
     "pre_gru_layers": 0,
     "post_gru_layers": 2,
     "graph": {
@@ -899,7 +934,7 @@
           "type": "styleConcat"
         },
         "PostDense1": {
-          "label": "Dense\\n1369\u219264",
+          "label": "Dense\\n1369\u219264\\n87,424 params",
           "type": "styleMlp"
         },
         "PostAct1": {
@@ -907,7 +942,7 @@
           "type": "styleNorm"
         },
         "PostDense2": {
-          "label": "Dense\\n64\u219264",
+          "label": "Dense\\n64\u219264\\n4,160 params",
           "type": "styleMlp"
         },
         "PostAct2": {
@@ -915,7 +950,7 @@
           "type": "styleNorm"
         },
         "QHead": {
-          "label": "Q-Head\\n64\u21924\\n5,464 params",
+          "label": "Q-Head\\n64\u21924\\n260 params",
           "type": "styleHead"
         }
       },
@@ -1009,12 +1044,12 @@
     },
     "title": "DRQN_0_2",
     "description": "Recurrent DQN without LayerNorm, 0 pre-GRU layers.",
-    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    QHead(\"Q-Head\\n64\u21924\\n5,464 params\"):::styleHead\n    subgraph ForagerNet [\"DRQN (ForagerGRUNetReLU)\"]\n    direction TB\n    Obs(\"Seq Obs\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params\"):::styleMlp\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    Concat(\"Concat\\n\u21921305\"):::styleConcat\n    GRU(\"GRU 64\\n1305\u219264\\n262,336 params\"):::styleRnn\n    ReLU2(\"ReLU\"):::styleNorm\n    Skip(\"Concat Skip\\n\u21921369\"):::styleConcat\n        subgraph PostGRU [\"Post-GRU\"]\n        direction TB\n        PostDense1(\"Dense\\n1369\u219264\"):::styleMlp\n        PostAct1(\"ReLU\"):::styleNorm\n        PostDense2(\"Dense\\n64\u219264\"):::styleMlp\n        PostAct2(\"ReLU\"):::styleNorm\n        PostDense1 --> PostAct1\n        PostAct1 --> PostDense2\n        PostDense2 --> PostAct2\n        end\n    Obs --> Conv\n    Conv --> ReLU1\n    ReLU1 --> Flat\n    Flat --> Concat\n    Scalars --> Concat\n    Concat --> GRU\n    Concat --> Skip\n    GRU --> ReLU2\n    ReLU2 --> Skip\n    end\n    Skip --> PostDense1\n    PostAct2 --> QHead"
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    QHead(\"Q-Head\\n64\u21924\\n260 params\"):::styleHead\n    subgraph ForagerNet [\"DRQN (ForagerGRUNetReLU)\"]\n    direction TB\n    Obs(\"Seq Obs\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params\"):::styleMlp\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    Concat(\"Concat\\n\u21921305\"):::styleConcat\n    GRU(\"GRU 64\\n1305\u219264\\n262,336 params\"):::styleRnn\n    ReLU2(\"ReLU\"):::styleNorm\n    Skip(\"Concat Skip\\n\u21921369\"):::styleConcat\n        subgraph PostGRU [\"Post-GRU\"]\n        direction TB\n        PostDense1(\"Dense\\n1369\u219264\\n87,424 params\"):::styleMlp\n        PostAct1(\"ReLU\"):::styleNorm\n        PostDense2(\"Dense\\n64\u219264\\n4,160 params\"):::styleMlp\n        PostAct2(\"ReLU\"):::styleNorm\n        PostDense1 --> PostAct1\n        PostAct1 --> PostDense2\n        PostDense2 --> PostAct2\n        end\n    Obs --> Conv\n    Conv --> ReLU1\n    ReLU1 --> Flat\n    Flat --> Concat\n    Scalars --> Concat\n    Concat --> GRU\n    Concat --> Skip\n    GRU --> ReLU2\n    ReLU2 --> Skip\n    end\n    Skip --> PostDense1\n    PostAct2 --> QHead"
   },
   "DRQN_1_1": {
     "variant": "DRQN_1_1",
     "fov": 9,
-    "total_params": 109124,
+    "total_params": 117124,
     "obs_shape": "9\u00d79\u00d73",
     "obs_shape_tuple": [
       9,
@@ -1023,6 +1058,7 @@
     ],
     "scalars": 9,
     "has_rt": false,
+    "has_hint_trace": false,
     "use_layernorm": false,
     "conv_out": 1296,
     "concat_size": 1305,
@@ -1031,10 +1067,14 @@
       "phi/ForagerGRUNetReLU/~/linear": 83328,
       "phi/ForagerGRUNetReLU/~/gru": 64,
       "phi/ForagerGRUNetReLU/~/gru/~/gru_inner": 24768,
-      "q/q": 516
+      "phi/ForagerGRUNetReLU/~/linear_1": 8256,
+      "q/q": 260
     },
     "has_hint": true,
     "hints_size": 4,
+    "conv_type": "Conv2D",
+    "balanced": false,
+    "hint_gru_only": false,
     "pre_gru_layers": 1,
     "post_gru_layers": 1,
     "graph": {
@@ -1094,7 +1134,7 @@
           "type": "styleNorm"
         },
         "QHead": {
-          "label": "Q-Head\\n64\u21924\\n516 params",
+          "label": "Q-Head\\n64\u21924\\n260 params",
           "type": "styleHead"
         }
       },
@@ -1194,12 +1234,12 @@
     },
     "title": "DRQN_1_1",
     "description": "Recurrent DQN without LayerNorm, 1 pre-GRU layer.",
-    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    QHead(\"Q-Head\\n64\u21924\\n516 params\"):::styleHead\n    subgraph ForagerNet [\"DRQN (ForagerGRUNetReLU)\"]\n    direction TB\n    Obs(\"Seq Obs\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params\"):::styleMlp\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    Concat(\"Concat\\n\u21921305\"):::styleConcat\n    GRU(\"GRU 64\\n64\u219264\\n24,832 params\"):::styleRnn\n    ReLU2(\"ReLU\"):::styleNorm\n    Skip(\"Concat Skip\\n\u2192128\"):::styleConcat\n        subgraph PreGRU [\"Pre-GRU\"]\n        direction TB\n        Pre(\"Dense\\n1305\u219264\\n83,328 params\"):::styleMlp\n        PreAct(\"ReLU\"):::styleNorm\n        Pre --> PreAct\n        end\n        subgraph PostGRU [\"Post-GRU\"]\n        direction TB\n        PostDense1(\"Dense\\n128\u219264\\n83,328 params\"):::styleMlp\n        PostAct1(\"ReLU\"):::styleNorm\n        PostDense1 --> PostAct1\n        end\n    Obs --> Conv\n    Conv --> ReLU1\n    ReLU1 --> Flat\n    Flat --> Concat\n    Scalars --> Concat\n    GRU --> ReLU2\n    ReLU2 --> Skip\n    end\n    Concat --> Pre\n    PreAct --> GRU\n    PreAct --> Skip\n    Skip --> PostDense1\n    PostAct1 --> QHead"
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    QHead(\"Q-Head\\n64\u21924\\n260 params\"):::styleHead\n    subgraph ForagerNet [\"DRQN (ForagerGRUNetReLU)\"]\n    direction TB\n    Obs(\"Seq Obs\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params\"):::styleMlp\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    Concat(\"Concat\\n\u21921305\"):::styleConcat\n    GRU(\"GRU 64\\n64\u219264\\n24,832 params\"):::styleRnn\n    ReLU2(\"ReLU\"):::styleNorm\n    Skip(\"Concat Skip\\n\u2192128\"):::styleConcat\n        subgraph PreGRU [\"Pre-GRU\"]\n        direction TB\n        Pre(\"Dense\\n1305\u219264\\n83,328 params\"):::styleMlp\n        PreAct(\"ReLU\"):::styleNorm\n        Pre --> PreAct\n        end\n        subgraph PostGRU [\"Post-GRU\"]\n        direction TB\n        PostDense1(\"Dense\\n128\u219264\\n83,328 params\"):::styleMlp\n        PostAct1(\"ReLU\"):::styleNorm\n        PostDense1 --> PostAct1\n        end\n    Obs --> Conv\n    Conv --> ReLU1\n    ReLU1 --> Flat\n    Flat --> Concat\n    Scalars --> Concat\n    GRU --> ReLU2\n    ReLU2 --> Skip\n    end\n    Concat --> Pre\n    PreAct --> GRU\n    PreAct --> Skip\n    Skip --> PostDense1\n    PostAct1 --> QHead"
   },
   "PPO_LN_RT_128": {
     "variant": "PPO_LN_RT_128",
     "fov": 9,
-    "total_params": 76813,
+    "total_params": 85573,
     "obs_shape": "9\u00d79\u00d73",
     "obs_shape_tuple": [
       9,
@@ -1215,12 +1255,12 @@
     "use_reward_trace": true,
     "use_layernorm": true,
     "modules": {
-      "actor_dense1": 13176,
-      "actor_layernorm1": 108,
-      "critic_dense1": 13176,
-      "critic_layernorm1": 108,
-      "actor_dense2": 12480,
-      "critic_dense2": 12480,
+      "actor_dense1": 15616,
+      "actor_layernorm1": 128,
+      "critic_dense1": 15616,
+      "critic_layernorm1": 128,
+      "actor_dense2": 14400,
+      "critic_dense2": 14400,
       "actor_dense3": 12352,
       "actor_layernorm2": 128,
       "actor_mean": 260,
@@ -1230,6 +1270,9 @@
     },
     "has_hint": true,
     "hints_size": 4,
+    "balanced": false,
+    "is_conv": false,
+    "use_hint_trace": false,
     "graph": {
       "nodes": {
         "Obs": {
@@ -1247,7 +1290,7 @@
           "type": "styleMlp"
         },
         "A_Emb": {
-          "label": "Dense\\n243\u219254\\n13,176 params",
+          "label": "Dense\\n243\u219254\\n15,616 params",
           "type": "styleMlp"
         },
         "A_Concat": {
@@ -1255,7 +1298,7 @@
           "type": "styleConcat"
         },
         "A_Dense2": {
-          "label": "Dense\\n64\u2192192\\n12,480 params",
+          "label": "Dense\\n64\u2192192\\n14,400 params",
           "type": "styleMlp"
         },
         "A_Dense3": {
@@ -1271,7 +1314,7 @@
           "type": "styleHead"
         },
         "C_Emb": {
-          "label": "Dense\\n243\u219254\\n13,176 params",
+          "label": "Dense\\n243\u219254\\n15,616 params",
           "type": "styleMlp"
         },
         "C_Concat": {
@@ -1279,7 +1322,7 @@
           "type": "styleConcat"
         },
         "C_Dense2": {
-          "label": "Dense\\n64\u2192192\\n12,480 params",
+          "label": "Dense\\n64\u2192192\\n14,400 params",
           "type": "styleMlp"
         },
         "C_Dense3": {
@@ -1295,7 +1338,7 @@
           "type": "styleHead"
         },
         "A_LN1": {
-          "label": "LayerNorm\\n54\\n108 params",
+          "label": "LayerNorm\\n54\\n128 params",
           "type": "styleNorm"
         },
         "A_Act1": {
@@ -1307,7 +1350,7 @@
           "type": "styleNorm"
         },
         "C_LN1": {
-          "label": "LayerNorm\\n54\\n108 params",
+          "label": "LayerNorm\\n54\\n128 params",
           "type": "styleNorm"
         },
         "C_Act1": {
@@ -1446,12 +1489,12 @@
     },
     "title": "PPO_LN_RT_128",
     "description": "PPO with LayerNorm and Reward Trace.",
-    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], RT[1], Hint[4]\\n[10]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219254\\n13,176 params\"):::styleMlp\n    A_LN1(\"LayerNorm\\n54\\n108 params\"):::styleNorm\n    A_Act1(\"Tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_Dense2(\"Dense\\n64\u2192192\\n12,480 params\"):::styleMlp\n    A_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    A_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    A_Act3(\"Tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_LN1\n    A_LN1 --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_Dense2\n    A_Dense2 --> A_Dense3\n    A_Dense3 --> A_LN2\n    A_LN2 --> A_Act3\n    A_Act3 --> A_Head\n    end\n    subgraph Critic [\"Critic\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219254\\n13,176 params\"):::styleMlp\n    C_LN1(\"LayerNorm\\n54\\n108 params\"):::styleNorm\n    C_Act1(\"Tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_Dense2(\"Dense\\n64\u2192192\\n12,480 params\"):::styleMlp\n    C_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    C_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    C_Act3(\"Tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_LN1\n    C_LN1 --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_Dense2\n    C_Dense2 --> C_Dense3\n    C_Dense3 --> C_LN2\n    C_LN2 --> C_Act3\n    C_Act3 --> C_Head\n    end\n    Obs --> Flat\n    Flat --> A_Emb\n    Flat --> C_Emb\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    Actor ~~~ Critic"
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], RT[1], Hint[4]\\n[10]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219254\\n15,616 params\"):::styleMlp\n    A_LN1(\"LayerNorm\\n54\\n128 params\"):::styleNorm\n    A_Act1(\"Tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_Dense2(\"Dense\\n64\u2192192\\n14,400 params\"):::styleMlp\n    A_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    A_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    A_Act3(\"Tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_LN1\n    A_LN1 --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_Dense2\n    A_Dense2 --> A_Dense3\n    A_Dense3 --> A_LN2\n    A_LN2 --> A_Act3\n    A_Act3 --> A_Head\n    end\n    subgraph Critic [\"Critic\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219254\\n15,616 params\"):::styleMlp\n    C_LN1(\"LayerNorm\\n54\\n128 params\"):::styleNorm\n    C_Act1(\"Tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_Dense2(\"Dense\\n64\u2192192\\n14,400 params\"):::styleMlp\n    C_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    C_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    C_Act3(\"Tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_LN1\n    C_LN1 --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_Dense2\n    C_Dense2 --> C_Dense3\n    C_Dense3 --> C_LN2\n    C_LN2 --> C_Act3\n    C_Act3 --> C_Head\n    end\n    Obs --> Flat\n    Flat --> A_Emb\n    Flat --> C_Emb\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    Actor ~~~ Critic"
   },
   "PPO_LN_128": {
     "variant": "PPO_LN_128",
     "fov": 9,
-    "total_params": 77305,
+    "total_params": 85189,
     "obs_shape": "9\u00d79\u00d73",
     "obs_shape_tuple": [
       9,
@@ -1467,12 +1510,12 @@
     "use_reward_trace": false,
     "use_layernorm": true,
     "modules": {
-      "actor_dense1": 13420,
-      "actor_layernorm1": 110,
-      "critic_dense1": 13420,
-      "critic_layernorm1": 110,
-      "actor_dense2": 12480,
-      "critic_dense2": 12480,
+      "actor_dense1": 15616,
+      "actor_layernorm1": 128,
+      "critic_dense1": 15616,
+      "critic_layernorm1": 128,
+      "actor_dense2": 14208,
+      "critic_dense2": 14208,
       "actor_dense3": 12352,
       "actor_layernorm2": 128,
       "actor_mean": 260,
@@ -1482,6 +1525,9 @@
     },
     "has_hint": true,
     "hints_size": 4,
+    "balanced": false,
+    "is_conv": false,
+    "use_hint_trace": false,
     "graph": {
       "nodes": {
         "Obs": {
@@ -1499,7 +1545,7 @@
           "type": "styleMlp"
         },
         "A_Emb": {
-          "label": "Dense\\n243\u219255\\n13,420 params",
+          "label": "Dense\\n243\u219255\\n15,616 params",
           "type": "styleMlp"
         },
         "A_Concat": {
@@ -1507,7 +1553,7 @@
           "type": "styleConcat"
         },
         "A_Dense2": {
-          "label": "Dense\\n64\u2192192\\n12,480 params",
+          "label": "Dense\\n64\u2192192\\n14,208 params",
           "type": "styleMlp"
         },
         "A_Dense3": {
@@ -1523,7 +1569,7 @@
           "type": "styleHead"
         },
         "C_Emb": {
-          "label": "Dense\\n243\u219255\\n13,420 params",
+          "label": "Dense\\n243\u219255\\n15,616 params",
           "type": "styleMlp"
         },
         "C_Concat": {
@@ -1531,7 +1577,7 @@
           "type": "styleConcat"
         },
         "C_Dense2": {
-          "label": "Dense\\n64\u2192192\\n12,480 params",
+          "label": "Dense\\n64\u2192192\\n14,208 params",
           "type": "styleMlp"
         },
         "C_Dense3": {
@@ -1547,7 +1593,7 @@
           "type": "styleHead"
         },
         "A_LN1": {
-          "label": "LayerNorm\\n55\\n110 params",
+          "label": "LayerNorm\\n55\\n128 params",
           "type": "styleNorm"
         },
         "A_Act1": {
@@ -1559,7 +1605,7 @@
           "type": "styleNorm"
         },
         "C_LN1": {
-          "label": "LayerNorm\\n55\\n110 params",
+          "label": "LayerNorm\\n55\\n128 params",
           "type": "styleNorm"
         },
         "C_Act1": {
@@ -1698,12 +1744,12 @@
     },
     "title": "PPO_LN_128",
     "description": "PPO with LayerNorm.",
-    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219255\\n13,420 params\"):::styleMlp\n    A_LN1(\"LayerNorm\\n55\\n110 params\"):::styleNorm\n    A_Act1(\"Tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_Dense2(\"Dense\\n64\u2192192\\n12,480 params\"):::styleMlp\n    A_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    A_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    A_Act3(\"Tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_LN1\n    A_LN1 --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_Dense2\n    A_Dense2 --> A_Dense3\n    A_Dense3 --> A_LN2\n    A_LN2 --> A_Act3\n    A_Act3 --> A_Head\n    end\n    subgraph Critic [\"Critic\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219255\\n13,420 params\"):::styleMlp\n    C_LN1(\"LayerNorm\\n55\\n110 params\"):::styleNorm\n    C_Act1(\"Tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_Dense2(\"Dense\\n64\u2192192\\n12,480 params\"):::styleMlp\n    C_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    C_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    C_Act3(\"Tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_LN1\n    C_LN1 --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_Dense2\n    C_Dense2 --> C_Dense3\n    C_Dense3 --> C_LN2\n    C_LN2 --> C_Act3\n    C_Act3 --> C_Head\n    end\n    Obs --> Flat\n    Flat --> A_Emb\n    Flat --> C_Emb\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    Actor ~~~ Critic"
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    A_LN1(\"LayerNorm\\n55\\n128 params\"):::styleNorm\n    A_Act1(\"Tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_Dense2(\"Dense\\n64\u2192192\\n14,208 params\"):::styleMlp\n    A_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    A_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    A_Act3(\"Tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_LN1\n    A_LN1 --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_Dense2\n    A_Dense2 --> A_Dense3\n    A_Dense3 --> A_LN2\n    A_LN2 --> A_Act3\n    A_Act3 --> A_Head\n    end\n    subgraph Critic [\"Critic\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    C_LN1(\"LayerNorm\\n55\\n128 params\"):::styleNorm\n    C_Act1(\"Tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_Dense2(\"Dense\\n64\u2192192\\n14,208 params\"):::styleMlp\n    C_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    C_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    C_Act3(\"Tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_LN1\n    C_LN1 --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_Dense2\n    C_Dense2 --> C_Dense3\n    C_Dense3 --> C_LN2\n    C_LN2 --> C_Act3\n    C_Act3 --> C_Head\n    end\n    Obs --> Flat\n    Flat --> A_Emb\n    Flat --> C_Emb\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    Actor ~~~ Critic"
   },
   "PPO_128": {
     "variant": "PPO_128",
     "fov": 9,
-    "total_params": 76829,
+    "total_params": 84677,
     "obs_shape": "9\u00d79\u00d73",
     "obs_shape_tuple": [
       9,
@@ -1719,10 +1765,10 @@
     "use_reward_trace": false,
     "use_layernorm": false,
     "modules": {
-      "actor_dense1": 13420,
-      "critic_dense1": 13420,
-      "actor_dense2": 12480,
-      "critic_dense2": 12480,
+      "actor_dense1": 15616,
+      "critic_dense1": 15616,
+      "actor_dense2": 14208,
+      "critic_dense2": 14208,
       "actor_dense3": 12352,
       "actor_mean": 260,
       "critic_dense3": 12352,
@@ -1730,6 +1776,9 @@
     },
     "has_hint": true,
     "hints_size": 4,
+    "balanced": false,
+    "is_conv": false,
+    "use_hint_trace": false,
     "graph": {
       "nodes": {
         "Obs": {
@@ -1747,7 +1796,7 @@
           "type": "styleMlp"
         },
         "A_Emb": {
-          "label": "Dense\\n243\u219255\\n13,420 params",
+          "label": "Dense\\n243\u219255\\n15,616 params",
           "type": "styleMlp"
         },
         "A_Concat": {
@@ -1755,7 +1804,7 @@
           "type": "styleConcat"
         },
         "A_Dense2": {
-          "label": "Dense\\n64\u2192192\\n12,480 params",
+          "label": "Dense\\n64\u2192192\\n14,208 params",
           "type": "styleMlp"
         },
         "A_Dense3": {
@@ -1771,7 +1820,7 @@
           "type": "styleHead"
         },
         "C_Emb": {
-          "label": "Dense\\n243\u219255\\n13,420 params",
+          "label": "Dense\\n243\u219255\\n15,616 params",
           "type": "styleMlp"
         },
         "C_Concat": {
@@ -1779,7 +1828,7 @@
           "type": "styleConcat"
         },
         "C_Dense2": {
-          "label": "Dense\\n64\u2192192\\n12,480 params",
+          "label": "Dense\\n64\u2192192\\n14,208 params",
           "type": "styleMlp"
         },
         "C_Dense3": {
@@ -1910,12 +1959,12 @@
     },
     "title": "PPO_128",
     "description": "Baseline PPO without LayerNorm.",
-    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219255\\n13,420 params\"):::styleMlp\n    A_Act1(\"Tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_Dense2(\"Dense\\n64\u2192192\\n12,480 params\"):::styleMlp\n    A_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    A_Act3(\"Tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_Dense2\n    A_Dense2 --> A_Dense3\n    A_Dense3 --> A_Act3\n    A_Act3 --> A_Head\n    end\n    subgraph Critic [\"Critic\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219255\\n13,420 params\"):::styleMlp\n    C_Act1(\"Tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_Dense2(\"Dense\\n64\u2192192\\n12,480 params\"):::styleMlp\n    C_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    C_Act3(\"Tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_Dense2\n    C_Dense2 --> C_Dense3\n    C_Dense3 --> C_Act3\n    C_Act3 --> C_Head\n    end\n    Obs --> Flat\n    Flat --> A_Emb\n    Flat --> C_Emb\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    Actor ~~~ Critic"
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    A_Act1(\"Tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_Dense2(\"Dense\\n64\u2192192\\n14,208 params\"):::styleMlp\n    A_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    A_Act3(\"Tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_Dense2\n    A_Dense2 --> A_Dense3\n    A_Dense3 --> A_Act3\n    A_Act3 --> A_Head\n    end\n    subgraph Critic [\"Critic\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    C_Act1(\"Tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_Dense2(\"Dense\\n64\u2192192\\n14,208 params\"):::styleMlp\n    C_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    C_Act3(\"Tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_Dense2\n    C_Dense2 --> C_Dense3\n    C_Dense3 --> C_Act3\n    C_Act3 --> C_Head\n    end\n    Obs --> Flat\n    Flat --> A_Emb\n    Flat --> C_Emb\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    Actor ~~~ Critic"
   },
   "PPO-RTU_LN_128_512": {
     "variant": "PPO-RTU_LN_128_512",
     "fov": 9,
-    "total_params": 300153,
+    "total_params": 324165,
     "obs_shape": "9\u00d79\u00d73",
     "obs_shape_tuple": [
       9,
@@ -1931,25 +1980,28 @@
     "use_reward_trace": false,
     "use_layernorm": true,
     "modules": {
-      "actor_dense1": 13420,
-      "actor_layernorm1": 110,
-      "critic_dense1": 13420,
-      "critic_layernorm1": 110,
+      "actor_dense1": 15616,
+      "actor_layernorm1": 128,
+      "critic_dense1": 15616,
+      "critic_layernorm1": 128,
       "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0": 1024,
-      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 32768,
-      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 32768,
+      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 37376,
+      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 37376,
       "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0": 1024,
-      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 32768,
-      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 32768,
-      "actor_dense2": 69696,
+      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 37376,
+      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 37376,
+      "actor_dense2": 70272,
       "actor_layernorm2": 128,
       "actor_mean": 260,
-      "critic_dense2": 69696,
+      "critic_dense2": 70272,
       "critic_layernorm2": 128,
       "critic_value": 65
     },
     "has_hint": true,
     "hints_size": 4,
+    "balanced": false,
+    "is_conv": false,
+    "use_hint_trace": false,
     "graph": {
       "nodes": {
         "Obs": {
@@ -1967,11 +2019,11 @@
           "type": "styleMlp"
         },
         "A_Emb": {
-          "label": "Dense\\n243\u219255\\n13,420 params",
+          "label": "Dense\\n243\u219255\\n15,616 params",
           "type": "styleMlp"
         },
         "A_LN1": {
-          "label": "LayerNorm\\n55\\n110 params",
+          "label": "LayerNorm\\n55\\n128 params",
           "type": "styleNorm"
         },
         "A_Act1": {
@@ -1983,7 +2035,7 @@
           "type": "styleConcat"
         },
         "A_RTU1": {
-          "label": "RTU\\n64\u21922\u00d7512\\n66,560 params",
+          "label": "RTU\\n64\u21922\u00d7512\\n75,776 params",
           "type": "styleRnn"
         },
         "A_Skip1": {
@@ -1991,7 +2043,7 @@
           "type": "styleConcat"
         },
         "A_Dense2": {
-          "label": "Dense\\n1088\u219264\\n69,696 params",
+          "label": "Dense\\n1088\u219264\\n70,272 params",
           "type": "styleMlp"
         },
         "A_LN2": {
@@ -2007,11 +2059,11 @@
           "type": "styleHead"
         },
         "C_Emb": {
-          "label": "Dense\\n243\u219255\\n13,420 params",
+          "label": "Dense\\n243\u219255\\n15,616 params",
           "type": "styleMlp"
         },
         "C_LN1": {
-          "label": "LayerNorm\\n55\\n110 params",
+          "label": "LayerNorm\\n55\\n128 params",
           "type": "styleNorm"
         },
         "C_Act1": {
@@ -2023,7 +2075,7 @@
           "type": "styleConcat"
         },
         "C_RTU1": {
-          "label": "RTU\\n64\u21922\u00d7512\\n66,560 params",
+          "label": "RTU\\n64\u21922\u00d7512\\n75,776 params",
           "type": "styleRnn"
         },
         "C_Skip1": {
@@ -2031,7 +2083,7 @@
           "type": "styleConcat"
         },
         "C_Dense2": {
-          "label": "Dense\\n1088\u219264\\n69,696 params",
+          "label": "Dense\\n1088\u219264\\n70,272 params",
           "type": "styleMlp"
         },
         "C_LN2": {
@@ -2192,12 +2244,12 @@
     },
     "title": "PPO-RTU_LN_128_512",
     "description": "RTU PPO with LayerNorm, d_hidden=512.",
-    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor Path\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219255\\n13,420 params\"):::styleMlp\n    A_LN1(\"LayerNorm\\n55\\n110 params\"):::styleNorm\n    A_Act1(\"tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_RTU1(\"RTU\\n64\u21922\u00d7512\\n66,560 params\"):::styleRnn\n    A_Skip1(\"Concat\\n\u21921088\"):::styleConcat\n    A_Dense2(\"Dense\\n1088\u219264\\n69,696 params\"):::styleMlp\n    A_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    A_ActF(\"tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_LN1\n    A_LN1 --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_RTU1\n    A_RTU1 --> A_Skip1\n    A_Concat --> A_Skip1\n    A_Skip1 --> A_Dense2\n    A_Dense2 --> A_LN2\n    A_LN2 --> A_ActF\n    A_ActF --> A_Head\n    end\n    subgraph Critic [\"Critic Path\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219255\\n13,420 params\"):::styleMlp\n    C_LN1(\"LayerNorm\\n55\\n110 params\"):::styleNorm\n    C_Act1(\"tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_RTU1(\"RTU\\n64\u21922\u00d7512\\n66,560 params\"):::styleRnn\n    C_Skip1(\"Concat\\n\u21921088\"):::styleConcat\n    C_Dense2(\"Dense\\n1088\u219264\\n69,696 params\"):::styleMlp\n    C_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    C_ActF(\"tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_LN1\n    C_LN1 --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_RTU1\n    C_RTU1 --> C_Skip1\n    C_Concat --> C_Skip1\n    C_Skip1 --> C_Dense2\n    C_Dense2 --> C_LN2\n    C_LN2 --> C_ActF\n    C_ActF --> C_Head\n    end\n    Flat --> C_Emb\n    Flat --> A_Emb\n    Obs --> Flat\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    A_Head ~~~ C_Head"
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor Path\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    A_LN1(\"LayerNorm\\n55\\n128 params\"):::styleNorm\n    A_Act1(\"tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_RTU1(\"RTU\\n64\u21922\u00d7512\\n75,776 params\"):::styleRnn\n    A_Skip1(\"Concat\\n\u21921088\"):::styleConcat\n    A_Dense2(\"Dense\\n1088\u219264\\n70,272 params\"):::styleMlp\n    A_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    A_ActF(\"tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_LN1\n    A_LN1 --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_RTU1\n    A_RTU1 --> A_Skip1\n    A_Concat --> A_Skip1\n    A_Skip1 --> A_Dense2\n    A_Dense2 --> A_LN2\n    A_LN2 --> A_ActF\n    A_ActF --> A_Head\n    end\n    subgraph Critic [\"Critic Path\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    C_LN1(\"LayerNorm\\n55\\n128 params\"):::styleNorm\n    C_Act1(\"tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_RTU1(\"RTU\\n64\u21922\u00d7512\\n75,776 params\"):::styleRnn\n    C_Skip1(\"Concat\\n\u21921088\"):::styleConcat\n    C_Dense2(\"Dense\\n1088\u219264\\n70,272 params\"):::styleMlp\n    C_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    C_ActF(\"tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_LN1\n    C_LN1 --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_RTU1\n    C_RTU1 --> C_Skip1\n    C_Concat --> C_Skip1\n    C_Skip1 --> C_Dense2\n    C_Dense2 --> C_LN2\n    C_LN2 --> C_ActF\n    C_ActF --> C_Head\n    end\n    Flat --> C_Emb\n    Flat --> A_Emb\n    Obs --> Flat\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    A_Head ~~~ C_Head"
   },
   "PPO-RTU_LN_128": {
     "variant": "PPO-RTU_LN_128",
     "fov": 9,
-    "total_params": 135033,
+    "total_params": 147525,
     "obs_shape": "9\u00d79\u00d73",
     "obs_shape_tuple": [
       9,
@@ -2213,25 +2265,28 @@
     "use_reward_trace": false,
     "use_layernorm": true,
     "modules": {
-      "actor_dense1": 13420,
-      "actor_layernorm1": 110,
-      "critic_dense1": 13420,
-      "critic_layernorm1": 110,
+      "actor_dense1": 15616,
+      "actor_layernorm1": 128,
+      "critic_dense1": 15616,
+      "critic_layernorm1": 128,
       "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0": 384,
-      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 12288,
-      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 12288,
+      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 14016,
+      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 14016,
       "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0": 384,
-      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 12288,
-      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 12288,
-      "actor_dense2": 28736,
+      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 14016,
+      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 14016,
+      "actor_dense2": 29312,
       "actor_layernorm2": 128,
       "actor_mean": 260,
-      "critic_dense2": 28736,
+      "critic_dense2": 29312,
       "critic_layernorm2": 128,
       "critic_value": 65
     },
     "has_hint": true,
     "hints_size": 4,
+    "balanced": false,
+    "is_conv": false,
+    "use_hint_trace": false,
     "graph": {
       "nodes": {
         "Obs": {
@@ -2249,11 +2304,11 @@
           "type": "styleMlp"
         },
         "A_Emb": {
-          "label": "Dense\\n243\u219255\\n13,420 params",
+          "label": "Dense\\n243\u219255\\n15,616 params",
           "type": "styleMlp"
         },
         "A_LN1": {
-          "label": "LayerNorm\\n55\\n110 params",
+          "label": "LayerNorm\\n55\\n128 params",
           "type": "styleNorm"
         },
         "A_Act1": {
@@ -2265,7 +2320,7 @@
           "type": "styleConcat"
         },
         "A_RTU1": {
-          "label": "RTU\\n64\u21922\u00d7192\\n24,960 params",
+          "label": "RTU\\n64\u21922\u00d7192\\n28,416 params",
           "type": "styleRnn"
         },
         "A_Skip1": {
@@ -2273,7 +2328,7 @@
           "type": "styleConcat"
         },
         "A_Dense2": {
-          "label": "Dense\\n448\u219264\\n28,736 params",
+          "label": "Dense\\n448\u219264\\n29,312 params",
           "type": "styleMlp"
         },
         "A_LN2": {
@@ -2289,11 +2344,11 @@
           "type": "styleHead"
         },
         "C_Emb": {
-          "label": "Dense\\n243\u219255\\n13,420 params",
+          "label": "Dense\\n243\u219255\\n15,616 params",
           "type": "styleMlp"
         },
         "C_LN1": {
-          "label": "LayerNorm\\n55\\n110 params",
+          "label": "LayerNorm\\n55\\n128 params",
           "type": "styleNorm"
         },
         "C_Act1": {
@@ -2305,7 +2360,7 @@
           "type": "styleConcat"
         },
         "C_RTU1": {
-          "label": "RTU\\n64\u21922\u00d7192\\n24,960 params",
+          "label": "RTU\\n64\u21922\u00d7192\\n28,416 params",
           "type": "styleRnn"
         },
         "C_Skip1": {
@@ -2313,7 +2368,7 @@
           "type": "styleConcat"
         },
         "C_Dense2": {
-          "label": "Dense\\n448\u219264\\n28,736 params",
+          "label": "Dense\\n448\u219264\\n29,312 params",
           "type": "styleMlp"
         },
         "C_LN2": {
@@ -2474,12 +2529,12 @@
     },
     "title": "PPO-RTU_LN_128",
     "description": "RTU PPO with LayerNorm, d_hidden=192.",
-    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor Path\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219255\\n13,420 params\"):::styleMlp\n    A_LN1(\"LayerNorm\\n55\\n110 params\"):::styleNorm\n    A_Act1(\"tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_RTU1(\"RTU\\n64\u21922\u00d7192\\n24,960 params\"):::styleRnn\n    A_Skip1(\"Concat\\n\u2192448\"):::styleConcat\n    A_Dense2(\"Dense\\n448\u219264\\n28,736 params\"):::styleMlp\n    A_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    A_ActF(\"tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_LN1\n    A_LN1 --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_RTU1\n    A_RTU1 --> A_Skip1\n    A_Concat --> A_Skip1\n    A_Skip1 --> A_Dense2\n    A_Dense2 --> A_LN2\n    A_LN2 --> A_ActF\n    A_ActF --> A_Head\n    end\n    subgraph Critic [\"Critic Path\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219255\\n13,420 params\"):::styleMlp\n    C_LN1(\"LayerNorm\\n55\\n110 params\"):::styleNorm\n    C_Act1(\"tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_RTU1(\"RTU\\n64\u21922\u00d7192\\n24,960 params\"):::styleRnn\n    C_Skip1(\"Concat\\n\u2192448\"):::styleConcat\n    C_Dense2(\"Dense\\n448\u219264\\n28,736 params\"):::styleMlp\n    C_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    C_ActF(\"tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_LN1\n    C_LN1 --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_RTU1\n    C_RTU1 --> C_Skip1\n    C_Concat --> C_Skip1\n    C_Skip1 --> C_Dense2\n    C_Dense2 --> C_LN2\n    C_LN2 --> C_ActF\n    C_ActF --> C_Head\n    end\n    Flat --> C_Emb\n    Flat --> A_Emb\n    Obs --> Flat\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    A_Head ~~~ C_Head"
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor Path\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    A_LN1(\"LayerNorm\\n55\\n128 params\"):::styleNorm\n    A_Act1(\"tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_RTU1(\"RTU\\n64\u21922\u00d7192\\n28,416 params\"):::styleRnn\n    A_Skip1(\"Concat\\n\u2192448\"):::styleConcat\n    A_Dense2(\"Dense\\n448\u219264\\n29,312 params\"):::styleMlp\n    A_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    A_ActF(\"tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_LN1\n    A_LN1 --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_RTU1\n    A_RTU1 --> A_Skip1\n    A_Concat --> A_Skip1\n    A_Skip1 --> A_Dense2\n    A_Dense2 --> A_LN2\n    A_LN2 --> A_ActF\n    A_ActF --> A_Head\n    end\n    subgraph Critic [\"Critic Path\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    C_LN1(\"LayerNorm\\n55\\n128 params\"):::styleNorm\n    C_Act1(\"tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_RTU1(\"RTU\\n64\u21922\u00d7192\\n28,416 params\"):::styleRnn\n    C_Skip1(\"Concat\\n\u2192448\"):::styleConcat\n    C_Dense2(\"Dense\\n448\u219264\\n29,312 params\"):::styleMlp\n    C_LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    C_ActF(\"tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_LN1\n    C_LN1 --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_RTU1\n    C_RTU1 --> C_Skip1\n    C_Concat --> C_Skip1\n    C_Skip1 --> C_Dense2\n    C_Dense2 --> C_LN2\n    C_LN2 --> C_ActF\n    C_ActF --> C_Head\n    end\n    Flat --> C_Emb\n    Flat --> A_Emb\n    Obs --> Flat\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    A_Head ~~~ C_Head"
   },
   "PPO-RTU_128_512": {
     "variant": "PPO-RTU_128_512",
     "fov": 9,
-    "total_params": 299677,
+    "total_params": 323653,
     "obs_shape": "9\u00d79\u00d73",
     "obs_shape_tuple": [
       9,
@@ -2495,21 +2550,24 @@
     "use_reward_trace": false,
     "use_layernorm": false,
     "modules": {
-      "actor_dense1": 13420,
-      "critic_dense1": 13420,
+      "actor_dense1": 15616,
+      "critic_dense1": 15616,
       "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0": 1024,
-      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 32768,
-      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 32768,
+      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 37376,
+      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 37376,
       "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0": 1024,
-      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 32768,
-      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 32768,
-      "actor_dense2": 69696,
+      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 37376,
+      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 37376,
+      "actor_dense2": 70272,
       "actor_mean": 260,
-      "critic_dense2": 69696,
+      "critic_dense2": 70272,
       "critic_value": 65
     },
     "has_hint": true,
     "hints_size": 4,
+    "balanced": false,
+    "is_conv": false,
+    "use_hint_trace": false,
     "graph": {
       "nodes": {
         "Obs": {
@@ -2527,7 +2585,7 @@
           "type": "styleMlp"
         },
         "A_Emb": {
-          "label": "Dense\\n243\u219255\\n13,420 params",
+          "label": "Dense\\n243\u219255\\n15,616 params",
           "type": "styleMlp"
         },
         "A_Act1": {
@@ -2539,7 +2597,7 @@
           "type": "styleConcat"
         },
         "A_RTU1": {
-          "label": "RTU\\n64\u21922\u00d7512\\n66,560 params",
+          "label": "RTU\\n64\u21922\u00d7512\\n75,776 params",
           "type": "styleRnn"
         },
         "A_Skip1": {
@@ -2547,7 +2605,7 @@
           "type": "styleConcat"
         },
         "A_Dense2": {
-          "label": "Dense\\n1088\u219264\\n69,696 params",
+          "label": "Dense\\n1088\u219264\\n70,272 params",
           "type": "styleMlp"
         },
         "A_ActF": {
@@ -2559,7 +2617,7 @@
           "type": "styleHead"
         },
         "C_Emb": {
-          "label": "Dense\\n243\u219255\\n13,420 params",
+          "label": "Dense\\n243\u219255\\n15,616 params",
           "type": "styleMlp"
         },
         "C_Act1": {
@@ -2571,7 +2629,7 @@
           "type": "styleConcat"
         },
         "C_RTU1": {
-          "label": "RTU\\n64\u21922\u00d7512\\n66,560 params",
+          "label": "RTU\\n64\u21922\u00d7512\\n75,776 params",
           "type": "styleRnn"
         },
         "C_Skip1": {
@@ -2579,7 +2637,7 @@
           "type": "styleConcat"
         },
         "C_Dense2": {
-          "label": "Dense\\n1088\u219264\\n69,696 params",
+          "label": "Dense\\n1088\u219264\\n70,272 params",
           "type": "styleMlp"
         },
         "C_ActF": {
@@ -2716,12 +2774,12 @@
     },
     "title": "PPO-RTU_128",
     "description": "RTU PPO without LayerNorm, d_hidden=512.",
-    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor Path\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219255\\n13,420 params\"):::styleMlp\n    A_Act1(\"tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_RTU1(\"RTU\\n64\u21922\u00d7512\\n66,560 params\"):::styleRnn\n    A_Skip1(\"Concat\\n\u21921088\"):::styleConcat\n    A_Dense2(\"Dense\\n1088\u219264\\n69,696 params\"):::styleMlp\n    A_ActF(\"tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_RTU1\n    A_RTU1 --> A_Skip1\n    A_Concat --> A_Skip1\n    A_Skip1 --> A_Dense2\n    A_Dense2 --> A_ActF\n    A_ActF --> A_Head\n    end\n    subgraph Critic [\"Critic Path\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219255\\n13,420 params\"):::styleMlp\n    C_Act1(\"tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_RTU1(\"RTU\\n64\u21922\u00d7512\\n66,560 params\"):::styleRnn\n    C_Skip1(\"Concat\\n\u21921088\"):::styleConcat\n    C_Dense2(\"Dense\\n1088\u219264\\n69,696 params\"):::styleMlp\n    C_ActF(\"tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_RTU1\n    C_RTU1 --> C_Skip1\n    C_Concat --> C_Skip1\n    C_Skip1 --> C_Dense2\n    C_Dense2 --> C_ActF\n    C_ActF --> C_Head\n    end\n    Flat --> C_Emb\n    Flat --> A_Emb\n    Obs --> Flat\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    A_Head ~~~ C_Head"
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor Path\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    A_Act1(\"tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_RTU1(\"RTU\\n64\u21922\u00d7512\\n75,776 params\"):::styleRnn\n    A_Skip1(\"Concat\\n\u21921088\"):::styleConcat\n    A_Dense2(\"Dense\\n1088\u219264\\n70,272 params\"):::styleMlp\n    A_ActF(\"tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_RTU1\n    A_RTU1 --> A_Skip1\n    A_Concat --> A_Skip1\n    A_Skip1 --> A_Dense2\n    A_Dense2 --> A_ActF\n    A_ActF --> A_Head\n    end\n    subgraph Critic [\"Critic Path\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    C_Act1(\"tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_RTU1(\"RTU\\n64\u21922\u00d7512\\n75,776 params\"):::styleRnn\n    C_Skip1(\"Concat\\n\u21921088\"):::styleConcat\n    C_Dense2(\"Dense\\n1088\u219264\\n70,272 params\"):::styleMlp\n    C_ActF(\"tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_RTU1\n    C_RTU1 --> C_Skip1\n    C_Concat --> C_Skip1\n    C_Skip1 --> C_Dense2\n    C_Dense2 --> C_ActF\n    C_ActF --> C_Head\n    end\n    Flat --> C_Emb\n    Flat --> A_Emb\n    Obs --> Flat\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    A_Head ~~~ C_Head"
   },
   "PPO-RTU_128": {
     "variant": "PPO-RTU_128",
     "fov": 9,
-    "total_params": 134557,
+    "total_params": 147013,
     "obs_shape": "9\u00d79\u00d73",
     "obs_shape_tuple": [
       9,
@@ -2737,21 +2795,24 @@
     "use_reward_trace": false,
     "use_layernorm": false,
     "modules": {
-      "actor_dense1": 13420,
-      "critic_dense1": 13420,
+      "actor_dense1": 15616,
+      "critic_dense1": 15616,
       "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0": 384,
-      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 12288,
-      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 12288,
+      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 14016,
+      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 14016,
       "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0": 384,
-      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 12288,
-      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 12288,
-      "actor_dense2": 28736,
+      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 14016,
+      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 14016,
+      "actor_dense2": 29312,
       "actor_mean": 260,
-      "critic_dense2": 28736,
+      "critic_dense2": 29312,
       "critic_value": 65
     },
     "has_hint": true,
     "hints_size": 4,
+    "balanced": false,
+    "is_conv": false,
+    "use_hint_trace": false,
     "graph": {
       "nodes": {
         "Obs": {
@@ -2769,7 +2830,7 @@
           "type": "styleMlp"
         },
         "A_Emb": {
-          "label": "Dense\\n243\u219255\\n13,420 params",
+          "label": "Dense\\n243\u219255\\n15,616 params",
           "type": "styleMlp"
         },
         "A_Act1": {
@@ -2781,7 +2842,7 @@
           "type": "styleConcat"
         },
         "A_RTU1": {
-          "label": "RTU\\n64\u21922\u00d7192\\n24,960 params",
+          "label": "RTU\\n64\u21922\u00d7192\\n28,416 params",
           "type": "styleRnn"
         },
         "A_Skip1": {
@@ -2789,7 +2850,7 @@
           "type": "styleConcat"
         },
         "A_Dense2": {
-          "label": "Dense\\n448\u219264\\n28,736 params",
+          "label": "Dense\\n448\u219264\\n29,312 params",
           "type": "styleMlp"
         },
         "A_ActF": {
@@ -2801,7 +2862,7 @@
           "type": "styleHead"
         },
         "C_Emb": {
-          "label": "Dense\\n243\u219255\\n13,420 params",
+          "label": "Dense\\n243\u219255\\n15,616 params",
           "type": "styleMlp"
         },
         "C_Act1": {
@@ -2813,7 +2874,7 @@
           "type": "styleConcat"
         },
         "C_RTU1": {
-          "label": "RTU\\n64\u21922\u00d7192\\n24,960 params",
+          "label": "RTU\\n64\u21922\u00d7192\\n28,416 params",
           "type": "styleRnn"
         },
         "C_Skip1": {
@@ -2821,7 +2882,7 @@
           "type": "styleConcat"
         },
         "C_Dense2": {
-          "label": "Dense\\n448\u219264\\n28,736 params",
+          "label": "Dense\\n448\u219264\\n29,312 params",
           "type": "styleMlp"
         },
         "C_ActF": {
@@ -2958,6 +3019,2398 @@
     },
     "title": "PPO-RTU_128",
     "description": "RTU PPO without LayerNorm, d_hidden=192.",
-    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor Path\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219255\\n13,420 params\"):::styleMlp\n    A_Act1(\"tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_RTU1(\"RTU\\n64\u21922\u00d7192\\n24,960 params\"):::styleRnn\n    A_Skip1(\"Concat\\n\u2192448\"):::styleConcat\n    A_Dense2(\"Dense\\n448\u219264\\n28,736 params\"):::styleMlp\n    A_ActF(\"tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_RTU1\n    A_RTU1 --> A_Skip1\n    A_Concat --> A_Skip1\n    A_Skip1 --> A_Dense2\n    A_Dense2 --> A_ActF\n    A_ActF --> A_Head\n    end\n    subgraph Critic [\"Critic Path\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219255\\n13,420 params\"):::styleMlp\n    C_Act1(\"tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_RTU1(\"RTU\\n64\u21922\u00d7192\\n24,960 params\"):::styleRnn\n    C_Skip1(\"Concat\\n\u2192448\"):::styleConcat\n    C_Dense2(\"Dense\\n448\u219264\\n28,736 params\"):::styleMlp\n    C_ActF(\"tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_RTU1\n    C_RTU1 --> C_Skip1\n    C_Concat --> C_Skip1\n    C_Skip1 --> C_Dense2\n    C_Dense2 --> C_ActF\n    C_ActF --> C_Head\n    end\n    Flat --> C_Emb\n    Flat --> A_Emb\n    Obs --> Flat\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    A_Head ~~~ C_Head"
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor Path\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    A_Act1(\"tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_RTU1(\"RTU\\n64\u21922\u00d7192\\n28,416 params\"):::styleRnn\n    A_Skip1(\"Concat\\n\u2192448\"):::styleConcat\n    A_Dense2(\"Dense\\n448\u219264\\n29,312 params\"):::styleMlp\n    A_ActF(\"tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_RTU1\n    A_RTU1 --> A_Skip1\n    A_Concat --> A_Skip1\n    A_Skip1 --> A_Dense2\n    A_Dense2 --> A_ActF\n    A_ActF --> A_Head\n    end\n    subgraph Critic [\"Critic Path\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    C_Act1(\"tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_RTU1(\"RTU\\n64\u21922\u00d7192\\n28,416 params\"):::styleRnn\n    C_Skip1(\"Concat\\n\u2192448\"):::styleConcat\n    C_Dense2(\"Dense\\n448\u219264\\n29,312 params\"):::styleMlp\n    C_ActF(\"tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_RTU1\n    C_RTU1 --> C_Skip1\n    C_Concat --> C_Skip1\n    C_Skip1 --> C_Dense2\n    C_Dense2 --> C_ActF\n    C_ActF --> C_Head\n    end\n    Flat --> C_Emb\n    Flat --> A_Emb\n    Obs --> Flat\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    A_Head ~~~ C_Head"
+  },
+  "DQN_LN_PConv": {
+    "variant": "DQN_LN_PConv",
+    "fov": 9,
+    "total_params": 90452,
+    "obs_shape": "9\u00d79\u00d73",
+    "obs_shape_tuple": [
+      9,
+      9,
+      3
+    ],
+    "scalars": 9,
+    "has_rt": false,
+    "has_hint_trace": false,
+    "use_layernorm": true,
+    "conv_out": 1296,
+    "concat_size": 1305,
+    "modules": {
+      "phi/phi/~/phi": 64,
+      "phi/phi/~/layer_norm": 32,
+      "phi/phi/~/phi_1": 2320,
+      "phi/phi/~/layer_norm_1": 32,
+      "phi/phi/~/linear": 83328,
+      "phi/phi/~/layer_norm_2": 128,
+      "phi/phi/~/linear_1": 4160,
+      "phi/phi/~/layer_norm_3": 128,
+      "q/q": 260
+    },
+    "has_hint": true,
+    "hints_size": 4,
+    "conv_type": "PConv2D",
+    "balanced": false,
+    "hint_gru_only": false,
+    "graph": {
+      "nodes": {
+        "Obs": {
+          "label": "Observation\\n9\u00d79\u00d73",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Scalars": {
+          "label": "A[4], R[1], Hint[4]\\n[9]",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "PConv": {
+          "label": "Conv2D 16\u00d71\u00d71\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n64 params",
+          "type": "styleMlp"
+        },
+        "PConvLN": {
+          "label": "LayerNorm\\n9\u00d79\u00d716",
+          "type": "styleNorm"
+        },
+        "ReLU0": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Conv": {
+          "label": "Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d716\u21929\u00d79\u00d716\\n2,320 params",
+          "type": "styleMlp"
+        },
+        "ConvLN": {
+          "label": "LayerNorm\\n9\u00d79\u00d716",
+          "type": "styleNorm"
+        },
+        "ReLU1": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Flat": {
+          "label": "Flatten\\n\u21921296",
+          "type": "styleMlp"
+        },
+        "Concat": {
+          "label": "Concat\\n\u21921305",
+          "type": "styleConcat"
+        },
+        "Dense1": {
+          "label": "Dense\\n1305\u219264\\n83,328 params",
+          "type": "styleMlp"
+        },
+        "LN1": {
+          "label": "LayerNorm\\n64\\n32 params",
+          "type": "styleNorm"
+        },
+        "Act1": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Dense2": {
+          "label": "Dense\\n64\u219264\\n4,160 params",
+          "type": "styleMlp"
+        },
+        "LN2": {
+          "label": "LayerNorm\\n64\\n32 params",
+          "type": "styleNorm"
+        },
+        "Act2": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "QHead": {
+          "label": "Q-Head\\n64\u21924\\n260 params",
+          "type": "styleHead"
+        }
+      },
+      "edges": [
+        [
+          "Obs",
+          "PConv"
+        ],
+        [
+          "PConv",
+          "PConvLN"
+        ],
+        [
+          "PConvLN",
+          "ReLU0"
+        ],
+        [
+          "ReLU0",
+          "Conv"
+        ],
+        [
+          "Conv",
+          "ConvLN"
+        ],
+        [
+          "ConvLN",
+          "ReLU1"
+        ],
+        [
+          "ReLU1",
+          "Flat"
+        ],
+        [
+          "Flat",
+          "Concat"
+        ],
+        [
+          "Scalars",
+          "Concat"
+        ],
+        [
+          "Concat",
+          "Dense1"
+        ],
+        [
+          "Dense1",
+          "LN1"
+        ],
+        [
+          "LN1",
+          "Act1"
+        ],
+        [
+          "Act1",
+          "Dense2"
+        ],
+        [
+          "Dense2",
+          "LN2"
+        ],
+        [
+          "LN2",
+          "Act2"
+        ],
+        [
+          "Act2",
+          "QHead"
+        ]
+      ],
+      "subgraphs": [
+        {
+          "id": "ForagerNet",
+          "label": "ForagerNet (PConv2D)",
+          "nodes": [
+            "Dense1",
+            "LN1",
+            "Act1",
+            "Dense2",
+            "LN2",
+            "Act2"
+          ]
+        }
+      ]
+    },
+    "title": "DQN_LN_PConv",
+    "description": "DQN with LayerNorm and 1\u00d71 Pointwise Conv.",
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    PConv(\"Conv2D 16\u00d71\u00d71\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n64 params\"):::styleMlp\n    PConvLN(\"LayerNorm\\n9\u00d79\u00d716\"):::styleNorm\n    ReLU0(\"ReLU\"):::styleNorm\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d716\u21929\u00d79\u00d716\\n2,320 params\"):::styleMlp\n    ConvLN(\"LayerNorm\\n9\u00d79\u00d716\"):::styleNorm\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    Concat(\"Concat\\n\u21921305\"):::styleConcat\n    QHead(\"Q-Head\\n64\u21924\\n260 params\"):::styleHead\n    subgraph ForagerNet [\"ForagerNet (PConv2D)\"]\n    direction TB\n    Dense1(\"Dense\\n1305\u219264\\n83,328 params\"):::styleMlp\n    LN1(\"LayerNorm\\n64\\n32 params\"):::styleNorm\n    Act1(\"ReLU\"):::styleNorm\n    Dense2(\"Dense\\n64\u219264\\n4,160 params\"):::styleMlp\n    LN2(\"LayerNorm\\n64\\n32 params\"):::styleNorm\n    Act2(\"ReLU\"):::styleNorm\n    Dense1 --> LN1\n    LN1 --> Act1\n    Act1 --> Dense2\n    Dense2 --> LN2\n    LN2 --> Act2\n    end\n    Obs --> PConv\n    PConv --> PConvLN\n    PConvLN --> ReLU0\n    ReLU0 --> Conv\n    Conv --> ConvLN\n    ConvLN --> ReLU1\n    ReLU1 --> Flat\n    Flat --> Concat\n    Scalars --> Concat\n    Concat --> Dense1\n    Act2 --> QHead"
+  },
+  "DQN_LN_CoordConv": {
+    "variant": "DQN_LN_CoordConv",
+    "fov": 9,
+    "total_params": 88772,
+    "obs_shape": "9\u00d79\u00d73",
+    "obs_shape_tuple": [
+      9,
+      9,
+      3
+    ],
+    "scalars": 9,
+    "has_rt": false,
+    "has_hint_trace": false,
+    "use_layernorm": true,
+    "conv_out": 1296,
+    "concat_size": 1305,
+    "modules": {
+      "phi/phi/~/phi": 736,
+      "phi/phi/~/layer_norm": 32,
+      "phi/phi/~/linear": 83328,
+      "phi/phi/~/layer_norm_1": 128,
+      "phi/phi/~/linear_1": 4160,
+      "phi/phi/~/layer_norm_2": 128,
+      "q/q": 260
+    },
+    "has_hint": true,
+    "hints_size": 4,
+    "conv_type": "CoordConv2D",
+    "balanced": false,
+    "hint_gru_only": false,
+    "graph": {
+      "nodes": {
+        "Obs": {
+          "label": "Observation\\n9\u00d79\u00d73",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Scalars": {
+          "label": "A[4], R[1], Hint[4]\\n[9]",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Coords": {
+          "label": "+ Coord Channels\\n9\u00d79\u00d73\u21929\u00d79\u00d75",
+          "type": "styleInput"
+        },
+        "Conv": {
+          "label": "Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d75\u21929\u00d79\u00d716\\n736 params",
+          "type": "styleMlp"
+        },
+        "ReLU1": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Flat": {
+          "label": "Flatten\\n\u21921296",
+          "type": "styleMlp"
+        },
+        "Concat": {
+          "label": "Concat\\n\u21921305",
+          "type": "styleConcat"
+        },
+        "Dense1": {
+          "label": "Dense\\n1305\u219264\\n83,328 params",
+          "type": "styleMlp"
+        },
+        "LN1": {
+          "label": "LayerNorm\\n64\\n32 params",
+          "type": "styleNorm"
+        },
+        "Act1": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Dense2": {
+          "label": "Dense\\n64\u219264\\n4,160 params",
+          "type": "styleMlp"
+        },
+        "LN2": {
+          "label": "LayerNorm\\n64\\n128 params",
+          "type": "styleNorm"
+        },
+        "Act2": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "QHead": {
+          "label": "Q-Head\\n64\u21924\\n260 params",
+          "type": "styleHead"
+        }
+      },
+      "edges": [
+        [
+          "Obs",
+          "Coords"
+        ],
+        [
+          "Coords",
+          "Conv"
+        ],
+        [
+          "Conv",
+          "ReLU1"
+        ],
+        [
+          "ReLU1",
+          "Flat"
+        ],
+        [
+          "Flat",
+          "Concat"
+        ],
+        [
+          "Scalars",
+          "Concat"
+        ],
+        [
+          "Concat",
+          "Dense1"
+        ],
+        [
+          "Dense1",
+          "LN1"
+        ],
+        [
+          "LN1",
+          "Act1"
+        ],
+        [
+          "Act1",
+          "Dense2"
+        ],
+        [
+          "Dense2",
+          "LN2"
+        ],
+        [
+          "LN2",
+          "Act2"
+        ],
+        [
+          "Act2",
+          "QHead"
+        ]
+      ],
+      "subgraphs": [
+        {
+          "id": "ForagerNet",
+          "label": "ForagerNet (CoordConv2D)",
+          "nodes": [
+            "Dense1",
+            "LN1",
+            "Act1",
+            "Dense2",
+            "LN2",
+            "Act2"
+          ]
+        }
+      ]
+    },
+    "title": "DQN_LN_CoordConv",
+    "description": "DQN with LayerNorm and CoordConv (x,y channels).",
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Coords(\"+ Coord Channels\\n9\u00d79\u00d73\u21929\u00d79\u00d75\"):::styleInput\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d75\u21929\u00d79\u00d716\\n736 params\"):::styleMlp\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    Concat(\"Concat\\n\u21921305\"):::styleConcat\n    QHead(\"Q-Head\\n64\u21924\\n260 params\"):::styleHead\n    subgraph ForagerNet [\"ForagerNet (CoordConv2D)\"]\n    direction TB\n    Dense1(\"Dense\\n1305\u219264\\n83,328 params\"):::styleMlp\n    LN1(\"LayerNorm\\n64\\n32 params\"):::styleNorm\n    Act1(\"ReLU\"):::styleNorm\n    Dense2(\"Dense\\n64\u219264\\n4,160 params\"):::styleMlp\n    LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    Act2(\"ReLU\"):::styleNorm\n    Dense1 --> LN1\n    LN1 --> Act1\n    Act1 --> Dense2\n    Dense2 --> LN2\n    LN2 --> Act2\n    end\n    Obs --> Coords\n    Coords --> Conv\n    Conv --> ReLU1\n    ReLU1 --> Flat\n    Flat --> Concat\n    Scalars --> Concat\n    Concat --> Dense1\n    Act2 --> QHead"
+  },
+  "DQN_LN_hint": {
+    "variant": "DQN_LN_hint",
+    "fov": 9,
+    "total_params": 88164,
+    "obs_shape": "9\u00d79\u00d73",
+    "obs_shape_tuple": [
+      9,
+      9,
+      3
+    ],
+    "scalars": 9,
+    "has_rt": false,
+    "has_hint_trace": false,
+    "use_layernorm": true,
+    "conv_out": 1296,
+    "concat_size": 1305,
+    "modules": {
+      "phi/phi/~/phi": 448,
+      "phi/phi/~/layer_norm": 32,
+      "phi/phi/~/linear": 83008,
+      "phi/phi/~/layer_norm_1": 128,
+      "phi/phi/~/linear_1": 4160,
+      "phi/phi/~/layer_norm_2": 128,
+      "q/q": 260
+    },
+    "has_hint": true,
+    "hints_size": 4,
+    "conv_type": "Conv2D",
+    "balanced": false,
+    "hint_gru_only": false,
+    "graph": {
+      "nodes": {
+        "Obs": {
+          "label": "Observation\\n9\u00d79\u00d73",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Scalars": {
+          "label": "A[4], R[1], Hint[4]\\n[9]",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Conv": {
+          "label": "Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params",
+          "type": "styleMlp"
+        },
+        "ReLU1": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Flat": {
+          "label": "Flatten\\n\u21921296",
+          "type": "styleMlp"
+        },
+        "Concat": {
+          "label": "Concat\\n\u21921305",
+          "type": "styleConcat"
+        },
+        "Dense1": {
+          "label": "Dense\\n1305\u219264\\n83,008 params",
+          "type": "styleMlp"
+        },
+        "LN1": {
+          "label": "LayerNorm\\n64\\n32 params",
+          "type": "styleNorm"
+        },
+        "Act1": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Dense2": {
+          "label": "Dense\\n64\u219264\\n4,160 params",
+          "type": "styleMlp"
+        },
+        "LN2": {
+          "label": "LayerNorm\\n64\\n128 params",
+          "type": "styleNorm"
+        },
+        "Act2": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "QHead": {
+          "label": "Q-Head\\n64\u21924\\n260 params",
+          "type": "styleHead"
+        }
+      },
+      "edges": [
+        [
+          "Obs",
+          "Conv"
+        ],
+        [
+          "Conv",
+          "ReLU1"
+        ],
+        [
+          "ReLU1",
+          "Flat"
+        ],
+        [
+          "Flat",
+          "Concat"
+        ],
+        [
+          "Scalars",
+          "Concat"
+        ],
+        [
+          "Concat",
+          "Dense1"
+        ],
+        [
+          "Dense1",
+          "LN1"
+        ],
+        [
+          "LN1",
+          "Act1"
+        ],
+        [
+          "Act1",
+          "Dense2"
+        ],
+        [
+          "Dense2",
+          "LN2"
+        ],
+        [
+          "LN2",
+          "Act2"
+        ],
+        [
+          "Act2",
+          "QHead"
+        ]
+      ],
+      "subgraphs": [
+        {
+          "id": "ForagerNet",
+          "label": "ForagerNet (Representation)",
+          "nodes": [
+            "Dense1",
+            "LN1",
+            "Act1",
+            "Dense2",
+            "LN2",
+            "Act2"
+          ]
+        }
+      ]
+    },
+    "title": "DQN_LN_hint",
+    "description": "DQN with LayerNorm and always-on hint signal.",
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params\"):::styleMlp\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    Concat(\"Concat\\n\u21921305\"):::styleConcat\n    QHead(\"Q-Head\\n64\u21924\\n260 params\"):::styleHead\n    subgraph ForagerNet [\"ForagerNet (Representation)\"]\n    direction TB\n    Dense1(\"Dense\\n1305\u219264\\n83,008 params\"):::styleMlp\n    LN1(\"LayerNorm\\n64\\n32 params\"):::styleNorm\n    Act1(\"ReLU\"):::styleNorm\n    Dense2(\"Dense\\n64\u219264\\n4,160 params\"):::styleMlp\n    LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    Act2(\"ReLU\"):::styleNorm\n    Dense1 --> LN1\n    LN1 --> Act1\n    Act1 --> Dense2\n    Dense2 --> LN2\n    LN2 --> Act2\n    end\n    Obs --> Conv\n    Conv --> ReLU1\n    ReLU1 --> Flat\n    Flat --> Concat\n    Scalars --> Concat\n    Concat --> Dense1\n    Act2 --> QHead"
+  },
+  "DQN_LN_hint_trace": {
+    "variant": "DQN_LN_hint_trace",
+    "fov": 9,
+    "total_params": 88164,
+    "obs_shape": "9\u00d79\u00d73",
+    "obs_shape_tuple": [
+      9,
+      9,
+      3
+    ],
+    "scalars": 13,
+    "has_rt": false,
+    "has_hint_trace": true,
+    "use_layernorm": true,
+    "conv_out": 1296,
+    "concat_size": 1309,
+    "modules": {
+      "phi/phi/~/phi": 448,
+      "phi/phi/~/layer_norm": 32,
+      "phi/phi/~/linear": 83008,
+      "phi/phi/~/layer_norm_1": 128,
+      "phi/phi/~/linear_1": 4160,
+      "phi/phi/~/layer_norm_2": 128,
+      "q/q": 260
+    },
+    "has_hint": true,
+    "hints_size": 4,
+    "conv_type": "Conv2D",
+    "balanced": false,
+    "hint_gru_only": false,
+    "graph": {
+      "nodes": {
+        "Obs": {
+          "label": "Observation\\n9\u00d79\u00d73",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Scalars": {
+          "label": "A[4], R[1], Hint[4]\\n[13]",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Conv": {
+          "label": "Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params",
+          "type": "styleMlp"
+        },
+        "ReLU1": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Flat": {
+          "label": "Flatten\\n\u21921296",
+          "type": "styleMlp"
+        },
+        "Concat": {
+          "label": "Concat\\n\u21921309",
+          "type": "styleConcat"
+        },
+        "Dense1": {
+          "label": "Dense\\n1309\u219264\\n83,008 params",
+          "type": "styleMlp"
+        },
+        "LN1": {
+          "label": "LayerNorm\\n64\\n32 params",
+          "type": "styleNorm"
+        },
+        "Act1": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Dense2": {
+          "label": "Dense\\n64\u219264\\n4,160 params",
+          "type": "styleMlp"
+        },
+        "LN2": {
+          "label": "LayerNorm\\n64\\n128 params",
+          "type": "styleNorm"
+        },
+        "Act2": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "QHead": {
+          "label": "Q-Head\\n64\u21924\\n260 params",
+          "type": "styleHead"
+        }
+      },
+      "edges": [
+        [
+          "Obs",
+          "Conv"
+        ],
+        [
+          "Conv",
+          "ReLU1"
+        ],
+        [
+          "ReLU1",
+          "Flat"
+        ],
+        [
+          "Flat",
+          "Concat"
+        ],
+        [
+          "Scalars",
+          "Concat"
+        ],
+        [
+          "Concat",
+          "Dense1"
+        ],
+        [
+          "Dense1",
+          "LN1"
+        ],
+        [
+          "LN1",
+          "Act1"
+        ],
+        [
+          "Act1",
+          "Dense2"
+        ],
+        [
+          "Dense2",
+          "LN2"
+        ],
+        [
+          "LN2",
+          "Act2"
+        ],
+        [
+          "Act2",
+          "QHead"
+        ]
+      ],
+      "subgraphs": [
+        {
+          "id": "ForagerNet",
+          "label": "ForagerNet (Representation)",
+          "nodes": [
+            "Dense1",
+            "LN1",
+            "Act1",
+            "Dense2",
+            "LN2",
+            "Act2"
+          ]
+        }
+      ]
+    },
+    "title": "DQN_LN_hint_trace",
+    "description": "DQN with LayerNorm and hint trace (decaying).",
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[13]\"):::styleInput\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params\"):::styleMlp\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    Concat(\"Concat\\n\u21921309\"):::styleConcat\n    QHead(\"Q-Head\\n64\u21924\\n260 params\"):::styleHead\n    subgraph ForagerNet [\"ForagerNet (Representation)\"]\n    direction TB\n    Dense1(\"Dense\\n1309\u219264\\n83,008 params\"):::styleMlp\n    LN1(\"LayerNorm\\n64\\n32 params\"):::styleNorm\n    Act1(\"ReLU\"):::styleNorm\n    Dense2(\"Dense\\n64\u219264\\n4,160 params\"):::styleMlp\n    LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    Act2(\"ReLU\"):::styleNorm\n    Dense1 --> LN1\n    LN1 --> Act1\n    Act1 --> Dense2\n    Dense2 --> LN2\n    LN2 --> Act2\n    end\n    Obs --> Conv\n    Conv --> ReLU1\n    ReLU1 --> Flat\n    Flat --> Concat\n    Scalars --> Concat\n    Concat --> Dense1\n    Act2 --> QHead"
+  },
+  "DQN_LN_Balanced": {
+    "variant": "DQN_LN_Balanced",
+    "fov": 9,
+    "total_params": 92452,
+    "obs_shape": "9\u00d79\u00d73",
+    "obs_shape_tuple": [
+      9,
+      9,
+      3
+    ],
+    "scalars": 9,
+    "has_rt": false,
+    "has_hint_trace": false,
+    "use_layernorm": true,
+    "conv_out": 1296,
+    "concat_size": 1305,
+    "modules": {
+      "phi/phi/~/phi": 448,
+      "phi/phi/~/layer_norm": 32,
+      "phi/phi/~/vision_proj": 83008,
+      "phi/phi/~/layer_norm_1": 128,
+      "phi/phi/~/linear": 4160,
+      "phi/phi/~/layer_norm_2": 128,
+      "phi/phi/~/linear_1": 4160,
+      "phi/phi/~/layer_norm_3": 128,
+      "q/q": 260
+    },
+    "has_hint": true,
+    "hints_size": 4,
+    "conv_type": "Conv2D",
+    "balanced": true,
+    "hint_gru_only": false,
+    "graph": {
+      "nodes": {
+        "Obs": {
+          "label": "Observation\\n9\u00d79\u00d73",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Scalars": {
+          "label": "A[4], R[1], Hint[4]\\n[9]",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Conv": {
+          "label": "Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params",
+          "type": "styleMlp"
+        },
+        "ReLU1": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Flat": {
+          "label": "Flatten\\n\u21921296",
+          "type": "styleMlp"
+        },
+        "VProj": {
+          "label": "Vision Proj\\n1296\u219264\\n83,008 params",
+          "type": "styleMlp"
+        },
+        "VPLN": {
+          "label": "LayerNorm",
+          "type": "styleNorm"
+        },
+        "VPAct": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "SProj": {
+          "label": "Scalars Proj\\n9\u219264",
+          "type": "styleMlp"
+        },
+        "SPLN": {
+          "label": "LayerNorm",
+          "type": "styleNorm"
+        },
+        "SPAct": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Concat": {
+          "label": "Concat\\n\u2192128",
+          "type": "styleConcat"
+        },
+        "Dense1": {
+          "label": "Dense\\n128\u219264\\n4,160 params",
+          "type": "styleMlp"
+        },
+        "LN1": {
+          "label": "LayerNorm\\n64\\n32 params",
+          "type": "styleNorm"
+        },
+        "Act1": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Dense2": {
+          "label": "Dense\\n64\u219264\\n4,160 params",
+          "type": "styleMlp"
+        },
+        "LN2": {
+          "label": "LayerNorm\\n64\\n128 params",
+          "type": "styleNorm"
+        },
+        "Act2": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "QHead": {
+          "label": "Q-Head\\n64\u21924\\n260 params",
+          "type": "styleHead"
+        }
+      },
+      "edges": [
+        [
+          "Obs",
+          "Conv"
+        ],
+        [
+          "Conv",
+          "ReLU1"
+        ],
+        [
+          "ReLU1",
+          "Flat"
+        ],
+        [
+          "Flat",
+          "VProj"
+        ],
+        [
+          "VProj",
+          "VPLN"
+        ],
+        [
+          "VPLN",
+          "VPAct"
+        ],
+        [
+          "VPAct",
+          "Concat"
+        ],
+        [
+          "Scalars",
+          "SProj"
+        ],
+        [
+          "SProj",
+          "SPLN"
+        ],
+        [
+          "SPLN",
+          "SPAct"
+        ],
+        [
+          "SPAct",
+          "Concat"
+        ],
+        [
+          "Concat",
+          "Dense1"
+        ],
+        [
+          "Dense1",
+          "LN1"
+        ],
+        [
+          "LN1",
+          "Act1"
+        ],
+        [
+          "Act1",
+          "Dense2"
+        ],
+        [
+          "Dense2",
+          "LN2"
+        ],
+        [
+          "LN2",
+          "Act2"
+        ],
+        [
+          "Act2",
+          "QHead"
+        ]
+      ],
+      "subgraphs": [
+        {
+          "id": "ForagerNet",
+          "label": "ForagerNet (Balanced)",
+          "nodes": [
+            "Dense1",
+            "LN1",
+            "Act1",
+            "Dense2",
+            "LN2",
+            "Act2"
+          ]
+        }
+      ]
+    },
+    "title": "DQN_LN_Balanced",
+    "description": "DQN with LayerNorm and balanced vision/scalar projection.",
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params\"):::styleMlp\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    VProj(\"Vision Proj\\n1296\u219264\\n83,008 params\"):::styleMlp\n    VPLN(\"LayerNorm\"):::styleNorm\n    VPAct(\"ReLU\"):::styleNorm\n    SProj(\"Scalars Proj\\n9\u219264\"):::styleMlp\n    SPLN(\"LayerNorm\"):::styleNorm\n    SPAct(\"ReLU\"):::styleNorm\n    Concat(\"Concat\\n\u2192128\"):::styleConcat\n    QHead(\"Q-Head\\n64\u21924\\n260 params\"):::styleHead\n    subgraph ForagerNet [\"ForagerNet (Balanced)\"]\n    direction TB\n    Dense1(\"Dense\\n128\u219264\\n4,160 params\"):::styleMlp\n    LN1(\"LayerNorm\\n64\\n32 params\"):::styleNorm\n    Act1(\"ReLU\"):::styleNorm\n    Dense2(\"Dense\\n64\u219264\\n4,160 params\"):::styleMlp\n    LN2(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n    Act2(\"ReLU\"):::styleNorm\n    Dense1 --> LN1\n    LN1 --> Act1\n    Act1 --> Dense2\n    Dense2 --> LN2\n    LN2 --> Act2\n    end\n    Obs --> Conv\n    Conv --> ReLU1\n    ReLU1 --> Flat\n    Flat --> VProj\n    VProj --> VPLN\n    VPLN --> VPAct\n    VPAct --> Concat\n    Scalars --> SProj\n    SProj --> SPLN\n    SPLN --> SPAct\n    SPAct --> Concat\n    Concat --> Dense1\n    Act2 --> QHead"
+  },
+  "DRQN_LN_hint_gru": {
+    "variant": "DRQN_LN_hint_gru",
+    "fov": 9,
+    "total_params": 117092,
+    "obs_shape": "9\u00d79\u00d73",
+    "obs_shape_tuple": [
+      9,
+      9,
+      3
+    ],
+    "scalars": 9,
+    "has_rt": false,
+    "has_hint_trace": false,
+    "use_layernorm": true,
+    "conv_out": 1296,
+    "concat_size": 1305,
+    "modules": {
+      "phi/ForagerGRUNetReLU/~/phi": 448,
+      "phi/ForagerGRUNetReLU/~/layer_norm": 32,
+      "phi/ForagerGRUNetReLU/~/linear": 83008,
+      "phi/ForagerGRUNetReLU/~/layer_norm_1": 128,
+      "phi/ForagerGRUNetReLU/~/gru": 64,
+      "phi/ForagerGRUNetReLU/~/gru/~/gru_inner": 24768,
+      "phi/ForagerGRUNetReLU/~/linear_1": 8256,
+      "phi/ForagerGRUNetReLU/~/layer_norm_2": 128,
+      "q/q": 260
+    },
+    "has_hint": true,
+    "hints_size": 4,
+    "conv_type": "Conv2D",
+    "balanced": false,
+    "hint_gru_only": true,
+    "pre_gru_layers": 1,
+    "post_gru_layers": 1,
+    "graph": {
+      "nodes": {
+        "Obs": {
+          "label": "Seq Obs\\n9\u00d79\u00d73",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "OtherScalars": {
+          "label": "A[4], R[1]\\n[5]",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "HintInput": {
+          "label": "Hint\\n[4]",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Conv": {
+          "label": "Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params",
+          "type": "styleMlp"
+        },
+        "ReLU1": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Flat": {
+          "label": "Flatten\\n\u21921296",
+          "type": "styleMlp"
+        },
+        "GRU": {
+          "label": "GRU 64\\n64\u219264\\n24,832 params",
+          "type": "styleRnn"
+        },
+        "ReLU2": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "Merge": {
+          "label": "Concat\\n\u21921369",
+          "type": "styleConcat"
+        },
+        "HintPre": {
+          "label": "Dense\\n4\u219264\\n83,008 params",
+          "type": "styleMlp"
+        },
+        "HintPreLN": {
+          "label": "LayerNorm\\n64\\n32 params",
+          "type": "styleNorm"
+        },
+        "HintPreAct": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "PostDense1": {
+          "label": "Dense\\n1369\u219264\\n83,008 params",
+          "type": "styleMlp"
+        },
+        "PostLN1": {
+          "label": "LayerNorm\\n64\\n128 params",
+          "type": "styleNorm"
+        },
+        "PostAct1": {
+          "label": "ReLU",
+          "type": "styleNorm"
+        },
+        "QHead": {
+          "label": "Q-Head\\n64\u21924\\n260 params",
+          "type": "styleHead"
+        }
+      },
+      "edges": [
+        [
+          "Obs",
+          "Conv"
+        ],
+        [
+          "Conv",
+          "ReLU1"
+        ],
+        [
+          "ReLU1",
+          "Flat"
+        ],
+        [
+          "HintInput",
+          "HintPre"
+        ],
+        [
+          "HintPre",
+          "HintPreLN"
+        ],
+        [
+          "HintPreLN",
+          "HintPreAct"
+        ],
+        [
+          "HintPreAct",
+          "GRU"
+        ],
+        [
+          "HintInput",
+          "Merge"
+        ],
+        [
+          "GRU",
+          "ReLU2"
+        ],
+        [
+          "ReLU2",
+          "Merge"
+        ],
+        [
+          "Flat",
+          "Merge"
+        ],
+        [
+          "OtherScalars",
+          "Merge"
+        ],
+        [
+          "Merge",
+          "PostDense1"
+        ],
+        [
+          "PostDense1",
+          "PostLN1"
+        ],
+        [
+          "PostLN1",
+          "PostAct1"
+        ],
+        [
+          "PostAct1",
+          "QHead"
+        ]
+      ],
+      "subgraphs": [
+        {
+          "id": "ForagerNet",
+          "label": "DRQN hint-GRU (ForagerGRUNetReLU)",
+          "nodes": [
+            "Obs",
+            "OtherScalars",
+            "HintInput",
+            "Conv",
+            "ReLU1",
+            "Flat",
+            "GRU",
+            "ReLU2",
+            "Merge"
+          ],
+          "subgraphs": [
+            {
+              "id": "HintPreGRU",
+              "label": "Pre-GRU (Hint)",
+              "nodes": [
+                "HintPre",
+                "HintPreLN",
+                "HintPreAct"
+              ]
+            },
+            {
+              "id": "PostGRU",
+              "label": "Post-GRU",
+              "nodes": [
+                "PostDense1",
+                "PostLN1",
+                "PostAct1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "title": "DRQN_LN_hint_gru",
+    "description": "DRQN with LayerNorm where only hint goes through GRU.",
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    QHead(\"Q-Head\\n64\u21924\\n260 params\"):::styleHead\n    subgraph ForagerNet [\"DRQN hint-GRU (ForagerGRUNetReLU)\"]\n    direction TB\n    Obs(\"Seq Obs\\n9\u00d79\u00d73\"):::styleInput\n    OtherScalars(\"A[4], R[1]\\n[5]\"):::styleInput\n    HintInput(\"Hint\\n[4]\"):::styleInput\n    Conv(\"Conv2D 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n448 params\"):::styleMlp\n    ReLU1(\"ReLU\"):::styleNorm\n    Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    GRU(\"GRU 64\\n64\u219264\\n24,832 params\"):::styleRnn\n    ReLU2(\"ReLU\"):::styleNorm\n    Merge(\"Concat\\n\u21921369\"):::styleConcat\n        subgraph HintPreGRU [\"Pre-GRU (Hint)\"]\n        direction TB\n        HintPre(\"Dense\\n4\u219264\\n83,008 params\"):::styleMlp\n        HintPreLN(\"LayerNorm\\n64\\n32 params\"):::styleNorm\n        HintPreAct(\"ReLU\"):::styleNorm\n        HintPre --> HintPreLN\n        HintPreLN --> HintPreAct\n        end\n        subgraph PostGRU [\"Post-GRU\"]\n        direction TB\n        PostDense1(\"Dense\\n1369\u219264\\n83,008 params\"):::styleMlp\n        PostLN1(\"LayerNorm\\n64\\n128 params\"):::styleNorm\n        PostAct1(\"ReLU\"):::styleNorm\n        PostDense1 --> PostLN1\n        PostLN1 --> PostAct1\n        end\n    Obs --> Conv\n    Conv --> ReLU1\n    ReLU1 --> Flat\n    HintInput --> Merge\n    GRU --> ReLU2\n    ReLU2 --> Merge\n    Flat --> Merge\n    OtherScalars --> Merge\n    end\n    HintInput --> HintPre\n    HintPreAct --> GRU\n    Merge --> PostDense1\n    PostAct1 --> QHead"
+  },
+  "ActorCriticConv": {
+    "variant": "ActorCriticConv",
+    "fov": 9,
+    "total_params": 217477,
+    "obs_shape": "9\u00d79\u00d73",
+    "obs_shape_tuple": [
+      9,
+      9,
+      3
+    ],
+    "scalars": 9,
+    "obs_flat": 243,
+    "obs_hidden": 55,
+    "concat_size": 64,
+    "d_hidden": 192,
+    "hidden_size": 64,
+    "use_reward_trace": false,
+    "use_layernorm": false,
+    "modules": {
+      "actor_conv1": 160,
+      "actor_dense2": 83584,
+      "critic_conv1": 160,
+      "critic_dense2": 83584,
+      "actor_dense3": 12480,
+      "critic_dense3": 12480,
+      "actor_dense4": 12352,
+      "actor_mean": 260,
+      "critic_dense4": 12352,
+      "critic_value": 65
+    },
+    "has_hint": true,
+    "hints_size": 4,
+    "balanced": false,
+    "is_conv": true,
+    "use_hint_trace": false,
+    "conv_out": 1296,
+    "graph": {
+      "nodes": {
+        "Obs": {
+          "label": "Observation\\n9\u00d79\u00d73",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Scalars": {
+          "label": "A[4], R[1], Hint[4]\\n[9]",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "A_Conv": {
+          "label": "Conv 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n160 params",
+          "type": "styleMlp"
+        },
+        "A_Act1": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "A_Flat": {
+          "label": "Flatten\\n\u21921296",
+          "type": "styleMlp"
+        },
+        "A_Concat": {
+          "label": "Concat\\n\u21921305",
+          "type": "styleConcat"
+        },
+        "A_Dense2": {
+          "label": "Dense\\n1305\u219264\\n83,584 params",
+          "type": "styleMlp"
+        },
+        "A_Act2": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "A_Dense3": {
+          "label": "Dense\\n64\u2192192\\n12,480 params",
+          "type": "styleMlp"
+        },
+        "A_Act3": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "A_Dense4": {
+          "label": "Dense\\n192\u219264\\n12,352 params",
+          "type": "styleMlp"
+        },
+        "A_Act4": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "A_Head": {
+          "label": "Logits\\n64\u21924\\n260 params",
+          "type": "styleHead"
+        },
+        "C_Conv": {
+          "label": "Conv 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n160 params",
+          "type": "styleMlp"
+        },
+        "C_Act1": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_Flat": {
+          "label": "Flatten\\n\u21921296",
+          "type": "styleMlp"
+        },
+        "C_Concat": {
+          "label": "Concat\\n\u21921305",
+          "type": "styleConcat"
+        },
+        "C_Dense2": {
+          "label": "Dense\\n1305\u219264\\n83,584 params",
+          "type": "styleMlp"
+        },
+        "C_Act2": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_Dense3": {
+          "label": "Dense\\n64\u2192192\\n12,480 params",
+          "type": "styleMlp"
+        },
+        "C_Act3": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_Dense4": {
+          "label": "Dense\\n192\u219264\\n12,352 params",
+          "type": "styleMlp"
+        },
+        "C_Act4": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_Head": {
+          "label": "Value\\n64\u21921\\n65 params",
+          "type": "styleHead"
+        }
+      },
+      "edges": [
+        [
+          "Obs",
+          "A_Conv"
+        ],
+        [
+          "A_Conv",
+          "A_Act1"
+        ],
+        [
+          "A_Act1",
+          "A_Flat"
+        ],
+        [
+          "A_Flat",
+          "A_Concat"
+        ],
+        [
+          "Scalars",
+          "A_Concat"
+        ],
+        [
+          "A_Concat",
+          "A_Dense2"
+        ],
+        [
+          "A_Dense2",
+          "A_Act2"
+        ],
+        [
+          "A_Act2",
+          "A_Dense3"
+        ],
+        [
+          "A_Dense3",
+          "A_Act3"
+        ],
+        [
+          "A_Act3",
+          "A_Dense4"
+        ],
+        [
+          "A_Dense4",
+          "A_Act4"
+        ],
+        [
+          "A_Act4",
+          "A_Head"
+        ],
+        [
+          "Obs",
+          "C_Conv"
+        ],
+        [
+          "C_Conv",
+          "C_Act1"
+        ],
+        [
+          "C_Act1",
+          "C_Flat"
+        ],
+        [
+          "C_Flat",
+          "C_Concat"
+        ],
+        [
+          "Scalars",
+          "C_Concat"
+        ],
+        [
+          "C_Concat",
+          "C_Dense2"
+        ],
+        [
+          "C_Dense2",
+          "C_Act2"
+        ],
+        [
+          "C_Act2",
+          "C_Dense3"
+        ],
+        [
+          "C_Dense3",
+          "C_Act3"
+        ],
+        [
+          "C_Act3",
+          "C_Dense4"
+        ],
+        [
+          "C_Dense4",
+          "C_Act4"
+        ],
+        [
+          "C_Act4",
+          "C_Head"
+        ]
+      ],
+      "subgraphs": [
+        {
+          "id": "Actor",
+          "label": "Actor",
+          "nodes": [
+            "A_Conv",
+            "A_Act1",
+            "A_Flat",
+            "A_Concat",
+            "A_Dense2",
+            "A_Act2",
+            "A_Dense3",
+            "A_Act3",
+            "A_Dense4",
+            "A_Act4",
+            "A_Head"
+          ]
+        },
+        {
+          "id": "Critic",
+          "label": "Critic",
+          "nodes": [
+            "C_Conv",
+            "C_Act1",
+            "C_Flat",
+            "C_Concat",
+            "C_Dense2",
+            "C_Act2",
+            "C_Dense3",
+            "C_Act3",
+            "C_Dense4",
+            "C_Act4",
+            "C_Head"
+          ]
+        }
+      ],
+      "invisible_edges": [
+        [
+          "Actor",
+          "Critic"
+        ]
+      ]
+    },
+    "title": "PPO-Conv",
+    "description": "PPO with Conv encoder (ActorCriticConv).",
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    subgraph Actor [\"Actor\"]\n    direction TB\n    A_Conv(\"Conv 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n160 params\"):::styleMlp\n    A_Act1(\"Tanh\"):::styleNorm\n    A_Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    A_Concat(\"Concat\\n\u21921305\"):::styleConcat\n    A_Dense2(\"Dense\\n1305\u219264\\n83,584 params\"):::styleMlp\n    A_Act2(\"Tanh\"):::styleNorm\n    A_Dense3(\"Dense\\n64\u2192192\\n12,480 params\"):::styleMlp\n    A_Act3(\"Tanh\"):::styleNorm\n    A_Dense4(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    A_Act4(\"Tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Conv --> A_Act1\n    A_Act1 --> A_Flat\n    A_Flat --> A_Concat\n    A_Concat --> A_Dense2\n    A_Dense2 --> A_Act2\n    A_Act2 --> A_Dense3\n    A_Dense3 --> A_Act3\n    A_Act3 --> A_Dense4\n    A_Dense4 --> A_Act4\n    A_Act4 --> A_Head\n    end\n    subgraph Critic [\"Critic\"]\n    direction TB\n    C_Conv(\"Conv 16\u00d73\u00d73\\n9\u00d79\u00d73\u21929\u00d79\u00d716\\n160 params\"):::styleMlp\n    C_Act1(\"Tanh\"):::styleNorm\n    C_Flat(\"Flatten\\n\u21921296\"):::styleMlp\n    C_Concat(\"Concat\\n\u21921305\"):::styleConcat\n    C_Dense2(\"Dense\\n1305\u219264\\n83,584 params\"):::styleMlp\n    C_Act2(\"Tanh\"):::styleNorm\n    C_Dense3(\"Dense\\n64\u2192192\\n12,480 params\"):::styleMlp\n    C_Act3(\"Tanh\"):::styleNorm\n    C_Dense4(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    C_Act4(\"Tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Conv --> C_Act1\n    C_Act1 --> C_Flat\n    C_Flat --> C_Concat\n    C_Concat --> C_Dense2\n    C_Dense2 --> C_Act2\n    C_Act2 --> C_Dense3\n    C_Dense3 --> C_Act3\n    C_Act3 --> C_Dense4\n    C_Dense4 --> C_Act4\n    C_Act4 --> C_Head\n    end\n    Obs --> A_Conv\n    Scalars --> A_Concat\n    Obs --> C_Conv\n    Scalars --> C_Concat\n    Actor ~~~ Critic"
+  },
+  "ActorCriticMLP-hint": {
+    "variant": "ActorCriticMLP-hint",
+    "fov": 9,
+    "total_params": 84677,
+    "obs_shape": "9\u00d79\u00d73",
+    "obs_shape_tuple": [
+      9,
+      9,
+      3
+    ],
+    "scalars": 9,
+    "obs_flat": 243,
+    "obs_hidden": 55,
+    "concat_size": 64,
+    "d_hidden": 192,
+    "hidden_size": 64,
+    "use_reward_trace": false,
+    "use_layernorm": false,
+    "modules": {
+      "actor_dense1": 15616,
+      "critic_dense1": 15616,
+      "actor_dense2": 14208,
+      "critic_dense2": 14208,
+      "actor_dense3": 12352,
+      "actor_mean": 260,
+      "critic_dense3": 12352,
+      "critic_value": 65
+    },
+    "has_hint": true,
+    "hints_size": 4,
+    "balanced": false,
+    "is_conv": false,
+    "use_hint_trace": false,
+    "graph": {
+      "nodes": {
+        "Obs": {
+          "label": "Observation\\n9\u00d79\u00d73",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Scalars": {
+          "label": "A[4], R[1], Hint[4]\\n[9]",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Flat": {
+          "label": "Flatten\\n\u2192243",
+          "type": "styleMlp"
+        },
+        "A_Emb": {
+          "label": "Dense\\n243\u219255\\n15,616 params",
+          "type": "styleMlp"
+        },
+        "A_Concat": {
+          "label": "Concat\\n\u219264",
+          "type": "styleConcat"
+        },
+        "A_Dense2": {
+          "label": "Dense\\n64\u2192192\\n14,208 params",
+          "type": "styleMlp"
+        },
+        "A_Dense3": {
+          "label": "Dense\\n192\u219264\\n12,352 params",
+          "type": "styleMlp"
+        },
+        "A_Act3": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "A_Head": {
+          "label": "Logits\\n64\u21924\\n260 params",
+          "type": "styleHead"
+        },
+        "C_Emb": {
+          "label": "Dense\\n243\u219255\\n15,616 params",
+          "type": "styleMlp"
+        },
+        "C_Concat": {
+          "label": "Concat\\n\u219264",
+          "type": "styleConcat"
+        },
+        "C_Dense2": {
+          "label": "Dense\\n64\u2192192\\n14,208 params",
+          "type": "styleMlp"
+        },
+        "C_Dense3": {
+          "label": "Dense\\n192\u219264\\n12,352 params",
+          "type": "styleMlp"
+        },
+        "C_Act3": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_Head": {
+          "label": "Value\\n64\u21921\\n65 params",
+          "type": "styleHead"
+        },
+        "A_Act1": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_Act1": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        }
+      },
+      "edges": [
+        [
+          "Obs",
+          "Flat"
+        ],
+        [
+          "Flat",
+          "A_Emb"
+        ],
+        [
+          "Flat",
+          "C_Emb"
+        ],
+        [
+          "Scalars",
+          "A_Concat"
+        ],
+        [
+          "Scalars",
+          "C_Concat"
+        ],
+        [
+          "A_Emb",
+          "A_Act1"
+        ],
+        [
+          "A_Act1",
+          "A_Concat"
+        ],
+        [
+          "A_Concat",
+          "A_Dense2"
+        ],
+        [
+          "A_Dense2",
+          "A_Dense3"
+        ],
+        [
+          "A_Dense3",
+          "A_Act3"
+        ],
+        [
+          "A_Act3",
+          "A_Head"
+        ],
+        [
+          "C_Emb",
+          "C_Act1"
+        ],
+        [
+          "C_Act1",
+          "C_Concat"
+        ],
+        [
+          "C_Concat",
+          "C_Dense2"
+        ],
+        [
+          "C_Dense2",
+          "C_Dense3"
+        ],
+        [
+          "C_Dense3",
+          "C_Act3"
+        ],
+        [
+          "C_Act3",
+          "C_Head"
+        ]
+      ],
+      "subgraphs": [
+        {
+          "id": "Actor",
+          "label": "Actor",
+          "nodes": [
+            "A_Emb",
+            "A_Act1",
+            "A_Concat",
+            "A_Dense2",
+            "A_Dense3",
+            "A_Act3",
+            "A_Head"
+          ]
+        },
+        {
+          "id": "Critic",
+          "label": "Critic",
+          "nodes": [
+            "C_Emb",
+            "C_Act1",
+            "C_Concat",
+            "C_Dense2",
+            "C_Dense3",
+            "C_Act3",
+            "C_Head"
+          ]
+        }
+      ],
+      "invisible_edges": [
+        [
+          "Actor",
+          "Critic"
+        ]
+      ]
+    },
+    "title": "PPO-hint",
+    "description": "PPO with always-on hint signal.",
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    A_Act1(\"Tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_Dense2(\"Dense\\n64\u2192192\\n14,208 params\"):::styleMlp\n    A_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    A_Act3(\"Tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_Dense2\n    A_Dense2 --> A_Dense3\n    A_Dense3 --> A_Act3\n    A_Act3 --> A_Head\n    end\n    subgraph Critic [\"Critic\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219255\\n15,616 params\"):::styleMlp\n    C_Act1(\"Tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_Dense2(\"Dense\\n64\u2192192\\n14,208 params\"):::styleMlp\n    C_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    C_Act3(\"Tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_Dense2\n    C_Dense2 --> C_Dense3\n    C_Dense3 --> C_Act3\n    C_Act3 --> C_Head\n    end\n    Obs --> Flat\n    Flat --> A_Emb\n    Flat --> C_Emb\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    Actor ~~~ Critic"
+  },
+  "ActorCriticMLP-hint-trace": {
+    "variant": "ActorCriticMLP-hint-trace",
+    "fov": 9,
+    "total_params": 84677,
+    "obs_shape": "9\u00d79\u00d73",
+    "obs_shape_tuple": [
+      9,
+      9,
+      3
+    ],
+    "scalars": 13,
+    "obs_flat": 243,
+    "obs_hidden": 51,
+    "concat_size": 64,
+    "d_hidden": 192,
+    "hidden_size": 64,
+    "use_reward_trace": false,
+    "use_layernorm": false,
+    "modules": {
+      "actor_dense1": 15616,
+      "critic_dense1": 15616,
+      "actor_dense2": 14208,
+      "critic_dense2": 14208,
+      "actor_dense3": 12352,
+      "actor_mean": 260,
+      "critic_dense3": 12352,
+      "critic_value": 65
+    },
+    "has_hint": true,
+    "hints_size": 4,
+    "balanced": false,
+    "is_conv": false,
+    "use_hint_trace": true,
+    "graph": {
+      "nodes": {
+        "Obs": {
+          "label": "Observation\\n9\u00d79\u00d73",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Scalars": {
+          "label": "A[4], R[1], Hint[4]\\n[13]",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Flat": {
+          "label": "Flatten\\n\u2192243",
+          "type": "styleMlp"
+        },
+        "A_Emb": {
+          "label": "Dense\\n243\u219251\\n15,616 params",
+          "type": "styleMlp"
+        },
+        "A_Concat": {
+          "label": "Concat\\n\u219264",
+          "type": "styleConcat"
+        },
+        "A_Dense2": {
+          "label": "Dense\\n64\u2192192\\n14,208 params",
+          "type": "styleMlp"
+        },
+        "A_Dense3": {
+          "label": "Dense\\n192\u219264\\n12,352 params",
+          "type": "styleMlp"
+        },
+        "A_Act3": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "A_Head": {
+          "label": "Logits\\n64\u21924\\n260 params",
+          "type": "styleHead"
+        },
+        "C_Emb": {
+          "label": "Dense\\n243\u219251\\n15,616 params",
+          "type": "styleMlp"
+        },
+        "C_Concat": {
+          "label": "Concat\\n\u219264",
+          "type": "styleConcat"
+        },
+        "C_Dense2": {
+          "label": "Dense\\n64\u2192192\\n14,208 params",
+          "type": "styleMlp"
+        },
+        "C_Dense3": {
+          "label": "Dense\\n192\u219264\\n12,352 params",
+          "type": "styleMlp"
+        },
+        "C_Act3": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_Head": {
+          "label": "Value\\n64\u21921\\n65 params",
+          "type": "styleHead"
+        },
+        "A_Act1": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_Act1": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        }
+      },
+      "edges": [
+        [
+          "Obs",
+          "Flat"
+        ],
+        [
+          "Flat",
+          "A_Emb"
+        ],
+        [
+          "Flat",
+          "C_Emb"
+        ],
+        [
+          "Scalars",
+          "A_Concat"
+        ],
+        [
+          "Scalars",
+          "C_Concat"
+        ],
+        [
+          "A_Emb",
+          "A_Act1"
+        ],
+        [
+          "A_Act1",
+          "A_Concat"
+        ],
+        [
+          "A_Concat",
+          "A_Dense2"
+        ],
+        [
+          "A_Dense2",
+          "A_Dense3"
+        ],
+        [
+          "A_Dense3",
+          "A_Act3"
+        ],
+        [
+          "A_Act3",
+          "A_Head"
+        ],
+        [
+          "C_Emb",
+          "C_Act1"
+        ],
+        [
+          "C_Act1",
+          "C_Concat"
+        ],
+        [
+          "C_Concat",
+          "C_Dense2"
+        ],
+        [
+          "C_Dense2",
+          "C_Dense3"
+        ],
+        [
+          "C_Dense3",
+          "C_Act3"
+        ],
+        [
+          "C_Act3",
+          "C_Head"
+        ]
+      ],
+      "subgraphs": [
+        {
+          "id": "Actor",
+          "label": "Actor",
+          "nodes": [
+            "A_Emb",
+            "A_Act1",
+            "A_Concat",
+            "A_Dense2",
+            "A_Dense3",
+            "A_Act3",
+            "A_Head"
+          ]
+        },
+        {
+          "id": "Critic",
+          "label": "Critic",
+          "nodes": [
+            "C_Emb",
+            "C_Act1",
+            "C_Concat",
+            "C_Dense2",
+            "C_Dense3",
+            "C_Act3",
+            "C_Head"
+          ]
+        }
+      ],
+      "invisible_edges": [
+        [
+          "Actor",
+          "Critic"
+        ]
+      ]
+    },
+    "title": "PPO-hint-trace",
+    "description": "PPO with decaying hint trace.",
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[13]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219251\\n15,616 params\"):::styleMlp\n    A_Act1(\"Tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u219264\"):::styleConcat\n    A_Dense2(\"Dense\\n64\u2192192\\n14,208 params\"):::styleMlp\n    A_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    A_Act3(\"Tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_Act1\n    A_Act1 --> A_Concat\n    A_Concat --> A_Dense2\n    A_Dense2 --> A_Dense3\n    A_Dense3 --> A_Act3\n    A_Act3 --> A_Head\n    end\n    subgraph Critic [\"Critic\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219251\\n15,616 params\"):::styleMlp\n    C_Act1(\"Tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u219264\"):::styleConcat\n    C_Dense2(\"Dense\\n64\u2192192\\n14,208 params\"):::styleMlp\n    C_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    C_Act3(\"Tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_Act1\n    C_Act1 --> C_Concat\n    C_Concat --> C_Dense2\n    C_Dense2 --> C_Dense3\n    C_Dense3 --> C_Act3\n    C_Act3 --> C_Head\n    end\n    Obs --> Flat\n    Flat --> A_Emb\n    Flat --> C_Emb\n    Scalars --> A_Concat\n    Scalars --> C_Concat\n    Actor ~~~ Critic"
+  },
+  "ActorCriticMLP-balanced": {
+    "variant": "ActorCriticMLP-balanced",
+    "fov": 9,
+    "total_params": 107077,
+    "obs_shape": "9\u00d79\u00d73",
+    "obs_shape_tuple": [
+      9,
+      9,
+      3
+    ],
+    "scalars": 9,
+    "obs_flat": 243,
+    "obs_hidden": 55,
+    "concat_size": 64,
+    "d_hidden": 192,
+    "hidden_size": 64,
+    "use_reward_trace": false,
+    "use_layernorm": false,
+    "modules": {
+      "actor_dense1": 15616,
+      "actor_scalars_proj": 640,
+      "critic_dense1": 15616,
+      "critic_scalars_proj": 640,
+      "actor_dense2": 24768,
+      "critic_dense2": 24768,
+      "actor_dense3": 12352,
+      "actor_mean": 260,
+      "critic_dense3": 12352,
+      "critic_value": 65
+    },
+    "has_hint": true,
+    "hints_size": 4,
+    "balanced": true,
+    "is_conv": false,
+    "use_hint_trace": false,
+    "graph": {
+      "nodes": {
+        "Obs": {
+          "label": "Observation\\n9\u00d79\u00d73",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Scalars": {
+          "label": "A[4], R[1], Hint[4]\\n[9]",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Flat": {
+          "label": "Flatten\\n\u2192243",
+          "type": "styleMlp"
+        },
+        "A_Emb": {
+          "label": "Dense\\n243\u219264\\n15,616 params",
+          "type": "styleMlp"
+        },
+        "A_Act1": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "A_SProj": {
+          "label": "Scalars Proj\\n9\u219264\\n640 params",
+          "type": "styleMlp"
+        },
+        "A_SPAct": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "A_Concat": {
+          "label": "Concat\\n\u2192128",
+          "type": "styleConcat"
+        },
+        "A_Dense2": {
+          "label": "Dense\\n128\u2192192\\n24,768 params",
+          "type": "styleMlp"
+        },
+        "A_Dense3": {
+          "label": "Dense\\n192\u219264\\n12,352 params",
+          "type": "styleMlp"
+        },
+        "A_ActF": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "A_Head": {
+          "label": "Logits\\n64\u21924\\n260 params",
+          "type": "styleHead"
+        },
+        "C_Emb": {
+          "label": "Dense\\n243\u219264\\n15,616 params",
+          "type": "styleMlp"
+        },
+        "C_Act1": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_SProj": {
+          "label": "Scalars Proj\\n9\u219264\\n640 params",
+          "type": "styleMlp"
+        },
+        "C_SPAct": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_Concat": {
+          "label": "Concat\\n\u2192128",
+          "type": "styleConcat"
+        },
+        "C_Dense2": {
+          "label": "Dense\\n128\u2192192\\n24,768 params",
+          "type": "styleMlp"
+        },
+        "C_Dense3": {
+          "label": "Dense\\n192\u219264\\n12,352 params",
+          "type": "styleMlp"
+        },
+        "C_ActF": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_Head": {
+          "label": "Value\\n64\u21921\\n65 params",
+          "type": "styleHead"
+        }
+      },
+      "edges": [
+        [
+          "Obs",
+          "Flat"
+        ],
+        [
+          "Flat",
+          "A_Emb"
+        ],
+        [
+          "A_Emb",
+          "A_Act1"
+        ],
+        [
+          "Scalars",
+          "A_SProj"
+        ],
+        [
+          "A_SProj",
+          "A_SPAct"
+        ],
+        [
+          "A_Act1",
+          "A_Concat"
+        ],
+        [
+          "A_SPAct",
+          "A_Concat"
+        ],
+        [
+          "A_Concat",
+          "A_Dense2"
+        ],
+        [
+          "A_Dense2",
+          "A_Dense3"
+        ],
+        [
+          "A_Dense3",
+          "A_ActF"
+        ],
+        [
+          "A_ActF",
+          "A_Head"
+        ],
+        [
+          "Flat",
+          "C_Emb"
+        ],
+        [
+          "C_Emb",
+          "C_Act1"
+        ],
+        [
+          "Scalars",
+          "C_SProj"
+        ],
+        [
+          "C_SProj",
+          "C_SPAct"
+        ],
+        [
+          "C_Act1",
+          "C_Concat"
+        ],
+        [
+          "C_SPAct",
+          "C_Concat"
+        ],
+        [
+          "C_Concat",
+          "C_Dense2"
+        ],
+        [
+          "C_Dense2",
+          "C_Dense3"
+        ],
+        [
+          "C_Dense3",
+          "C_ActF"
+        ],
+        [
+          "C_ActF",
+          "C_Head"
+        ]
+      ],
+      "subgraphs": [
+        {
+          "id": "Actor",
+          "label": "Actor",
+          "nodes": [
+            "A_Emb",
+            "A_Act1",
+            "A_SProj",
+            "A_SPAct",
+            "A_Concat",
+            "A_Dense2",
+            "A_Dense3",
+            "A_ActF",
+            "A_Head"
+          ]
+        },
+        {
+          "id": "Critic",
+          "label": "Critic",
+          "nodes": [
+            "C_Emb",
+            "C_Act1",
+            "C_SProj",
+            "C_SPAct",
+            "C_Concat",
+            "C_Dense2",
+            "C_Dense3",
+            "C_ActF",
+            "C_Head"
+          ]
+        }
+      ],
+      "invisible_edges": [
+        [
+          "Actor",
+          "Critic"
+        ]
+      ]
+    },
+    "title": "PPO-balanced",
+    "description": "PPO with balanced vision/scalar projection.",
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219264\\n15,616 params\"):::styleMlp\n    A_Act1(\"Tanh\"):::styleNorm\n    A_SProj(\"Scalars Proj\\n9\u219264\\n640 params\"):::styleMlp\n    A_SPAct(\"Tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u2192128\"):::styleConcat\n    A_Dense2(\"Dense\\n128\u2192192\\n24,768 params\"):::styleMlp\n    A_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    A_ActF(\"Tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_Act1\n    A_SProj --> A_SPAct\n    A_Act1 --> A_Concat\n    A_SPAct --> A_Concat\n    A_Concat --> A_Dense2\n    A_Dense2 --> A_Dense3\n    A_Dense3 --> A_ActF\n    A_ActF --> A_Head\n    end\n    subgraph Critic [\"Critic\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219264\\n15,616 params\"):::styleMlp\n    C_Act1(\"Tanh\"):::styleNorm\n    C_SProj(\"Scalars Proj\\n9\u219264\\n640 params\"):::styleMlp\n    C_SPAct(\"Tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u2192128\"):::styleConcat\n    C_Dense2(\"Dense\\n128\u2192192\\n24,768 params\"):::styleMlp\n    C_Dense3(\"Dense\\n192\u219264\\n12,352 params\"):::styleMlp\n    C_ActF(\"Tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_Act1\n    C_SProj --> C_SPAct\n    C_Act1 --> C_Concat\n    C_SPAct --> C_Concat\n    C_Concat --> C_Dense2\n    C_Dense2 --> C_Dense3\n    C_Dense3 --> C_ActF\n    C_ActF --> C_Head\n    end\n    Obs --> Flat\n    Flat --> A_Emb\n    Scalars --> A_SProj\n    Flat --> C_Emb\n    Scalars --> C_SProj\n    Actor ~~~ Critic"
+  },
+  "PPO-RTU-balanced": {
+    "variant": "PPO-RTU-balanced",
+    "fov": 9,
+    "total_params": 198341,
+    "obs_shape": "9\u00d79\u00d73",
+    "obs_shape_tuple": [
+      9,
+      9,
+      3
+    ],
+    "scalars": 9,
+    "obs_flat": 243,
+    "obs_hidden": 55,
+    "concat_size": 64,
+    "d_hidden": 192,
+    "hidden_size": 64,
+    "use_reward_trace": false,
+    "use_layernorm": true,
+    "modules": {
+      "actor_dense1": 15616,
+      "actor_layernorm1": 128,
+      "actor_scalars_proj": 640,
+      "actor_scalars_layernorm": 128,
+      "critic_dense1": 15616,
+      "critic_layernorm1": 128,
+      "critic_scalars_proj": 640,
+      "critic_scalars_layernorm": 128,
+      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0": 384,
+      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 24576,
+      "actor_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 24576,
+      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0": 384,
+      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx1": 24576,
+      "critic_rtu/RealTimeLinearRTUs_0/FwdRealTimeLinearRTUs_0/wx2": 24576,
+      "actor_dense2": 32832,
+      "actor_layernorm2": 128,
+      "actor_mean": 260,
+      "critic_dense2": 32832,
+      "critic_layernorm2": 128,
+      "critic_value": 65
+    },
+    "has_hint": true,
+    "hints_size": 4,
+    "balanced": true,
+    "is_conv": false,
+    "use_hint_trace": false,
+    "graph": {
+      "nodes": {
+        "Obs": {
+          "label": "Observation\\n9\u00d79\u00d73",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Scalars": {
+          "label": "A[4], R[1], Hint[4]\\n[9]",
+          "type": "styleInput",
+          "shape": "stadium"
+        },
+        "Flat": {
+          "label": "Flatten\\n\u2192243",
+          "type": "styleMlp"
+        },
+        "A_Emb": {
+          "label": "Dense\\n243\u219264\\n15,616 params",
+          "type": "styleMlp"
+        },
+        "A_LN1": {
+          "label": "LayerNorm",
+          "type": "styleNorm"
+        },
+        "A_Act1": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "A_SProj": {
+          "label": "Scalars Proj\\n9\u219264\\n640 params",
+          "type": "styleMlp"
+        },
+        "A_SPLN": {
+          "label": "LayerNorm",
+          "type": "styleNorm"
+        },
+        "A_SPAct": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "A_Concat": {
+          "label": "Concat\\n\u2192128",
+          "type": "styleConcat"
+        },
+        "A_RTU": {
+          "label": "RTU\\n128\u21922\u00d7192\\n49,536 params",
+          "type": "styleRnn"
+        },
+        "A_Skip": {
+          "label": "Concat\\n\u2192512",
+          "type": "styleConcat"
+        },
+        "A_Dense2": {
+          "label": "Dense\\n512\u219264\\n32,832 params",
+          "type": "styleMlp"
+        },
+        "A_LN2": {
+          "label": "LayerNorm",
+          "type": "styleNorm"
+        },
+        "A_ActF": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "A_Head": {
+          "label": "Logits\\n64\u21924\\n260 params",
+          "type": "styleHead"
+        },
+        "C_Emb": {
+          "label": "Dense\\n243\u219264\\n15,616 params",
+          "type": "styleMlp"
+        },
+        "C_LN1": {
+          "label": "LayerNorm",
+          "type": "styleNorm"
+        },
+        "C_Act1": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_SProj": {
+          "label": "Scalars Proj\\n9\u219264\\n640 params",
+          "type": "styleMlp"
+        },
+        "C_SPLN": {
+          "label": "LayerNorm",
+          "type": "styleNorm"
+        },
+        "C_SPAct": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_Concat": {
+          "label": "Concat\\n\u2192128",
+          "type": "styleConcat"
+        },
+        "C_RTU": {
+          "label": "RTU\\n128\u21922\u00d7192\\n49,536 params",
+          "type": "styleRnn"
+        },
+        "C_Skip": {
+          "label": "Concat\\n\u2192512",
+          "type": "styleConcat"
+        },
+        "C_Dense2": {
+          "label": "Dense\\n512\u219264\\n32,832 params",
+          "type": "styleMlp"
+        },
+        "C_LN2": {
+          "label": "LayerNorm",
+          "type": "styleNorm"
+        },
+        "C_ActF": {
+          "label": "Tanh",
+          "type": "styleNorm"
+        },
+        "C_Head": {
+          "label": "Value\\n64\u21921\\n65 params",
+          "type": "styleHead"
+        }
+      },
+      "edges": [
+        [
+          "Obs",
+          "Flat"
+        ],
+        [
+          "Flat",
+          "A_Emb"
+        ],
+        [
+          "A_Emb",
+          "A_LN1"
+        ],
+        [
+          "A_LN1",
+          "A_Act1"
+        ],
+        [
+          "Scalars",
+          "A_SProj"
+        ],
+        [
+          "A_SProj",
+          "A_SPLN"
+        ],
+        [
+          "A_SPLN",
+          "A_SPAct"
+        ],
+        [
+          "A_Act1",
+          "A_Concat"
+        ],
+        [
+          "A_SPAct",
+          "A_Concat"
+        ],
+        [
+          "A_Concat",
+          "A_RTU"
+        ],
+        [
+          "A_RTU",
+          "A_Skip"
+        ],
+        [
+          "A_Concat",
+          "A_Skip"
+        ],
+        [
+          "A_Skip",
+          "A_Dense2"
+        ],
+        [
+          "A_Dense2",
+          "A_LN2"
+        ],
+        [
+          "A_LN2",
+          "A_ActF"
+        ],
+        [
+          "A_ActF",
+          "A_Head"
+        ],
+        [
+          "Flat",
+          "C_Emb"
+        ],
+        [
+          "C_Emb",
+          "C_LN1"
+        ],
+        [
+          "C_LN1",
+          "C_Act1"
+        ],
+        [
+          "Scalars",
+          "C_SProj"
+        ],
+        [
+          "C_SProj",
+          "C_SPLN"
+        ],
+        [
+          "C_SPLN",
+          "C_SPAct"
+        ],
+        [
+          "C_Act1",
+          "C_Concat"
+        ],
+        [
+          "C_SPAct",
+          "C_Concat"
+        ],
+        [
+          "C_Concat",
+          "C_RTU"
+        ],
+        [
+          "C_RTU",
+          "C_Skip"
+        ],
+        [
+          "C_Concat",
+          "C_Skip"
+        ],
+        [
+          "C_Skip",
+          "C_Dense2"
+        ],
+        [
+          "C_Dense2",
+          "C_LN2"
+        ],
+        [
+          "C_LN2",
+          "C_ActF"
+        ],
+        [
+          "C_ActF",
+          "C_Head"
+        ]
+      ],
+      "subgraphs": [
+        {
+          "id": "Actor",
+          "label": "Actor Path",
+          "nodes": [
+            "A_Emb",
+            "A_LN1",
+            "A_Act1",
+            "A_SProj",
+            "A_SPLN",
+            "A_SPAct",
+            "A_Concat",
+            "A_RTU",
+            "A_Skip",
+            "A_Dense2",
+            "A_LN2",
+            "A_ActF",
+            "A_Head"
+          ]
+        },
+        {
+          "id": "Critic",
+          "label": "Critic Path",
+          "nodes": [
+            "C_Emb",
+            "C_LN1",
+            "C_Act1",
+            "C_SProj",
+            "C_SPLN",
+            "C_SPAct",
+            "C_Concat",
+            "C_RTU",
+            "C_Skip",
+            "C_Dense2",
+            "C_LN2",
+            "C_ActF",
+            "C_Head"
+          ]
+        }
+      ],
+      "invisible_edges": [
+        [
+          "A_Head",
+          "C_Head"
+        ]
+      ]
+    },
+    "title": "PPO-RTU-balanced",
+    "description": "RTU PPO with balanced vision/scalar projection.",
+    "mermaid_source": "graph TD\nclassDef default font-family:Inter,sans-serif,font-size:12px\nclassDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleMlp fill:#e0f2fe,stroke:#38bdf8,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleRnn fill:#ffedd5,stroke:#fb923c,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleHead fill:#fae8ff,stroke:#e879f9,color:#0f172a,font-family:Inter,sans-serif\nclassDef styleConcat fill:#f8fafc,stroke:#64748b,stroke-dasharray: 4 4,color:#0f172a,font-family:Inter,sans-serif\n    Obs(\"Observation\\n9\u00d79\u00d73\"):::styleInput\n    Scalars(\"A[4], R[1], Hint[4]\\n[9]\"):::styleInput\n    Flat(\"Flatten\\n\u2192243\"):::styleMlp\n    subgraph Actor [\"Actor Path\"]\n    direction TB\n    A_Emb(\"Dense\\n243\u219264\\n15,616 params\"):::styleMlp\n    A_LN1(\"LayerNorm\"):::styleNorm\n    A_Act1(\"Tanh\"):::styleNorm\n    A_SProj(\"Scalars Proj\\n9\u219264\\n640 params\"):::styleMlp\n    A_SPLN(\"LayerNorm\"):::styleNorm\n    A_SPAct(\"Tanh\"):::styleNorm\n    A_Concat(\"Concat\\n\u2192128\"):::styleConcat\n    A_RTU(\"RTU\\n128\u21922\u00d7192\\n49,536 params\"):::styleRnn\n    A_Skip(\"Concat\\n\u2192512\"):::styleConcat\n    A_Dense2(\"Dense\\n512\u219264\\n32,832 params\"):::styleMlp\n    A_LN2(\"LayerNorm\"):::styleNorm\n    A_ActF(\"Tanh\"):::styleNorm\n    A_Head(\"Logits\\n64\u21924\\n260 params\"):::styleHead\n    A_Emb --> A_LN1\n    A_LN1 --> A_Act1\n    A_SProj --> A_SPLN\n    A_SPLN --> A_SPAct\n    A_Act1 --> A_Concat\n    A_SPAct --> A_Concat\n    A_Concat --> A_RTU\n    A_RTU --> A_Skip\n    A_Concat --> A_Skip\n    A_Skip --> A_Dense2\n    A_Dense2 --> A_LN2\n    A_LN2 --> A_ActF\n    A_ActF --> A_Head\n    end\n    subgraph Critic [\"Critic Path\"]\n    direction TB\n    C_Emb(\"Dense\\n243\u219264\\n15,616 params\"):::styleMlp\n    C_LN1(\"LayerNorm\"):::styleNorm\n    C_Act1(\"Tanh\"):::styleNorm\n    C_SProj(\"Scalars Proj\\n9\u219264\\n640 params\"):::styleMlp\n    C_SPLN(\"LayerNorm\"):::styleNorm\n    C_SPAct(\"Tanh\"):::styleNorm\n    C_Concat(\"Concat\\n\u2192128\"):::styleConcat\n    C_RTU(\"RTU\\n128\u21922\u00d7192\\n49,536 params\"):::styleRnn\n    C_Skip(\"Concat\\n\u2192512\"):::styleConcat\n    C_Dense2(\"Dense\\n512\u219264\\n32,832 params\"):::styleMlp\n    C_LN2(\"LayerNorm\"):::styleNorm\n    C_ActF(\"Tanh\"):::styleNorm\n    C_Head(\"Value\\n64\u21921\\n65 params\"):::styleHead\n    C_Emb --> C_LN1\n    C_LN1 --> C_Act1\n    C_SProj --> C_SPLN\n    C_SPLN --> C_SPAct\n    C_Act1 --> C_Concat\n    C_SPAct --> C_Concat\n    C_Concat --> C_RTU\n    C_RTU --> C_Skip\n    C_Concat --> C_Skip\n    C_Skip --> C_Dense2\n    C_Dense2 --> C_LN2\n    C_LN2 --> C_ActF\n    C_ActF --> C_Head\n    end\n    Obs --> Flat\n    Flat --> A_Emb\n    Scalars --> A_SProj\n    Flat --> C_Emb\n    Scalars --> C_SProj\n    A_Head ~~~ C_Head"
   }
 }

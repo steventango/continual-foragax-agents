@@ -1,4 +1,5 @@
 import json
+import os
 import jax
 import jax.numpy as jnp
 from algorithms.PPORegistry import getAgent as getPPOAgent
@@ -7,10 +8,13 @@ from experiment.ExperimentModel import load as load_exp
 from foragax.registry import make as make_env
 from ml_instrumentation.Collector import Collector
 
+# Resolve paths relative to the project root (parent of scripts/)
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
 FOV = 9
 OBS_SHAPE = (FOV, FOV, 3)
 ACTIONS = 4
-BASE = f"experiments/E136-big/foragax-sweep/ForagaxBig-v4/{FOV}"
+BASE = os.path.join(_PROJECT_ROOT, f"experiments/E136-big/foragax-sweep/ForagaxBig-v4/{FOV}")
 
 CLASSDEFS = """classDef styleInput fill:#fbcfe8,stroke:#f472b6,color:#0f172a,font-family:Inter,sans-serif
 classDef styleNorm fill:#fef9c3,stroke:#facc15,color:#0f172a,font-family:Inter,sans-serif
@@ -838,6 +842,1015 @@ def build_ppo_rtu_graph(variant_data):
     }
 
 
+# ── PConv / CoordConv DQN graph builder ───────────────────────────────────────
+
+
+def build_dqn_pconv_graph(variant_data):
+    """DQN with a 1×1 pointwise conv before the 3×3 conv."""
+    m = variant_data["modules"]
+    use_ln = variant_data["use_layernorm"]
+    conv_out = variant_data["conv_out"]
+    concat_sz = variant_data["concat_size"]
+    scalars = variant_data["scalars"]
+    fov = variant_data["fov"]
+    has_hint = variant_data.get("has_hint", False)
+
+    a_bits, r_bits = 4, 1
+    h_bits = 4 if has_hint else 0
+    scalar_label = f"A[{a_bits}], R[{r_bits}]"
+    if has_hint:
+        scalar_label += f", Hint[{h_bits}]"
+
+    pconv_p = m.get("phi/phi/~/phi", 0)
+    conv_p = m.get("phi/phi/~/phi_1", 0) if m.get("phi/phi/~/phi_1", 0) else m.get("phi/phi/~/phi", 0)
+    # For PConv: phi is 1×1, phi_1 is 3×3.  Params are split across two conv layers.
+    # Heuristic: if phi_1 exists, phi is 1×1 and phi_1 is 3×3
+    if "phi/phi/~/phi_1" in m:
+        pconv_p = m["phi/phi/~/phi"]
+        conv_p = m["phi/phi/~/phi_1"]
+    else:
+        pconv_p = 0
+        conv_p = m.get("phi/phi/~/phi", 0)
+    d1_p = m.get("phi/phi/~/linear", 0)
+    d2_p = m.get("phi/phi/~/linear_1", 0)
+    qh_p = m.get("q/q", 0)
+
+    nodes = {
+        "Obs": {
+            "label": _lbl("Observation", f"{fov}×{fov}×3"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "Scalars": {
+            "label": _lbl(scalar_label, f"[{scalars}]"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "PConv": {
+            "label": _lbl("Conv2D 16×1×1", f"{fov}×{fov}×3→{fov}×{fov}×16", pconv_p),
+            "type": "styleMlp",
+        },
+        "ReLU0": {"label": "ReLU", "type": "styleNorm"},
+        "Conv": {
+            "label": _lbl("Conv2D 16×3×3", f"{fov}×{fov}×16→{fov}×{fov}×16", conv_p),
+            "type": "styleMlp",
+        },
+        "ReLU1": {"label": "ReLU", "type": "styleNorm"},
+        "Flat": {"label": _lbl("Flatten", f"→{conv_out}"), "type": "styleMlp"},
+        "Concat": {"label": _lbl("Concat", f"→{concat_sz}"), "type": "styleConcat"},
+        "Dense1": {"label": _lbl("Dense", f"{concat_sz}→64", d1_p), "type": "styleMlp"},
+        "Dense2": {"label": _lbl("Dense", "64→64", d2_p), "type": "styleMlp"},
+        "QHead": {"label": _lbl("Q-Head", "64→4", qh_p), "type": "styleHead"},
+    }
+    edges = [
+        ("Obs", "PConv"),
+        ("PConv", "ReLU0"),
+        ("ReLU0", "Conv"),
+        ("Conv", "ReLU1"),
+        ("ReLU1", "Flat"),
+        ("Flat", "Concat"),
+        ("Scalars", "Concat"),
+        ("Concat", "Dense1"),
+    ]
+
+    if use_ln:
+        nodes["PConvLN"] = {"label": _lbl("LayerNorm", f"{fov}×{fov}×16"), "type": "styleNorm"}
+        nodes["ConvLN"] = {"label": _lbl("LayerNorm", f"{fov}×{fov}×16"), "type": "styleNorm"}
+        # Insert LN after PConv and Conv
+        edges = [
+            ("Obs", "PConv"),
+            ("PConv", "PConvLN"),
+            ("PConvLN", "ReLU0"),
+            ("ReLU0", "Conv"),
+            ("Conv", "ConvLN"),
+            ("ConvLN", "ReLU1"),
+            ("ReLU1", "Flat"),
+            ("Flat", "Concat"),
+            ("Scalars", "Concat"),
+            ("Concat", "Dense1"),
+        ]
+
+    repr_nodes = ["Dense1"]
+    if use_ln:
+        ln1_p = m.get("phi/phi/~/layer_norm", 0)
+        ln2_p = m.get("phi/phi/~/layer_norm_1", 0)
+        nodes["LN1"] = {"label": _lbl("LayerNorm", "64", ln1_p), "type": "styleNorm"}
+        nodes["Act1"] = {"label": "ReLU", "type": "styleNorm"}
+        nodes["LN2"] = {"label": _lbl("LayerNorm", "64", ln2_p), "type": "styleNorm"}
+        nodes["Act2"] = {"label": "ReLU", "type": "styleNorm"}
+        edges += [
+            ("Dense1", "LN1"), ("LN1", "Act1"), ("Act1", "Dense2"),
+            ("Dense2", "LN2"), ("LN2", "Act2"), ("Act2", "QHead"),
+        ]
+        repr_nodes += ["LN1", "Act1", "Dense2", "LN2", "Act2"]
+    else:
+        nodes["Act1"] = {"label": "ReLU", "type": "styleNorm"}
+        nodes["Act2"] = {"label": "ReLU", "type": "styleNorm"}
+        edges += [
+            ("Dense1", "Act1"), ("Act1", "Dense2"),
+            ("Dense2", "Act2"), ("Act2", "QHead"),
+        ]
+        repr_nodes += ["Act1", "Dense2", "Act2"]
+
+    ordered_nodes = {}
+    top_keys = ["Obs", "Scalars", "PConv"]
+    if use_ln:
+        top_keys += ["PConvLN"]
+    top_keys += ["ReLU0", "Conv"]
+    if use_ln:
+        top_keys += ["ConvLN"]
+    top_keys += ["ReLU1", "Flat", "Concat"]
+    for k in top_keys:
+        ordered_nodes[k] = nodes[k]
+    for k in repr_nodes:
+        ordered_nodes[k] = nodes[k]
+    ordered_nodes["QHead"] = nodes["QHead"]
+
+    return {
+        "nodes": ordered_nodes,
+        "edges": edges,
+        "subgraphs": [
+            {"id": "ForagerNet", "label": "ForagerNet (PConv2D)", "nodes": repr_nodes},
+        ],
+    }
+
+
+def build_dqn_coordconv_graph(variant_data):
+    """DQN with CoordConv (appends x,y coordinate channels before conv)."""
+    m = variant_data["modules"]
+    use_ln = variant_data["use_layernorm"]
+    conv_out = variant_data["conv_out"]
+    concat_sz = variant_data["concat_size"]
+    scalars = variant_data["scalars"]
+    fov = variant_data["fov"]
+    has_hint = variant_data.get("has_hint", False)
+
+    a_bits, r_bits = 4, 1
+    h_bits = 4 if has_hint else 0
+    scalar_label = f"A[{a_bits}], R[{r_bits}]"
+    if has_hint:
+        scalar_label += f", Hint[{h_bits}]"
+
+    conv_p = m.get("phi/phi/~/phi", 0)
+    d1_p = m.get("phi/phi/~/linear", 0)
+    d2_p = m.get("phi/phi/~/linear_1", 0)
+    qh_p = m.get("q/q", 0)
+
+    nodes = {
+        "Obs": {
+            "label": _lbl("Observation", f"{fov}×{fov}×3"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "Scalars": {
+            "label": _lbl(scalar_label, f"[{scalars}]"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "Coords": {
+            "label": _lbl("+ Coord Channels", f"{fov}×{fov}×3→{fov}×{fov}×5"),
+            "type": "styleInput",
+        },
+        "Conv": {
+            "label": _lbl("Conv2D 16×3×3", f"{fov}×{fov}×5→{fov}×{fov}×16", conv_p),
+            "type": "styleMlp",
+        },
+        "ReLU1": {"label": "ReLU", "type": "styleNorm"},
+        "Flat": {"label": _lbl("Flatten", f"→{conv_out}"), "type": "styleMlp"},
+        "Concat": {"label": _lbl("Concat", f"→{concat_sz}"), "type": "styleConcat"},
+        "Dense1": {"label": _lbl("Dense", f"{concat_sz}→64", d1_p), "type": "styleMlp"},
+        "Dense2": {"label": _lbl("Dense", "64→64", d2_p), "type": "styleMlp"},
+        "QHead": {"label": _lbl("Q-Head", "64→4", qh_p), "type": "styleHead"},
+    }
+    edges = [
+        ("Obs", "Coords"),
+        ("Coords", "Conv"),
+        ("Conv", "ReLU1"),
+        ("ReLU1", "Flat"),
+        ("Flat", "Concat"),
+        ("Scalars", "Concat"),
+        ("Concat", "Dense1"),
+    ]
+    repr_nodes = ["Dense1"]
+
+    if use_ln:
+        ln1_p = m.get("phi/phi/~/layer_norm", 0)
+        ln2_p = m.get("phi/phi/~/layer_norm_1", 0)
+        nodes["LN1"] = {"label": _lbl("LayerNorm", "64", ln1_p), "type": "styleNorm"}
+        nodes["Act1"] = {"label": "ReLU", "type": "styleNorm"}
+        nodes["LN2"] = {"label": _lbl("LayerNorm", "64", ln2_p), "type": "styleNorm"}
+        nodes["Act2"] = {"label": "ReLU", "type": "styleNorm"}
+        edges += [
+            ("Dense1", "LN1"), ("LN1", "Act1"), ("Act1", "Dense2"),
+            ("Dense2", "LN2"), ("LN2", "Act2"), ("Act2", "QHead"),
+        ]
+        repr_nodes += ["LN1", "Act1", "Dense2", "LN2", "Act2"]
+    else:
+        nodes["Act1"] = {"label": "ReLU", "type": "styleNorm"}
+        nodes["Act2"] = {"label": "ReLU", "type": "styleNorm"}
+        edges += [
+            ("Dense1", "Act1"), ("Act1", "Dense2"),
+            ("Dense2", "Act2"), ("Act2", "QHead"),
+        ]
+        repr_nodes += ["Act1", "Dense2", "Act2"]
+
+    ordered_nodes = {}
+    top_keys = ["Obs", "Scalars", "Coords", "Conv", "ReLU1", "Flat", "Concat"]
+    for k in top_keys:
+        ordered_nodes[k] = nodes[k]
+    for k in repr_nodes:
+        ordered_nodes[k] = nodes[k]
+    ordered_nodes["QHead"] = nodes["QHead"]
+
+    return {
+        "nodes": ordered_nodes,
+        "edges": edges,
+        "subgraphs": [
+            {"id": "ForagerNet", "label": "ForagerNet (CoordConv2D)", "nodes": repr_nodes},
+        ],
+    }
+
+
+# ── Balanced DQN graph builder ────────────────────────────────────────────────
+
+
+def build_dqn_balanced_graph(variant_data):
+    """DQN with balanced vision/scalar projection before concat."""
+    m = variant_data["modules"]
+    use_ln = variant_data["use_layernorm"]
+    conv_out = variant_data["conv_out"]
+    scalars = variant_data["scalars"]
+    fov = variant_data["fov"]
+    hidden = 64
+    has_hint = variant_data.get("has_hint", False)
+    has_rt = variant_data.get("has_rt", False)
+    has_ht = variant_data.get("has_hint_trace", False)
+
+    a_bits, r_bits = 4, 1
+    rt_bits = 1 if has_rt else 0
+    h_bits = 4 if has_hint else 0
+    ht_bits = 4 if has_ht else 0
+    scalar_label = f"A[{a_bits}], R[{r_bits}]"
+    if has_rt:
+        scalar_label += f", RT[{rt_bits}]"
+    if has_hint:
+        scalar_label += f", Hint[{h_bits}]"
+    if has_ht:
+        scalar_label += f", HT[{ht_bits}]"
+
+    concat_sz = hidden * 2  # balanced: both projected to hidden
+
+    conv_p = m.get("phi/phi/~/phi", 0)
+    vproj_p = m.get("phi/phi/~/vision_proj", 0)
+    sproj_p = m.get("phi/phi/~/scalars_proj", 0)
+    d1_p = m.get("phi/phi/~/linear", 0)
+    d2_p = m.get("phi/phi/~/linear_1", 0)
+    qh_p = m.get("q/q", 0)
+
+    nodes = {
+        "Obs": {
+            "label": _lbl("Observation", f"{fov}×{fov}×3"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "Scalars": {
+            "label": _lbl(scalar_label, f"[{scalars}]"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "Conv": {
+            "label": _lbl("Conv2D 16×3×3", f"{fov}×{fov}×3→{fov}×{fov}×16", conv_p),
+            "type": "styleMlp",
+        },
+        "ReLU1": {"label": "ReLU", "type": "styleNorm"},
+        "Flat": {"label": _lbl("Flatten", f"→{conv_out}"), "type": "styleMlp"},
+        "VProj": {
+            "label": _lbl("Vision Proj", f"{conv_out}→{hidden}", vproj_p),
+            "type": "styleMlp",
+        },
+        "VPAct": {"label": "ReLU", "type": "styleNorm"},
+        "SProj": {
+            "label": _lbl("Scalars Proj", f"{scalars}→{hidden}", sproj_p),
+            "type": "styleMlp",
+        },
+        "SPAct": {"label": "ReLU", "type": "styleNorm"},
+        "Concat": {"label": _lbl("Concat", f"→{concat_sz}"), "type": "styleConcat"},
+        "Dense1": {"label": _lbl("Dense", f"{concat_sz}→{hidden}", d1_p), "type": "styleMlp"},
+        "Dense2": {"label": _lbl("Dense", f"{hidden}→{hidden}", d2_p), "type": "styleMlp"},
+        "QHead": {"label": _lbl("Q-Head", f"{hidden}→4", qh_p), "type": "styleHead"},
+    }
+    edges = [
+        ("Obs", "Conv"),
+        ("Conv", "ReLU1"),
+        ("ReLU1", "Flat"),
+        ("Flat", "VProj"),
+        ("VProj", "VPAct"),
+        ("VPAct", "Concat"),
+        ("Scalars", "SProj"),
+        ("SProj", "SPAct"),
+        ("SPAct", "Concat"),
+        ("Concat", "Dense1"),
+    ]
+    repr_nodes = ["Dense1"]
+
+    if use_ln:
+        # Add LN after VProj and SProj
+        nodes["VPLN"] = {"label": "LayerNorm", "type": "styleNorm"}
+        nodes["SPLN"] = {"label": "LayerNorm", "type": "styleNorm"}
+        edges = [
+            ("Obs", "Conv"),
+            ("Conv", "ReLU1"),
+            ("ReLU1", "Flat"),
+            ("Flat", "VProj"),
+            ("VProj", "VPLN"),
+            ("VPLN", "VPAct"),
+            ("VPAct", "Concat"),
+            ("Scalars", "SProj"),
+            ("SProj", "SPLN"),
+            ("SPLN", "SPAct"),
+            ("SPAct", "Concat"),
+            ("Concat", "Dense1"),
+        ]
+
+    if use_ln:
+        ln1_p = m.get("phi/phi/~/layer_norm", 0)
+        ln2_p = m.get("phi/phi/~/layer_norm_1", 0)
+        nodes["LN1"] = {"label": _lbl("LayerNorm", f"{hidden}", ln1_p), "type": "styleNorm"}
+        nodes["Act1"] = {"label": "ReLU", "type": "styleNorm"}
+        nodes["LN2"] = {"label": _lbl("LayerNorm", f"{hidden}", ln2_p), "type": "styleNorm"}
+        nodes["Act2"] = {"label": "ReLU", "type": "styleNorm"}
+        edges += [
+            ("Dense1", "LN1"), ("LN1", "Act1"), ("Act1", "Dense2"),
+            ("Dense2", "LN2"), ("LN2", "Act2"), ("Act2", "QHead"),
+        ]
+        repr_nodes += ["LN1", "Act1", "Dense2", "LN2", "Act2"]
+    else:
+        nodes["Act1"] = {"label": "ReLU", "type": "styleNorm"}
+        nodes["Act2"] = {"label": "ReLU", "type": "styleNorm"}
+        edges += [
+            ("Dense1", "Act1"), ("Act1", "Dense2"),
+            ("Dense2", "Act2"), ("Act2", "QHead"),
+        ]
+        repr_nodes += ["Act1", "Dense2", "Act2"]
+
+    ordered_nodes = {}
+    top_keys = ["Obs", "Scalars", "Conv", "ReLU1", "Flat", "VProj"]
+    if use_ln:
+        top_keys += ["VPLN"]
+    top_keys += ["VPAct", "SProj"]
+    if use_ln:
+        top_keys += ["SPLN"]
+    top_keys += ["SPAct", "Concat"]
+    for k in top_keys:
+        ordered_nodes[k] = nodes[k]
+    for k in repr_nodes:
+        ordered_nodes[k] = nodes[k]
+    ordered_nodes["QHead"] = nodes["QHead"]
+
+    return {
+        "nodes": ordered_nodes,
+        "edges": edges,
+        "subgraphs": [
+            {"id": "ForagerNet", "label": "ForagerNet (Balanced)", "nodes": repr_nodes},
+        ],
+    }
+
+
+# ── DRQN hint-GRU-only graph builder ─────────────────────────────────────────
+
+
+def build_drqn_hint_gru_graph(variant_data):
+    """DRQN where only the hint signal goes through the GRU."""
+    m = variant_data["modules"]
+    use_ln = variant_data["use_layernorm"]
+    conv_out = variant_data["conv_out"]
+    pre = variant_data.get("pre_gru_layers", 0)
+    post = variant_data.get("post_gru_layers", 0)
+    fov = variant_data["fov"]
+    scalars = variant_data["scalars"]
+    hints_size = variant_data.get("hints_size", 4)
+
+    other_scalars = scalars - hints_size  # e.g. A[4]+R[1] = 5
+
+    conv_p = m.get("phi/ForagerGRUNetReLU/~/phi", 0)
+    gru_p = m.get("phi/ForagerGRUNetReLU/~/gru", 0) + m.get(
+        "phi/ForagerGRUNetReLU/~/gru/~/gru_inner", 0
+    )
+    qh_p = m.get("q/q", 0)
+
+    # After GRU: concat(vision_flat, gru_out, hint_skip, other_scalars)
+    gru_in = hints_size if pre == 0 else 64
+    skip_sz = conv_out + 64 + hints_size + other_scalars  # hint_gru_only concat
+
+    nodes = {
+        "Obs": {
+            "label": _lbl("Seq Obs", f"{fov}×{fov}×3"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "OtherScalars": {
+            "label": _lbl(f"A[4], R[1]", f"[{other_scalars}]"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "HintInput": {
+            "label": _lbl("Hint", f"[{hints_size}]"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "Conv": {
+            "label": _lbl("Conv2D 16×3×3", f"{fov}×{fov}×3→{fov}×{fov}×16", conv_p),
+            "type": "styleMlp",
+        },
+        "ReLU1": {"label": "ReLU", "type": "styleNorm"},
+        "Flat": {"label": _lbl("Flatten", f"→{conv_out}"), "type": "styleMlp"},
+        "GRU": {"label": _lbl("GRU 64", f"{gru_in}→64", gru_p), "type": "styleRnn"},
+        "ReLU2": {"label": "ReLU", "type": "styleNorm"},
+        "Merge": {"label": _lbl("Concat", f"→{skip_sz}"), "type": "styleConcat"},
+    }
+    edges = [
+        ("Obs", "Conv"),
+        ("Conv", "ReLU1"),
+        ("ReLU1", "Flat"),
+    ]
+
+    # Hint goes through optional pre-GRU, then GRU
+    pre_nodes = []
+    if pre > 0:
+        pre_p = m.get("phi/ForagerGRUNetReLU/~/linear", 0)
+        nodes["HintPre"] = {
+            "label": _lbl("Dense", f"{hints_size}→64", pre_p),
+            "type": "styleMlp",
+        }
+        pre_nodes.append("HintPre")
+        if use_ln:
+            ln_p = m.get("phi/ForagerGRUNetReLU/~/layer_norm", 0)
+            nodes["HintPreLN"] = {"label": _lbl("LayerNorm", "64", ln_p), "type": "styleNorm"}
+            nodes["HintPreAct"] = {"label": "ReLU", "type": "styleNorm"}
+            edges += [
+                ("HintInput", "HintPre"),
+                ("HintPre", "HintPreLN"),
+                ("HintPreLN", "HintPreAct"),
+                ("HintPreAct", "GRU"),
+                ("HintInput", "Merge"),  # hint skip
+            ]
+            pre_nodes += ["HintPreLN", "HintPreAct"]
+        else:
+            nodes["HintPreAct"] = {"label": "ReLU", "type": "styleNorm"}
+            edges += [
+                ("HintInput", "HintPre"),
+                ("HintPre", "HintPreAct"),
+                ("HintPreAct", "GRU"),
+                ("HintInput", "Merge"),  # hint skip
+            ]
+            pre_nodes.append("HintPreAct")
+    else:
+        edges += [
+            ("HintInput", "GRU"),
+            ("HintInput", "Merge"),  # hint skip
+        ]
+
+    edges += [
+        ("GRU", "ReLU2"),
+        ("ReLU2", "Merge"),
+        ("Flat", "Merge"),
+        ("OtherScalars", "Merge"),
+    ]
+    curr_out = "Merge"
+
+    post_nodes = []
+    if post > 0:
+        curr_in_sz = skip_sz
+        for i in range(post):
+            suffix = f"_{i}" if i > 0 else ""
+            linear_key = f"phi/ForagerGRUNetReLU/~/linear{suffix}"
+            post_p = m.get(linear_key, 0)
+            if post_p == 0:
+                linear_key = f"phi/ForagerGRUNetReLU/~/post_gru_mlp/~/linear{suffix}"
+                post_p = m.get(linear_key, 0)
+
+            nid = f"PostDense{i + 1}"
+            nodes[nid] = {"label": _lbl("Dense", f"{curr_in_sz}→64", post_p), "type": "styleMlp"}
+            edges.append((curr_out, nid))
+            curr_out = nid
+            post_nodes.append(nid)
+
+            if use_ln:
+                idx = (pre + i)
+                suffix_ln = f"_{idx}" if idx > 0 else ""
+                ln_p = m.get(f"phi/ForagerGRUNetReLU/~/layer_norm{suffix_ln}", 0)
+                nid_ln = f"PostLN{i + 1}"
+                nodes[nid_ln] = {"label": _lbl("LayerNorm", "64", ln_p), "type": "styleNorm"}
+                edges.append((curr_out, nid_ln))
+                curr_out = nid_ln
+                post_nodes.append(nid_ln)
+
+            nid_act = f"PostAct{i + 1}"
+            nodes[nid_act] = {"label": "ReLU", "type": "styleNorm"}
+            edges.append((curr_out, nid_act))
+            curr_out = nid_act
+            post_nodes.append(nid_act)
+            curr_in_sz = 64
+
+    nodes["QHead"] = {"label": _lbl("Q-Head", "64→4", qh_p), "type": "styleHead"}
+    edges.append((curr_out, "QHead"))
+
+    subgraphs = []
+    if pre_nodes:
+        subgraphs.append({"id": "HintPreGRU", "label": "Pre-GRU (Hint)", "nodes": pre_nodes})
+    if post_nodes:
+        subgraphs.append({"id": "PostGRU", "label": "Post-GRU", "nodes": post_nodes})
+
+    core_nodes = [
+        "Obs", "OtherScalars", "HintInput",
+        "Conv", "ReLU1", "Flat",
+        "GRU", "ReLU2", "Merge",
+    ]
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "subgraphs": [
+            {
+                "id": "ForagerNet",
+                "label": "DRQN hint-GRU (ForagerGRUNetReLU)",
+                "nodes": core_nodes,
+                "subgraphs": subgraphs,
+            }
+        ],
+    }
+
+
+# ── PPO-Conv graph builder ────────────────────────────────────────────────────
+
+
+def build_ppo_conv_graph(variant_data):
+    """PPO with Conv encoder (ActorCriticConv)."""
+    m = variant_data["modules"]
+    use_rt = variant_data.get("use_reward_trace", False)
+    use_ln = variant_data.get("use_layernorm", False)
+    fov = variant_data["fov"]
+    conv_out = variant_data.get("conv_out", 16 * fov * fov)
+    scalars_count = variant_data["scalars"]
+    d_hid = variant_data["d_hidden"]
+    hid = variant_data["hidden_size"]
+    has_hint = variant_data.get("has_hint", False)
+
+    a_bits, r_bits = 4, 1
+    rt_bits = 1 if use_rt else 0
+    h_bits = 4 if has_hint else 0
+    scalar_label = f"A[{a_bits}], R[{r_bits}]"
+    if use_rt:
+        scalar_label += f", RT[{rt_bits}]"
+    if h_bits > 0:
+        scalar_label += f", Hint[{h_bits}]"
+
+    cat_sz = conv_out + scalars_count
+
+    def sum_p(prefix):
+        return sum(v for k, v in m.items() if prefix in k)
+
+    ac1 = sum_p("actor_conv1")
+    cc1 = sum_p("critic_conv1")
+    ad2 = sum_p("actor_dense2")
+    cd2 = sum_p("critic_dense2")
+    ad3 = sum_p("actor_dense3")
+    cd3 = sum_p("critic_dense3")
+    ad4_p = sum_p("actor_dense4") if "actor_dense4" in str(m) else 0
+    cd4_p = sum_p("critic_dense4") if "critic_dense4" in str(m) else 0
+    ahead = sum_p("actor_mean")
+    chead = sum_p("critic_value")
+
+    nodes = {
+        "Obs": {
+            "label": _lbl("Observation", f"{fov}×{fov}×3"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "Scalars": {
+            "label": _lbl(scalar_label, f"[{scalars_count}]"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+    }
+    edges = []
+
+    def add_conv_path(prefix, conv_p, d2_p, d3_p, d4_p, head_p, head_lbl, head_out):
+        p_nodes = []
+        # Conv
+        nodes[f"{prefix}_Conv"] = {
+            "label": _lbl("Conv 16×3×3", f"{fov}×{fov}×3→{fov}×{fov}×16", conv_p),
+            "type": "styleMlp",
+        }
+        p_nodes.append(f"{prefix}_Conv")
+        edges.append(("Obs", f"{prefix}_Conv"))
+        curr = f"{prefix}_Conv"
+
+        if use_ln:
+            nodes[f"{prefix}_ConvLN"] = {"label": "LayerNorm", "type": "styleNorm"}
+            edges.append((curr, f"{prefix}_ConvLN"))
+            curr = f"{prefix}_ConvLN"
+            p_nodes.append(f"{prefix}_ConvLN")
+
+        nodes[f"{prefix}_Act1"] = {"label": "Tanh", "type": "styleNorm"}
+        edges.append((curr, f"{prefix}_Act1"))
+        curr = f"{prefix}_Act1"
+        p_nodes.append(f"{prefix}_Act1")
+
+        nodes[f"{prefix}_Flat"] = {"label": _lbl("Flatten", f"→{conv_out}"), "type": "styleMlp"}
+        edges.append((curr, f"{prefix}_Flat"))
+        curr = f"{prefix}_Flat"
+        p_nodes.append(f"{prefix}_Flat")
+
+        nodes[f"{prefix}_Concat"] = {"label": _lbl("Concat", f"→{cat_sz}"), "type": "styleConcat"}
+        edges.append((curr, f"{prefix}_Concat"))
+        edges.append(("Scalars", f"{prefix}_Concat"))
+        curr = f"{prefix}_Concat"
+        p_nodes.append(f"{prefix}_Concat")
+
+        nodes[f"{prefix}_Dense2"] = {"label": _lbl("Dense", f"{cat_sz}→{hid}", d2_p), "type": "styleMlp"}
+        edges.append((curr, f"{prefix}_Dense2"))
+        curr = f"{prefix}_Dense2"
+        p_nodes.append(f"{prefix}_Dense2")
+
+        if use_ln:
+            nodes[f"{prefix}_LN2"] = {"label": "LayerNorm", "type": "styleNorm"}
+            edges.append((curr, f"{prefix}_LN2"))
+            curr = f"{prefix}_LN2"
+            p_nodes.append(f"{prefix}_LN2")
+
+        nodes[f"{prefix}_Act2"] = {"label": "Tanh", "type": "styleNorm"}
+        edges.append((curr, f"{prefix}_Act2"))
+        curr = f"{prefix}_Act2"
+        p_nodes.append(f"{prefix}_Act2")
+
+        nodes[f"{prefix}_Dense3"] = {"label": _lbl("Dense", f"{hid}→{d_hid}", d3_p), "type": "styleMlp"}
+        edges.append((curr, f"{prefix}_Dense3"))
+        curr = f"{prefix}_Dense3"
+        p_nodes.append(f"{prefix}_Dense3")
+
+        if use_ln:
+            nodes[f"{prefix}_LN3"] = {"label": "LayerNorm", "type": "styleNorm"}
+            edges.append((curr, f"{prefix}_LN3"))
+            curr = f"{prefix}_LN3"
+            p_nodes.append(f"{prefix}_LN3")
+
+        nodes[f"{prefix}_Act3"] = {"label": "Tanh", "type": "styleNorm"}
+        edges.append((curr, f"{prefix}_Act3"))
+        curr = f"{prefix}_Act3"
+        p_nodes.append(f"{prefix}_Act3")
+
+        # Dense4 (hidden_size) + head
+        nodes[f"{prefix}_Dense4"] = {"label": _lbl("Dense", f"{d_hid}→{hid}", d4_p), "type": "styleMlp"}
+        edges.append((curr, f"{prefix}_Dense4"))
+        curr = f"{prefix}_Dense4"
+        p_nodes.append(f"{prefix}_Dense4")
+
+        if use_ln:
+            nodes[f"{prefix}_LN4"] = {"label": "LayerNorm", "type": "styleNorm"}
+            edges.append((curr, f"{prefix}_LN4"))
+            curr = f"{prefix}_LN4"
+            p_nodes.append(f"{prefix}_LN4")
+
+        nodes[f"{prefix}_Act4"] = {"label": "Tanh", "type": "styleNorm"}
+        edges.append((curr, f"{prefix}_Act4"))
+        curr = f"{prefix}_Act4"
+        p_nodes.append(f"{prefix}_Act4")
+
+        nodes[f"{prefix}_Head"] = {
+            "label": _lbl(head_lbl, f"{hid}→{head_out}", head_p),
+            "type": "styleHead",
+        }
+        edges.append((curr, f"{prefix}_Head"))
+        p_nodes.append(f"{prefix}_Head")
+        return p_nodes
+
+    actor_n = add_conv_path("A", ac1, ad2, ad3, ad4_p, ahead, "Logits", 4)
+    critic_n = add_conv_path("C", cc1, cd2, cd3, cd4_p, chead, "Value", 1)
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "subgraphs": [
+            {"id": "Actor", "label": "Actor", "nodes": actor_n},
+            {"id": "Critic", "label": "Critic", "nodes": critic_n},
+        ],
+        "invisible_edges": [["Actor", "Critic"]],
+    }
+
+
+# ── Balanced PPO graph builder ────────────────────────────────────────────────
+
+
+def build_ppo_balanced_graph(variant_data):
+    """PPO (ActorCriticMLP) with balanced scalar projection."""
+    m = variant_data["modules"]
+    use_rt = variant_data.get("use_reward_trace", False)
+    use_ln = variant_data.get("use_layernorm", False)
+    obs_flat = variant_data["obs_flat"]
+    hid = variant_data["hidden_size"]
+    d_hid = variant_data["d_hidden"]
+    scalars_count = variant_data["scalars"]
+    fov = variant_data["fov"]
+    has_hint = variant_data.get("has_hint", False)
+    use_ht = variant_data.get("use_hint_trace", False)
+
+    a_bits, r_bits = 4, 1
+    rt_bits = 1 if use_rt else 0
+    h_bits = 4 if has_hint else 0
+    ht_bits = 4 if use_ht else 0
+    scalar_label = f"A[{a_bits}], R[{r_bits}]"
+    if use_rt:
+        scalar_label += f", RT[{rt_bits}]"
+    if h_bits > 0:
+        scalar_label += f", Hint[{h_bits}]"
+    if use_ht:
+        scalar_label += f", HT[{ht_bits}]"
+
+    cat_sz = hid + hid  # balanced: vision_emb(hid) + scalars_proj(hid)
+
+    def sum_p(prefix):
+        return sum(v for k, v in m.items() if prefix in k)
+
+    ad1 = sum_p("actor_dense1")
+    cd1 = sum_p("critic_dense1")
+    asp = sum_p("actor_scalars_proj")
+    csp = sum_p("critic_scalars_proj")
+    ad2 = sum_p("actor_dense2")
+    cd2 = sum_p("critic_dense2")
+    ad3 = sum_p("actor_dense3")
+    cd3 = sum_p("critic_dense3")
+    ahead = sum_p("actor_mean")
+    chead = sum_p("critic_value")
+
+    nodes = {
+        "Obs": {
+            "label": _lbl("Observation", f"{fov}×{fov}×3"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "Scalars": {
+            "label": _lbl(scalar_label, f"[{scalars_count}]"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "Flat": {"label": _lbl("Flatten", f"→{obs_flat}"), "type": "styleMlp"},
+    }
+    edges = [("Obs", "Flat")]
+
+    def add_bal_path(prefix, emb_p, sp_p, d2_p, d3_p, head_p, head_lbl, head_out):
+        p_nodes = []
+        # Vision embedding
+        nodes[f"{prefix}_Emb"] = {
+            "label": _lbl("Dense", f"{obs_flat}→{hid}", emb_p),
+            "type": "styleMlp",
+        }
+        p_nodes.append(f"{prefix}_Emb")
+        edges.append(("Flat", f"{prefix}_Emb"))
+        curr = f"{prefix}_Emb"
+
+        if use_ln:
+            nodes[f"{prefix}_LN1"] = {"label": "LayerNorm", "type": "styleNorm"}
+            edges.append((curr, f"{prefix}_LN1"))
+            curr = f"{prefix}_LN1"
+            p_nodes.append(f"{prefix}_LN1")
+
+        nodes[f"{prefix}_Act1"] = {"label": "Tanh", "type": "styleNorm"}
+        edges.append((curr, f"{prefix}_Act1"))
+        curr = f"{prefix}_Act1"
+        p_nodes.append(f"{prefix}_Act1")
+
+        # Scalar projection
+        nodes[f"{prefix}_SProj"] = {
+            "label": _lbl("Scalars Proj", f"{scalars_count}→{hid}", sp_p),
+            "type": "styleMlp",
+        }
+        p_nodes.append(f"{prefix}_SProj")
+        edges.append(("Scalars", f"{prefix}_SProj"))
+        sp_curr = f"{prefix}_SProj"
+
+        if use_ln:
+            nodes[f"{prefix}_SPLN"] = {"label": "LayerNorm", "type": "styleNorm"}
+            edges.append((sp_curr, f"{prefix}_SPLN"))
+            sp_curr = f"{prefix}_SPLN"
+            p_nodes.append(f"{prefix}_SPLN")
+
+        nodes[f"{prefix}_SPAct"] = {"label": "Tanh", "type": "styleNorm"}
+        edges.append((sp_curr, f"{prefix}_SPAct"))
+        sp_curr = f"{prefix}_SPAct"
+        p_nodes.append(f"{prefix}_SPAct")
+
+        # Concat
+        nodes[f"{prefix}_Concat"] = {"label": _lbl("Concat", f"→{cat_sz}"), "type": "styleConcat"}
+        edges.append((curr, f"{prefix}_Concat"))
+        edges.append((sp_curr, f"{prefix}_Concat"))
+        curr = f"{prefix}_Concat"
+        p_nodes.append(f"{prefix}_Concat")
+
+        nodes[f"{prefix}_Dense2"] = {"label": _lbl("Dense", f"{cat_sz}→{d_hid}", d2_p), "type": "styleMlp"}
+        edges.append((curr, f"{prefix}_Dense2"))
+        curr = f"{prefix}_Dense2"
+        p_nodes.append(f"{prefix}_Dense2")
+
+        nodes[f"{prefix}_Dense3"] = {"label": _lbl("Dense", f"{d_hid}→{hid}", d3_p), "type": "styleMlp"}
+        edges.append((curr, f"{prefix}_Dense3"))
+        curr = f"{prefix}_Dense3"
+        p_nodes.append(f"{prefix}_Dense3")
+
+        if use_ln:
+            nodes[f"{prefix}_LN2"] = {"label": "LayerNorm", "type": "styleNorm"}
+            edges.append((curr, f"{prefix}_LN2"))
+            curr = f"{prefix}_LN2"
+            p_nodes.append(f"{prefix}_LN2")
+
+        nodes[f"{prefix}_ActF"] = {"label": "Tanh", "type": "styleNorm"}
+        edges.append((curr, f"{prefix}_ActF"))
+        curr = f"{prefix}_ActF"
+        p_nodes.append(f"{prefix}_ActF")
+
+        nodes[f"{prefix}_Head"] = {
+            "label": _lbl(head_lbl, f"{hid}→{head_out}", head_p),
+            "type": "styleHead",
+        }
+        edges.append((curr, f"{prefix}_Head"))
+        p_nodes.append(f"{prefix}_Head")
+        return p_nodes
+
+    actor_n = add_bal_path("A", ad1, asp, ad2, ad3, ahead, "Logits", 4)
+    critic_n = add_bal_path("C", cd1, csp, cd2, cd3, chead, "Value", 1)
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "subgraphs": [
+            {"id": "Actor", "label": "Actor", "nodes": actor_n},
+            {"id": "Critic", "label": "Critic", "nodes": critic_n},
+        ],
+        "invisible_edges": [["Actor", "Critic"]],
+    }
+
+
+def build_ppo_rtu_balanced_graph(variant_data):
+    """PPO-RTU (RealTimeActorCriticMLP) with balanced scalar projection."""
+    m = variant_data["modules"]
+    use_rt = variant_data.get("use_reward_trace", False)
+    use_ln = variant_data.get("use_layernorm", False)
+    obs_flat = variant_data["obs_flat"]
+    hid = variant_data["hidden_size"]
+    d_hid = variant_data["d_hidden"]
+    scalars_count = variant_data["scalars"]
+    fov = variant_data["fov"]
+    has_hint = variant_data.get("has_hint", False)
+
+    a_bits, r_bits = 4, 1
+    h_bits = 4 if has_hint else 0
+    scalar_label = f"A[{a_bits}], R[{r_bits}]"
+    if use_rt:
+        scalar_label += ", RT[1]"
+    if h_bits > 0:
+        scalar_label += f", Hint[{h_bits}]"
+
+    cat_sz = hid + hid  # balanced
+    rtu_out = 2 * d_hid
+    skip_out = rtu_out + cat_sz
+
+    def sum_p(prefix):
+        return sum(v for k, v in m.items() if prefix in k)
+
+    ad1 = sum_p("actor_dense1")
+    cd1 = sum_p("critic_dense1")
+    asp = sum_p("actor_scalars_proj")
+    csp = sum_p("critic_scalars_proj")
+    artu = sum_p("actor_rtu")
+    crtu = sum_p("critic_rtu")
+    ad2 = sum_p("actor_dense2")
+    cd2 = sum_p("critic_dense2")
+    ahead = sum_p("actor_mean")
+    chead = sum_p("critic_value")
+
+    nodes = {
+        "Obs": {
+            "label": _lbl("Observation", f"{fov}×{fov}×3"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "Scalars": {
+            "label": _lbl(scalar_label, f"[{scalars_count}]"),
+            "type": "styleInput",
+            "shape": "stadium",
+        },
+        "Flat": {"label": _lbl("Flatten", f"→{obs_flat}"), "type": "styleMlp"},
+    }
+    edges = [("Obs", "Flat")]
+
+    def add_rtu_bal_path(prefix, emb_p, sp_p, rtu_p, d2_p, head_p, head_lbl, head_out):
+        p_nodes = []
+        nodes[f"{prefix}_Emb"] = {
+            "label": _lbl("Dense", f"{obs_flat}→{hid}", emb_p),
+            "type": "styleMlp",
+        }
+        p_nodes.append(f"{prefix}_Emb")
+        edges.append(("Flat", f"{prefix}_Emb"))
+        curr = f"{prefix}_Emb"
+
+        if use_ln:
+            nodes[f"{prefix}_LN1"] = {"label": "LayerNorm", "type": "styleNorm"}
+            edges.append((curr, f"{prefix}_LN1"))
+            curr = f"{prefix}_LN1"
+            p_nodes.append(f"{prefix}_LN1")
+
+        nodes[f"{prefix}_Act1"] = {"label": "Tanh", "type": "styleNorm"}
+        edges.append((curr, f"{prefix}_Act1"))
+        curr = f"{prefix}_Act1"
+        p_nodes.append(f"{prefix}_Act1")
+
+        # Scalar projection
+        nodes[f"{prefix}_SProj"] = {
+            "label": _lbl("Scalars Proj", f"{scalars_count}→{hid}", sp_p),
+            "type": "styleMlp",
+        }
+        p_nodes.append(f"{prefix}_SProj")
+        edges.append(("Scalars", f"{prefix}_SProj"))
+        sp_curr = f"{prefix}_SProj"
+
+        if use_ln:
+            nodes[f"{prefix}_SPLN"] = {"label": "LayerNorm", "type": "styleNorm"}
+            edges.append((sp_curr, f"{prefix}_SPLN"))
+            sp_curr = f"{prefix}_SPLN"
+            p_nodes.append(f"{prefix}_SPLN")
+
+        nodes[f"{prefix}_SPAct"] = {"label": "Tanh", "type": "styleNorm"}
+        edges.append((sp_curr, f"{prefix}_SPAct"))
+        sp_curr = f"{prefix}_SPAct"
+        p_nodes.append(f"{prefix}_SPAct")
+
+        # Concat (balanced)
+        nodes[f"{prefix}_Concat"] = {"label": _lbl("Concat", f"→{cat_sz}"), "type": "styleConcat"}
+        edges.append((curr, f"{prefix}_Concat"))
+        edges.append((sp_curr, f"{prefix}_Concat"))
+        curr = f"{prefix}_Concat"
+        p_nodes.append(f"{prefix}_Concat")
+        skip_ref = curr
+
+        # RTU
+        nodes[f"{prefix}_RTU"] = {
+            "label": _lbl("RTU", f"{cat_sz}→2×{d_hid}", rtu_p),
+            "type": "styleRnn",
+        }
+        edges.append((curr, f"{prefix}_RTU"))
+        p_nodes.append(f"{prefix}_RTU")
+
+        # Skip
+        nodes[f"{prefix}_Skip"] = {
+            "label": _lbl("Concat", f"→{skip_out}"),
+            "type": "styleConcat",
+        }
+        edges.append((f"{prefix}_RTU", f"{prefix}_Skip"))
+        edges.append((skip_ref, f"{prefix}_Skip"))
+        curr = f"{prefix}_Skip"
+        p_nodes.append(f"{prefix}_Skip")
+
+        nodes[f"{prefix}_Dense2"] = {
+            "label": _lbl("Dense", f"{skip_out}→{hid}", d2_p),
+            "type": "styleMlp",
+        }
+        edges.append((curr, f"{prefix}_Dense2"))
+        curr = f"{prefix}_Dense2"
+        p_nodes.append(f"{prefix}_Dense2")
+
+        if use_ln:
+            nodes[f"{prefix}_LN2"] = {"label": "LayerNorm", "type": "styleNorm"}
+            edges.append((curr, f"{prefix}_LN2"))
+            curr = f"{prefix}_LN2"
+            p_nodes.append(f"{prefix}_LN2")
+
+        nodes[f"{prefix}_ActF"] = {"label": "Tanh", "type": "styleNorm"}
+        edges.append((curr, f"{prefix}_ActF"))
+        curr = f"{prefix}_ActF"
+        p_nodes.append(f"{prefix}_ActF")
+
+        nodes[f"{prefix}_Head"] = {
+            "label": _lbl(head_lbl, f"{hid}→{head_out}", head_p),
+            "type": "styleHead",
+        }
+        edges.append((curr, f"{prefix}_Head"))
+        p_nodes.append(f"{prefix}_Head")
+        return p_nodes
+
+    actor_n = add_rtu_bal_path("A", ad1, asp, artu, ad2, ahead, "Logits", 4)
+    critic_n = add_rtu_bal_path("C", cd1, csp, crtu, cd2, chead, "Value", 1)
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "subgraphs": [
+            {"id": "Actor", "label": "Actor Path", "nodes": actor_n},
+            {"id": "Critic", "label": "Critic Path", "nodes": critic_n},
+        ],
+        "invisible_edges": [["A_Head", "C_Head"]],
+    }
+
+
 # ── Param extraction ──────────────────────────────────────────────────────────
 
 
@@ -870,6 +1883,7 @@ def get_dqn_data(config_name):
         scalar_features = scalar_features[0]
 
     use_rt = "reward_trace" in scalar_features
+    has_hint_trace = "hint_trace" in scalar_features
     # Redo NNAgent.py calculation
     scalars_size = 0
     if "last_action" in scalar_features:
@@ -878,11 +1892,17 @@ def get_dqn_data(config_name):
         scalars_size += 1
     if "reward_trace" in scalar_features:
         scalars_size += 1
+    if "hint_trace" in scalar_features:
+        scalars_size += hints_size  # hint_trace has same size as hint
     if hints_size > 0:  # Force hint for Big-v4
         scalars_size += hints_size
 
     fov = env_params.get("aperture_size", FOV)
     obs_shape = (fov, fov, 3)
+
+    conv_type = rep_raw.get("conv", "Conv2D")
+    balanced = rep_raw.get("balanced", False)
+    hint_gru_only = rep_raw.get("hint_gru_only", False)
 
     rep["scalars"] = scalars_size
     Agent = getAgent(agent_name)
@@ -900,12 +1920,16 @@ def get_dqn_data(config_name):
         "obs_shape_tuple": list(obs_shape),
         "scalars": scalars_size,
         "has_rt": use_rt,
+        "has_hint_trace": has_hint_trace,
         "use_layernorm": rep.get("use_layernorm", False),
         "conv_out": conv_out,
         "concat_size": cat_out,
         "modules": params_by_module(params),
         "has_hint": hints_size > 0,
         "hints_size": hints_size,
+        "conv_type": conv_type,
+        "balanced": balanced,
+        "hint_gru_only": hint_gru_only,
     }
     is_drqn = config_name.startswith("DRQN")
     if is_drqn:
@@ -930,6 +1954,17 @@ def get_ppo_data(config_name):
 
     agent_name = exp.agent
 
+    # Map config agent names to PPORegistry class names
+    if agent_name.startswith("ActorCriticConv") or agent_name.startswith("RealTimeActorCriticConv"):
+        registry_name = agent_name  # already matches registry prefix
+    elif "RTU" in agent_name or agent_name.startswith("RealTimeActorCriticMLP"):
+        registry_name = "RealTimeActorCriticMLP"
+    elif agent_name.startswith("ActorCriticMLP"):
+        registry_name = agent_name  # already matches
+    else:
+        # PPO_*, PPO-* → ActorCriticMLP
+        registry_name = "ActorCriticMLP"
+
     # Use raw JSON to avoid PyExpUtils sweep expansion
     with open(path, "r") as f:
         config_raw = json.load(f)
@@ -938,6 +1973,12 @@ def get_ppo_data(config_name):
     use_ln = rep_raw.get("use_layernorm", False)
     d_hidden = rep_raw.get("d_hidden", 192)
     hidden_size = rep_raw.get("hidden", 64)
+    balanced = rep_raw.get("balanced", False)
+    is_conv = "Conv" in agent_name
+
+    # Detect hint_trace from top-level metaParameters
+    meta_raw = config_raw.get("metaParameters", {})
+    use_hint_trace = meta_raw.get("use_hint_trace", False)
 
     # NNAgent/PPORegistry logic: A[4] + R[1] + RT[1 if use_rt] + Hint[4 if hint]
     if "ForagaxBig-v4" in env_id:
@@ -949,6 +1990,8 @@ def get_ppo_data(config_name):
             hypers["representation"]["scalar_features"].append("hint")
 
     scalars_count = 5 + (1 if use_rt else 0) + hints_size
+    if use_hint_trace:
+        scalars_count += hints_size  # hint_trace same size as hint
 
     fov = env_params.get("aperture_size", FOV)
     obs_shape = (fov, fov, 3)
@@ -965,16 +2008,24 @@ def get_ppo_data(config_name):
         jnp.zeros((batch, 1)),  # reward_trace
     )
 
-    Agent = getPPOAgent(agent_name)
-    model = Agent(
+    Agent = getPPOAgent(registry_name)
+    model_kwargs = dict(
         action_dim=ACTIONS,
         d_hidden=d_hidden,
         hidden_size=hidden_size,
         use_reward_trace=use_rt,
         use_layernorm=use_ln,
     )
+    # Only MLP-based agents support balanced
+    if not is_conv:
+        model_kwargs["balanced"] = balanced
+    model = Agent(**model_kwargs)
 
-    hstate = model.initialize_memory(batch, d_hidden, hidden_size)
+    # For RTU: d_input = size of embedding fed into RTU
+    # When balanced, input is hidden_size*2 (vision_proj + scalars_proj)
+    # Otherwise, it's hidden_size + scalars_count
+    d_input = hidden_size * 2 if balanced else hidden_size + scalars_count if not is_conv else hidden_size
+    hstate = model.initialize_memory(batch, d_hidden, d_input)
     key = jax.random.PRNGKey(0)
     params = model.init(key, hstate, obs)
 
@@ -1015,10 +2066,19 @@ def get_ppo_data(config_name):
         "modules": params_flat,
         "has_hint": hints_size > 0,
         "hints_size": hints_size,
+        "balanced": balanced,
+        "is_conv": is_conv,
+        "use_hint_trace": use_hint_trace,
     }
+
+    if is_conv:
+        # Conv-based PPO: compute conv_out for the diagram
+        d["conv_out"] = 16 * fov * fov
 
     if "RTU" in agent_name:
         d["graph"] = build_ppo_rtu_graph(d)
+    elif is_conv:
+        d["graph"] = build_ppo_conv_graph(d)
     else:
         d["graph"] = build_ppo_graph(d)
     return d
@@ -1119,6 +2179,84 @@ META = [
         "PPO-RTU_128",
         "RTU PPO without LayerNorm, d_hidden=192.",
     ),
+    # ── New variants ──────────────────────────────────────────────────────────
+    (
+        "DQN_LN_PConv",
+        get_dqn_data,
+        build_dqn_pconv_graph,
+        "DQN_LN_PConv",
+        "DQN with LayerNorm and 1×1 Pointwise Conv.",
+    ),
+    (
+        "DQN_LN_CoordConv",
+        get_dqn_data,
+        build_dqn_coordconv_graph,
+        "DQN_LN_CoordConv",
+        "DQN with LayerNorm and CoordConv (x,y channels).",
+    ),
+    (
+        "DQN_LN_hint",
+        get_dqn_data,
+        build_dqn_graph,
+        "DQN_LN_hint",
+        "DQN with LayerNorm and always-on hint signal.",
+    ),
+    (
+        "DQN_LN_hint_trace",
+        get_dqn_data,
+        build_dqn_graph,
+        "DQN_LN_hint_trace",
+        "DQN with LayerNorm and hint trace (decaying).",
+    ),
+    (
+        "DQN_LN_Balanced",
+        get_dqn_data,
+        build_dqn_balanced_graph,
+        "DQN_LN_Balanced",
+        "DQN with LayerNorm and balanced vision/scalar projection.",
+    ),
+    (
+        "DRQN_LN_hint_gru",
+        get_dqn_data,
+        build_drqn_hint_gru_graph,
+        "DRQN_LN_hint_gru",
+        "DRQN with LayerNorm where only hint goes through GRU.",
+    ),
+    (
+        "ActorCriticConv",
+        get_ppo_data,
+        build_ppo_conv_graph,
+        "PPO-Conv",
+        "PPO with Conv encoder (ActorCriticConv).",
+    ),
+    (
+        "ActorCriticMLP-hint",
+        get_ppo_data,
+        build_ppo_graph,
+        "PPO-hint",
+        "PPO with always-on hint signal.",
+    ),
+    (
+        "ActorCriticMLP-hint-trace",
+        get_ppo_data,
+        build_ppo_graph,
+        "PPO-hint-trace",
+        "PPO with decaying hint trace.",
+    ),
+    (
+        "ActorCriticMLP-balanced",
+        get_ppo_data,
+        build_ppo_balanced_graph,
+        "PPO-balanced",
+        "PPO with balanced vision/scalar projection.",
+    ),
+    (
+        "PPO-RTU-balanced",
+        get_ppo_data,
+        build_ppo_rtu_balanced_graph,
+        "PPO-RTU-balanced",
+        "RTU PPO with balanced vision/scalar projection.",
+    ),
 ]
 
 arch_data = {}
@@ -1138,7 +2276,8 @@ for config_name, data_fn, graph_fn, title, desc in META:
         print(f"  ERROR {config_name}: {e}")
         traceback.print_exc()
 
-out_path = "public/arch_data.json"
+out_path = os.path.join(_PROJECT_ROOT, "public/arch_data.json")
+os.makedirs(os.path.dirname(out_path), exist_ok=True)
 with open(out_path, "w") as f:
     json.dump(arch_data, f, indent=2)
 
