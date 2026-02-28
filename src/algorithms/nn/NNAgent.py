@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from collections.abc import Mapping
 from dataclasses import replace
 from functools import partial
 from typing import Any, Dict, Optional, Tuple, Union
@@ -10,7 +11,6 @@ import optax
 from ml_instrumentation.Collector import Collector
 
 import utils.chex as cxu
-from collections.abc import Mapping
 from algorithms.BaseAgent import AgentState as BaseAgentState
 from algorithms.BaseAgent import BaseAgent
 from algorithms.BaseAgent import Hypers as BaseHypers
@@ -57,6 +57,7 @@ class Hypers(BaseHypers):
     freeze_steps: float
     greedy_when_frozen: bool
     reward_trace_decay: float
+    hint_trace_decay: float
 
 
 @cxu.dataclass
@@ -71,6 +72,7 @@ class AgentState(BaseAgentState):
     hypers: Hypers
     metrics: Metrics
     reward_trace: jax.Array
+    hint_trace: jax.Array
 
 
 @checkpointable(("buffer", "steps", "state", "updates"))
@@ -110,11 +112,13 @@ class NNAgent(BaseAgent):
         self.reward_clip = params.get("reward_clip", 0)
         self.reward_scale = params.get("reward_scale")
         self.reward_trace_decay = params.get("reward_trace_decay", 0.9)
+        self.hint_trace_decay = params.get("hint_trace_decay", 0.9)
         self.scalar_features = params.get("representation", {}).get(
             "scalar_features", ["hint", "last_action", "last_reward"]
         )
 
         self.scalars_size = 0
+        self.hint_size = 0
         if "last_action" in self.scalar_features:
             self.scalars_size += actions
         if "last_reward" in self.scalar_features:
@@ -125,11 +129,16 @@ class NNAgent(BaseAgent):
         if isinstance(observations, Mapping):
             image_shape = observations["image"]
             if "hint" in observations and "hint" in self.scalar_features:
+                self.hint_size = observations["hint"][0]
+                self.scalars_size += self.hint_size
+            if "hint" in observations and "hint_trace" in self.scalar_features:
+                self.hint_size = self.hint_size or observations["hint"][0]
                 self.scalars_size += observations["hint"][0]
         else:
             image_shape = observations
 
         self.rep_params["scalars"] = self.scalars_size
+        self.rep_params["hint_size"] = self.hint_size
         self.hidden_size = self.rep_params["hidden"]
 
         # ---------------------
@@ -200,13 +209,24 @@ class NNAgent(BaseAgent):
         )
 
         dummy_hint = None
+        dummy_hint_trace = None
         if isinstance(observations, Mapping) and "hint" in observations and "hint" in self.scalar_features:
             dummy_hint = jnp.zeros(observations["hint"])
+        if (
+            isinstance(observations, Mapping)
+            and "hint" in observations
+            and "hint_trace" in self.scalar_features
+        ):
+            dummy_hint_trace = jnp.zeros(observations["hint"])
 
         dummy_timestep = {
             "x": jnp.zeros(image_shape),
             "scalars": self.encode_scalar_features(
-                jnp.int32(0), jnp.float32(0), jnp.float32(0), dummy_hint
+                jnp.int32(0),
+                jnp.float32(0),
+                jnp.float32(0),
+                dummy_hint,
+                dummy_hint_trace,
             ),
             "a": jnp.int32(0),
             "r": jnp.float32(0),
@@ -231,6 +251,7 @@ class NNAgent(BaseAgent):
             freeze_steps=freeze_steps,
             greedy_when_frozen=greedy_when_frozen,
             reward_trace_decay=self.reward_trace_decay,
+            hint_trace_decay=self.hint_trace_decay,
         )
         self.state = AgentState(
             **{k: v for k, v in self.state.__dict__.items() if k != "hypers"},
@@ -249,6 +270,7 @@ class NNAgent(BaseAgent):
                 loss=jnp.float32(0.0),
             ),
             reward_trace=jnp.float32(0.0),
+            hint_trace=jnp.zeros(max(self.hint_size, 1), dtype=jnp.float32),
         )
 
     def get_feature_function(self, builder: NetworkBuilder):
@@ -293,12 +315,24 @@ class NNAgent(BaseAgent):
         return state, unbiased_reward_trace
 
     @partial(jax.jit, static_argnums=0)
+    def _compute_hint_trace(
+        self, state: AgentState, hint: jax.Array
+    ) -> Tuple[AgentState, jax.Array]:
+        beta = state.hypers.hint_trace_decay
+        new_hint_trace = beta * state.hint_trace + (1 - beta) * hint
+        correction = 1.0 - jnp.power(beta, state.steps.astype(jnp.float32))
+        unbiased_hint_trace = new_hint_trace / correction
+        state = replace(state, hint_trace=new_hint_trace)
+        return state, unbiased_hint_trace
+
+    @partial(jax.jit, static_argnums=0)
     def encode_scalar_features(
         self,
         last_action: jax.Array,
         last_reward: jax.Array,
         reward_trace: jax.Array,
         hint: Optional[jax.Array] = None,
+        hint_trace: Optional[jax.Array] = None,
     ) -> jax.Array:
         parts = []
         if "last_action" in self.scalar_features:
@@ -309,6 +343,8 @@ class NNAgent(BaseAgent):
             parts.append(jnp.atleast_1d(reward_trace))
         if "hint" in self.scalar_features and hint is not None:
             parts.append(jnp.atleast_1d(hint))
+        if "hint_trace" in self.scalar_features and hint_trace is not None:
+            parts.append(jnp.atleast_1d(hint_trace))
 
         if len(parts) == 0:
             return jnp.zeros((0,))
@@ -443,7 +479,11 @@ class NNAgent(BaseAgent):
             hint = None
 
         scalars = self.encode_scalar_features(
-            jnp.int32(-1), jnp.float32(0), jnp.float32(0), hint
+            jnp.int32(-1),
+            jnp.float32(0),
+            jnp.float32(0),
+            hint,
+            jnp.zeros_like(state.hint_trace) if hint is not None else None,
         )
         state, a = self.act(state, obs_img, scalars)
         state.last_timestep.update(
@@ -482,8 +522,16 @@ class NNAgent(BaseAgent):
 
         state, unbiased_reward_trace = self._compute_reward_trace(state, reward)
 
+        unbiased_hint_trace = None
+        if hint is not None:
+            state, unbiased_hint_trace = self._compute_hint_trace(state, hint)
+
         scalars = self.encode_scalar_features(
-            state.last_timestep["a"], reward, unbiased_reward_trace, hint
+            state.last_timestep["a"],
+            reward,
+            unbiased_reward_trace,
+            hint,
+            unbiased_hint_trace,
         )
         state, a = self.act(state, obs_img, scalars)
 

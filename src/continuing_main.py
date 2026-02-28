@@ -31,6 +31,9 @@ from utils.checkpoint import Checkpoint
 from utils.preempt import TimeoutHandler
 from utils.rlglue import RlGlue
 
+
+UNROLL = 4
+
 # ------------------
 # -- Command Args --
 # ------------------
@@ -373,7 +376,7 @@ while current_step < n:
 
         no_video_steps = jnp.arange(no_video_steps_count)
         glue_states, data_chunk = jax.lax.scan(
-            step, glue_states, no_video_steps, unroll=1
+            step, glue_states, no_video_steps, unroll=UNROLL
         )
 
     frames = None
@@ -381,7 +384,7 @@ while current_step < n:
     if video_steps_count > 0:
         video_steps = jnp.arange(video_steps_count)
         glue_states, (data_chunk_video, frames) = jax.lax.scan(
-            video_step, glue_states, video_steps, unroll=1
+            video_step, glue_states, video_steps, unroll=UNROLL
         )
         if data_chunk is None:
             data_chunk = data_chunk_video
