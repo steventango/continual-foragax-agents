@@ -37,66 +37,71 @@ if __name__ == "__main__":
         make_global=True,
     )
     for env, sub_results in results.groupby_directory(level=3):
-        fig, ax = plt.subplots(1, 1)
         for alg_result in sub_results:
-            alg = alg_result.filename
+            fig, ax = plt.subplots(1, 1)
+            oalg = alg_result.filename
 
-            df = alg_result.load(end=1000000)
-            if df is None:
+            df_all = alg_result.load(end=1000000)
+            if df_all is None:
                 continue
 
-            print(alg)
-            print(df)
-            df = df.with_columns([
-                pl.col("mean_ewm_reward").cast(pl.Float32),
-                pl.col("ewm_reward").cast(pl.Float32),
-            ])
+            # group df by beta2
+            if "optimizer.beta2" not in df_all.columns:
+                continue
+            for beta2, df in df_all.group_by("optimizer.beta2"):
+                alg = f"{oalg} (beta2={beta2})"
+                print(alg)
+                print(df)
+                df = df.with_columns([
+                    pl.col("mean_ewm_reward").cast(pl.Float32),
+                    pl.col("ewm_reward").cast(pl.Float32),
+                ])
 
-            report = Hypers.select_best_hypers(
-                df,
-                metric='mean_ewm_reward',
-                prefer=Hypers.Preference.high,
-                time_summary=TimeSummary.mean,
-                statistic=Statistic.mean,
+                report = Hypers.select_best_hypers(
+                    df,
+                    metric='mean_ewm_reward',
+                    prefer=Hypers.Preference.high,
+                    time_summary=TimeSummary.mean,
+                    statistic=Statistic.mean,
+                )
+
+                exp = alg_result.exp
+
+                xs, ys = extract_learning_curves(
+                    df,
+                    hyper_vals=report.best_configuration,
+                    metric='ewm_reward',
+                )
+
+                xs = np.asarray(xs)
+                ys = np.asarray(ys)
+                assert np.all(np.isclose(xs[0], xs))
+
+                res = curve_percentile_bootstrap_ci(
+                    rng=np.random.default_rng(0),
+                    y=ys,
+                    statistic=Statistic.mean,
+                    iterations=10000,
+                )
+
+                line = ax.plot(xs[0], res.sample_stat, label=alg, linewidth=1.0)
+                # for y in ys:
+                #     ax.plot(xs[0], y, color=line[0].get_color(), alpha=0.2, linewidth=0.5)
+                ax.fill_between(xs[0], res.ci[0], res.ci[1], alpha=0.2)
+
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+
+            ax.set_yticks(np.arange(-2.5, 1.6, 0.5))
+            ax.set_ylim(-2.6, 1.6)
+            ax.set_xlim(0, 1e6+1)
+
+            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize='small')
+
+            path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
+            save(
+                save_path=f'{path}/plots',
+                plot_name=f"{env}_{alg}_learning_curve",
+                f=fig,
+                height_ratio=2/3,
             )
-
-            exp = alg_result.exp
-
-            xs, ys = extract_learning_curves(
-                df,
-                hyper_vals=report.best_configuration,
-                metric='ewm_reward',
-            )
-
-            xs = np.asarray(xs)
-            ys = np.asarray(ys)
-            assert np.all(np.isclose(xs[0], xs))
-
-            res = curve_percentile_bootstrap_ci(
-                rng=np.random.default_rng(0),
-                y=ys,
-                statistic=Statistic.mean,
-                iterations=10000,
-            )
-
-            line = ax.plot(xs[0], res.sample_stat, label=alg, linewidth=1.0)
-            # for y in ys:
-            #     ax.plot(xs[0], y, color=line[0].get_color(), alpha=0.2, linewidth=0.5)
-            ax.fill_between(xs[0], res.ci[0], res.ci[1], alpha=0.2)
-
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-
-        ax.set_yticks(np.arange(-2.5, 1.6, 0.5))
-        ax.set_ylim(-2.6, 1.6)
-        ax.set_xlim(0, 1e6+1)
-
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize='small')
-
-        path = os.path.sep.join(os.path.relpath(__file__).split(os.path.sep)[:-1])
-        save(
-            save_path=f'{path}/plots',
-            plot_name=env,
-            f=fig,
-            height_ratio=2/3,
-        )
