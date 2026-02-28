@@ -70,6 +70,8 @@ class TrainConfig:
     use_layernorm: bool = struct.field(pytree_node=False)
     allocate_frames: bool = struct.field(pytree_node=False)
     video_length: int = struct.field(pytree_node=False)
+    use_l2_init: bool = struct.field(pytree_node=False)
+    use_spectral_reg: bool = struct.field(pytree_node=False)
     # ---- DYNAMIC (may vary per idx; arithmetic only) ----
     max_grad_norm: float
     l2_reg_pi: float
@@ -93,6 +95,10 @@ class TrainConfig:
     clip_eps: float
     vf_coef: float
     entropy_coef: float
+    lambda_l2_init_pi: float = 0.0
+    lambda_l2_init_vf: float = 0.0
+    lambda_spectral_pi: float = 0.0
+    lambda_spectral_vf: float = 0.0
     freeze_steps: int = -1
     
 class GymnaxEnvState(struct.PyTreeNode):
@@ -171,9 +177,11 @@ def calculate_average_reward_gae(traj_batch, last_val, gamma, gae_lambda):
     return advantages, advantages + traj_batch.value
 
 
-@partial(jax.jit, static_argnums=(1,))
+@partial(jax.jit, static_argnums=(1, 9, 12))
 def loss_fn(
-    params, agent_fn, traj_batch, gae, targets, init_hstate, clip_eps, vf_coef, ent_coef
+    params, agent_fn, traj_batch, gae, targets, init_hstate, clip_eps, vf_coef, ent_coef,
+    use_l2_init=False, initial_params=None, l2_init_multipliers=None,
+    use_spectral_reg=False, spectral_reg_multipliers=None,
 ):
     rnn_in = traj_batch.obs
     _, pi, value = agent_fn(params, init_hstate, rnn_in)
@@ -201,6 +209,98 @@ def loss_fn(
     loss_actor = loss_actor.mean()
     entropy = pi.entropy().mean()
     total_loss = loss_actor + vf_coef * value_loss - ent_coef * entropy
+
+    # L2-to-init regularisation (guard: compiled away when use_l2_init is False)
+    if use_l2_init:
+        # optax.l2_loss(a, b) = 0.5 * (a - b)^2 per element
+        l2_init_loss = jax.tree_util.tree_map(
+            lambda m, p, p0: m * optax.l2_loss(p, p0).sum(),
+            l2_init_multipliers, params, initial_params,
+        )
+        total_loss = total_loss + jax.tree_util.tree_reduce(
+            lambda a, b: a + b, l2_init_loss
+        )
+
+    # Spectral regularisation (Lyle, Rowland, Dabney & Gal, 2024; adapted
+    # following Machado's group work on loss of plasticity).
+    #
+    # For each layer l with weight W_l and bias b_l the regulariser is:
+    #   R(θ_l) = (σ₁(W_l)^k − 1)² + ‖b_l‖₂^(2k)
+    # with k = 2 (paper default).
+    #
+    # Special cases handled at trace time via parameter name:
+    #   • Dense/Conv kernel  → (σ₁^k − 1)²   (spectral norm towards 1)
+    #   • Bias               → ‖b‖₂^(2k)      (towards 0)
+    #   • LayerNorm scale    → Σ(γ_i − 1)²    (element-wise towards 1)
+    #   • Conv 4-D tensors   → reshape to (d_out, k·k·d_in) then σ₁
+    #
+    # σ₁ is estimated with a single power-iteration step (Yoshida & Miyato,
+    # 2017) which the paper finds sufficient.  The compile-time flag
+    # `use_spectral_reg` causes this entire block to be compiled away when
+    # spectral regularisation is not requested.
+    if use_spectral_reg:
+        _SR_K = 2  # exponent k from the paper
+
+        def _power_iteration_sigma1(w_2d, num_iters=1):
+            """Estimate σ₁(w_2d) via power iteration (1 step by default)."""
+            u = jnp.ones((w_2d.shape[0],), dtype=w_2d.dtype)
+            u = u / (jnp.linalg.norm(u) + 1e-12)
+            def _step(u, _):
+                v = w_2d.T @ u
+                v = v / (jnp.linalg.norm(v) + 1e-12)
+                u_new = w_2d @ v
+                u_new = u_new / (jnp.linalg.norm(u_new) + 1e-12)
+                return u_new, v
+            u, vs = jax.lax.scan(_step, u, None, length=num_iters)
+            v = vs[-1]
+            sigma = u @ w_2d @ v
+            return sigma
+
+        def _spectral_leaf(path, multiplier, param):
+            """Per-leaf spectral regularisation loss (dispatched at trace time)."""
+            # Identify the leaf name from its path key
+            leaf_name = (
+                path[-1].key.lower()
+                if hasattr(path[-1], "key")
+                else str(path[-1]).lower()
+            )
+
+            # --- LayerNorm / normalisation scale parameters ---
+            # Paper: "regularize each weight towards 1"
+            if leaf_name in ("scale", "gamma"):
+                return multiplier * jnp.sum(jnp.square(param - 1.0))
+
+            # --- Bias / additive parameters ---
+            # Paper: ‖b‖₂^(2k)
+            if leaf_name in ("bias", "beta", "offset") or param.ndim == 1:
+                return multiplier * jnp.linalg.norm(param) ** (2 * _SR_K)
+
+            # --- Convolutional kernels (4-D) ---
+            # Paper (Appendix A.7): reshape to (d_out, k·k·d_in)
+            # Flax Conv default layout: (spatial..., d_in, d_out)
+            if param.ndim == 4:
+                # (h, w, d_in, d_out) → (d_out, h*w*d_in)
+                d_out = param.shape[-1]
+                w_2d = jnp.transpose(param, (3, 0, 1, 2)).reshape((d_out, -1))
+                sigma = _power_iteration_sigma1(w_2d)
+                return multiplier * jnp.square(sigma ** _SR_K - 1.0)
+
+            # --- Dense / multiplicative weight matrices (2-D) ---
+            # Paper: (σ₁(W)^k − 1)²
+            if param.ndim == 2:
+                sigma = _power_iteration_sigma1(param)
+                return multiplier * jnp.square(sigma ** _SR_K - 1.0)
+
+            # Anything else (scalars, etc.) – skip
+            return jnp.zeros((), dtype=param.dtype)
+
+        spectral_losses = jax.tree_util.tree_map_with_path(
+            _spectral_leaf, spectral_reg_multipliers, params,
+        )
+        total_loss = total_loss + jax.tree_util.tree_reduce(
+            lambda a, b: a + b, spectral_losses
+        )
+
     return total_loss, (value_loss, loss_actor, entropy)
 
 
@@ -320,7 +420,7 @@ def env_step(runner_state, _):
 
 @jax.jit
 def update_minbatch(carry_in, batch_info):
-    train_state, config = carry_in
+    train_state, config, initial_params, l2_init_multipliers, spectral_reg_multipliers = carry_in
     minibatch, init_hstate = batch_info
     # minibatch: (seq_len,minibatch_size, _)
     # init_hstate: (1, d_hidden)
@@ -336,9 +436,14 @@ def update_minbatch(carry_in, batch_info):
         config.clip_eps,
         config.vf_coef,
         config.entropy_coef,
+        config.use_l2_init,
+        initial_params,
+        l2_init_multipliers,
+        config.use_spectral_reg,
+        spectral_reg_multipliers,
     )
     train_state = train_state.apply_gradients(grads=grads)
-    return (train_state, config), total_loss
+    return (train_state, config, initial_params, l2_init_multipliers, spectral_reg_multipliers), total_loss
 
 
 """
@@ -397,15 +502,15 @@ def update_epoch(update_state, unused):
         targets,
         rng,
         config,
+        initial_params,
+        l2_init_multipliers,
+        spectral_reg_multipliers,
     ) = update_state
     batch = (traj_batch, advantages, targets)
-    # Prepare minibatches
-    # minibatches: (num_minibatches, seq_len,minibatch_size, _)
     minibatches_info, rng = create_minibaches(
         config, hstate_batch, batch, rng, train_state
     )
-    # Loop through minibatches
-    carry_in = (train_state, config)
+    carry_in = (train_state, config, initial_params, l2_init_multipliers, spectral_reg_multipliers)
     carry_out, total_loss = jax.lax.scan(update_minbatch, carry_in, minibatches_info)
     train_state = carry_out[0]
     update_state = (
@@ -417,6 +522,9 @@ def update_epoch(update_state, unused):
         targets,
         rng,
         config,
+        initial_params,
+        l2_init_multipliers,
+        spectral_reg_multipliers,
     )
     return update_state, total_loss
 
@@ -432,13 +540,16 @@ def update_step(update_state):
         targets,
         rng,
         config,
+        initial_params,
+        l2_init_multipliers,
+        spectral_reg_multipliers,
     ) = update_state
     update_state, loss_info = jax.lax.scan(
         update_epoch, update_state, None, config.epochs
     )
     ## Update runner state
     train_state = update_state[0]
-    rng = update_state[-2]
+    rng = update_state[6]
     return (train_state, rng), loss_info
 
 
@@ -600,6 +711,56 @@ def experiment(rng, config: TrainConfig):
         tx=tx,
     )
 
+    # L2-to-init: only allocate the frozen copy and multiplier tree when enabled.
+    # When disabled, these are None and loss_fn's guard skips the regularisation.
+    if config.use_l2_init:
+        initial_params = jax.tree_util.tree_map(lambda p: p.copy(), network_params)
+
+        def _make_l2_init_multipliers(params, labels, lambda_pi, lambda_vf):
+            flat_params = traverse_util.flatten_dict(params, sep="/")
+            flat_labels = traverse_util.flatten_dict(labels, sep="/")
+            lam_map = {"pi": lambda_pi, "vf": lambda_vf}
+            flat_mult = {
+                k: jnp.array(lam_map.get(flat_labels[k], 0.0))
+                for k in flat_params
+            }
+            return traverse_util.unflatten_dict(
+                {tuple(k.split("/")): v for k, v in flat_mult.items()}
+            )
+
+        l2_init_multipliers = _make_l2_init_multipliers(
+            network_params, labels, config.lambda_l2_init_pi, config.lambda_l2_init_vf,
+        )
+    else:
+        initial_params = None
+        l2_init_multipliers = None
+
+    # Spectral regularisation: build per-leaf multiplier tree.
+    # Every parameter is regularised (weights, biases, norm scales) — the
+    # specific regularisation form for each leaf is decided at trace time in
+    # loss_fn based on the parameter name / ndim.  When disabled, the
+    # multiplier tree is None and the compile-time guard in loss_fn skips
+    # the whole block.
+    if config.use_spectral_reg:
+        def _make_spectral_reg_multipliers(params, labels, lambda_pi, lambda_vf):
+            flat_params = traverse_util.flatten_dict(params, sep="/")
+            flat_labels = traverse_util.flatten_dict(labels, sep="/")
+            lam_map = {"pi": lambda_pi, "vf": lambda_vf}
+            flat_mult = {
+                k: jnp.array(lam_map.get(flat_labels[k], 0.0))
+                for k in flat_params
+            }
+            return traverse_util.unflatten_dict(
+                {tuple(k.split("/")): v for k, v in flat_mult.items()}
+            )
+
+        spectral_reg_multipliers = _make_spectral_reg_multipliers(
+            network_params, labels,
+            config.lambda_spectral_pi, config.lambda_spectral_vf,
+        )
+    else:
+        spectral_reg_multipliers = None
+
     ### Experiment
     def _zero_loss_info(config: TrainConfig):
         zeros = jnp.zeros((config.epochs, config.num_mini_batch), dtype=jnp.float32)
@@ -620,7 +781,7 @@ def experiment(rng, config: TrainConfig):
 
     @scan_tqdm(config.num_updates, print_rate=min(100, config.num_updates//20))
     def experiment_step(carry, iteration_idx):
-        env_step_state, train_state, rng = carry
+        env_step_state, train_state, rng, initial_params, l2_init_multipliers, spectral_reg_multipliers = carry
         (
             train_state,
             gymnax_state,
@@ -724,6 +885,7 @@ def experiment(rng, config: TrainConfig):
         # If freeze_steps <= 0, updates are always performed.
         # Otherwise, once log_env_state.timestep exceeds freeze_steps, we stop updating.
         rng, update_rng = jax.random.split(rng)
+
         update_state = (
             train_state,
             init_hstate,
@@ -733,6 +895,9 @@ def experiment(rng, config: TrainConfig):
             targets,
             update_rng,
             config,
+            initial_params,
+            l2_init_multipliers,
+            spectral_reg_multipliers,
         )
 
         def skip_update(update_state):
@@ -745,6 +910,9 @@ def experiment(rng, config: TrainConfig):
                 targets,
                 rng,
                 config,
+                _initial_params,
+                _l2_init_multipliers,
+                _spectral_reg_multipliers,
             ) = update_state
             return (train_state, rng), _zero_loss_info(config)
 
@@ -798,7 +966,8 @@ def experiment(rng, config: TrainConfig):
         )
 
         # Optional lightweight debug
-        return (env_step_state, train_state, rng), (
+        carry_out = (env_step_state, train_state, rng, initial_params, l2_init_multipliers, spectral_reg_multipliers)
+        return carry_out, (
             rewards,
             pos,
             loss_info,
@@ -809,9 +978,10 @@ def experiment(rng, config: TrainConfig):
         )
 
     # Run training loop with lax.scan (collect per-iteration rewards)
+    init_carry = (env_step_state, train_state, rng, initial_params, l2_init_multipliers, spectral_reg_multipliers)
     last_carry, info = jax.lax.scan(
         experiment_step,
-        PBar(id=config.id, carry=(env_step_state, train_state, rng)),
+        PBar(id=config.id, carry=init_carry),
         xs=jnp.arange(int(config.num_updates)),
     )
     rewards, pos, loss_info, biome_id, object_collected_id, biome_regret, biome_rank = (
@@ -827,7 +997,7 @@ def experiment(rng, config: TrainConfig):
     object_collected_id = object_collected_id.reshape((-1))
     biome_regret = biome_regret.reshape((-1))
     biome_rank = biome_rank.reshape((-1))
-    env_step_state, train_state, rng = last_carry.carry
+    env_step_state = last_carry.carry[0]
     frames = env_step_state[2].frames
     return (
         rewards,
@@ -965,6 +1135,18 @@ def main():
             adam_b2_vf=float(hypers["optimizer_critic"].get("beta2", 0.999)),
             l2_reg_pi=float(hypers.get("l2_reg_pi", hypers.get("l2_reg", 0.0))),
             l2_reg_vf=float(hypers.get("l2_reg_vf", hypers.get("l2_reg", 0.0))),
+            lambda_l2_init_pi=float(hypers.get("lambda_l2_init_pi", hypers.get("lambda_l2_init", 0.0))),
+            lambda_l2_init_vf=float(hypers.get("lambda_l2_init_vf", hypers.get("lambda_l2_init", 0.0))),
+            use_l2_init=bool(
+                hypers.get("lambda_l2_init_pi", hypers.get("lambda_l2_init", 0.0)) != 0.0
+                or hypers.get("lambda_l2_init_vf", hypers.get("lambda_l2_init", 0.0)) != 0.0
+            ),
+            lambda_spectral_pi=float(hypers.get("lambda_spectral_pi", hypers.get("lambda_spectral", 0.0))),
+            lambda_spectral_vf=float(hypers.get("lambda_spectral_vf", hypers.get("lambda_spectral", 0.0))),
+            use_spectral_reg=bool(
+                hypers.get("lambda_spectral_pi", hypers.get("lambda_spectral", 0.0)) != 0.0
+                or hypers.get("lambda_spectral_vf", hypers.get("lambda_spectral", 0.0)) != 0.0
+            ),
             sparsity=hypers["representation"].get("sparsity", None),
             spectral_radius=hypers["representation"].get("spectral_radius", None),
             use_sinusoidal_encoding=bool(hypers.get("use_sinusoidal_encoding", False)),

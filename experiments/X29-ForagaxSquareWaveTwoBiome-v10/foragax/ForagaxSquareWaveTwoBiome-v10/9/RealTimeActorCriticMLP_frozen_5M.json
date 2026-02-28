@@ -38,7 +38,8 @@
         },
         "representation": {
             "hidden": 64,
-            "d_hidden": 256
+            "d_hidden": 256,
+            "use_layernorm": true
         },
         "freeze_steps": 5000000,
         "freeze_steps_end": 6000000

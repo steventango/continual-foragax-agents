@@ -52,8 +52,8 @@ def main():
     parser.add_argument(
         "--start-frame",
         type=int,
-        default=1000,
-        help="Minimum frame to include in the plot (default: 1000 to skip warm-up)",
+        default=0,
+        help="Minimum frame to include in the plot",
     )
     parser.add_argument(
         "--end-frame",
