@@ -21,6 +21,4 @@ export JAX_PLATFORMS=cpu
 
 $SLURM_TMPDIR/.venv/bin/python experiments/E136-big/foragax-sweep/ForagaxBig-v5/hypers.py
 
-$SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E136-big/foragax/ForagaxBig-v5/15
 $SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E136-big/foragax/ForagaxBig-v5/9
-$SLURM_TMPDIR/.venv/bin/python scripts/generate_frozen_configs.py experiments/E136-big/foragax/ForagaxBig-v5/5
