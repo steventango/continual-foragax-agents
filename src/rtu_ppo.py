@@ -1,41 +1,46 @@
 # Modified from esraaelelimy/continuing_ppo
-import sys
 
 # Ensure third-party libraries that expect older JAX internals can import.
 # This sets a small compatibility alias if needed before importing distrax/tfp.
-import utils.jax_compat
-import socket
-import time
+import argparse
 import logging
-from jax.tree_util import tree_map
-import numpy as np
-from flax import struct
+import os
+import socket
+import sys
+import time
 from collections.abc import Mapping
 from functools import partial
-from typing import NamedTuple, Any, Callable, Tuple
+from typing import Any, Callable, NamedTuple, Tuple
+
 import jax
 import jax.numpy as jnp
-from jax_tqdm.scan_pbar import scan_tqdm
-from jax_tqdm.base import PBar
+import numpy as np
+import optax
+from flax import struct, traverse_util
+from flax.training.train_state import TrainState
 from gymnasium.utils.save_video import save_video
+from jax.tree_util import tree_map
+from jax_tqdm.base import PBar
+from jax_tqdm.scan_pbar import scan_tqdm
 from ml_instrumentation.Collector import Collector
 from ml_instrumentation.metadata import attach_metadata
 from ml_instrumentation.Sampler import Ignore, MovingAverage, Subsample
 from ml_instrumentation.utils import Pipe
 from PyExpUtils.results.tools import getParamsAsDict
-from flax import traverse_util
+
+import utils.jax_compat
+from algorithms.nn.ACConv import ActorCriticConv
+from algorithms.nn.ACMLP import ActorCriticMLP
+from algorithms.nn.RealTimeACConv import RealTimeActorCriticConv
+from algorithms.nn.RealTimeACConvPooling import RealTimeActorCriticConvPooling
+from algorithms.nn.RealTimeACMLP import RealTimeActorCriticMLP
+from algorithms.nn.RealTimeACMLPMulti import RealTimeActorCriticMLPMulti
+from algorithms.PPORegistry import getAgent
 from experiment import ExperimentModel
 from utils.checkpoint import Checkpoint
 from utils.ml_instrumentation.Sampler import Mean
 from utils.ml_instrumentation.utils import Last
 from utils.preempt import TimeoutHandler
-from algorithms.PPORegistry import getAgent
-
-import optax
-from flax.training.train_state import TrainState
-import argparse
-
-import os
 
 sys.path.insert(0, os.path.abspath("/tmp/src"))
 from foragax.registry import make
@@ -68,6 +73,7 @@ class TrainConfig:
     use_sinusoidal_encoding: bool = struct.field(pytree_node=False)
     use_reward_trace: bool = struct.field(pytree_node=False)
     use_layernorm: bool = struct.field(pytree_node=False)
+    conv: str = struct.field(pytree_node=False)
     allocate_frames: bool = struct.field(pytree_node=False)
     video_length: int = struct.field(pytree_node=False)
     use_l2_init: bool = struct.field(pytree_node=False)
@@ -84,7 +90,7 @@ class TrainConfig:
     adam_b2_pi: float
     adam_b1_vf: float
     adam_b2_vf: float
-    
+
     sparsity: float
     spectral_radius: float
 
@@ -100,7 +106,7 @@ class TrainConfig:
     lambda_spectral_pi: float = 0.0
     lambda_spectral_vf: float = 0.0
     freeze_steps: int = -1
-    
+
 class GymnaxEnvState(struct.PyTreeNode):
     to_render: bool = struct.field(pytree_node=True)
     cond_render: Callable = struct.field(pytree_node=False)
@@ -555,9 +561,9 @@ def update_step(update_state):
 
 def experiment(rng, config: TrainConfig):
     kwargs = dict(config.env_kwargs)
-        
+
     print(f"Creating env {config.env_id} with aperture size {config.aperture_size} and kwargs {kwargs}")
-        
+
     env = make(config.env_id, aperture_size=config.aperture_size, **kwargs)
 
     rng, reset_rng = jax.random.split(rng)
@@ -602,13 +608,16 @@ def experiment(rng, config: TrainConfig):
     action_dim = 4
 
     agent = getAgent(config.agent_type)
-    
+
     kwargs = {}
     if config.sparsity is not None:
         kwargs["sparsity"] = config.sparsity
     if config.spectral_radius is not None:
         kwargs["spectral_radius"] = config.spectral_radius
-    
+    _agent_class = getAgent(config.agent_type)
+    if _agent_class in (ActorCriticConv, RealTimeActorCriticConv, RealTimeActorCriticConvPooling):
+        kwargs["conv"] = config.conv
+
     # Create and initialize the network.
     network = agent(
         action_dim=action_dim,
@@ -640,10 +649,15 @@ def experiment(rng, config: TrainConfig):
         jnp.zeros((1, 1)),
     )
 
-    if "conv" not in config.agent_type.lower():
-        # d_input to RTU = hidden_size (Dense output) + action_dim + last_reward (1)
-        #                  + sinusoidal_encoding (2 if enabled) + reward_trace (1 if enabled)
-        d_input = config.hidden_size + action_dim + 1
+    _is_conv_rtu = _agent_class in (RealTimeActorCriticConv, RealTimeActorCriticConvPooling)
+    _is_mlp_rtu = _agent_class in (RealTimeActorCriticMLP, RealTimeActorCriticMLPMulti, ActorCriticMLP)
+    if _is_conv_rtu:
+        # RTU receives Dense(hidden_size) output — action/reward/hint are folded in BEFORE the Dense
+        d_input = config.hidden_size
+    elif _is_mlp_rtu:
+        # RTU receives [Dense(hidden_size), action, last_reward+hint, ...]
+        # hint_shape[0] = 1 + hint_dim (accounts for reward + hint)
+        d_input = config.hidden_size + action_dim + hint_shape[0]
         if config.use_sinusoidal_encoding:
             d_input += 2
         if config.use_reward_trace:
@@ -1045,7 +1059,7 @@ def main():
     exp = ExperimentModel.load(args.exp)
 
     indices = args.idxs
-    allocate_frames = len(indices) == 1
+    allocate_frames = False
 
     # --------------------
     # -- Batch Set-up --
@@ -1091,7 +1105,7 @@ def main():
 
         seed = exp.getRun(idx) + hypers.get("seed_offset", 0)
         rng = jax.random.PRNGKey(seed)
-        
+
         freeze_steps = hypers.get("freeze_after_steps", hypers.get("freeze_steps", -1))
         if "freeze_steps_end" in hypers:
             # TODO: this is to match the key for the env reset, that is the jax.random.PRNGKey(seed)[1] is used to reset the env
@@ -1157,12 +1171,13 @@ def main():
                     hypers.get("representation", {}).get("use_layernorm", False),
                 )
             ),
+            conv=str(hypers.get("representation", {}).get("conv", "Conv2D")),
             reward_trace_decay=float(hypers.get("reward_trace_decay", 1.0)),
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
             render_mode=hypers["environment"].get("render_mode", "world_reward"),
             env_kwargs=tuple(sorted(
-                (k, v) for k, v in hypers["environment"].items() 
+                (k, v) for k, v in hypers["environment"].items()
                 if k not in ["aperture_size", "env_id", "render_mode"] and v is not None
             )),
             env_id=hypers["environment"]["env_id"],
