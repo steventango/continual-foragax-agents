@@ -1,17 +1,16 @@
 {
-    "agent": "PPO-RTU_LN_128",
+    "agent": "PPO_LN_HINT_128",
     "problem": "Foragax",
-    "total_steps": 1000000,
+    "total_steps": 10000000,
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxBig-v5",
             "aperture_size": 9,
-            "observation_type": "rgb"
+            "observation_type": "rgb",
+            "hint_duration": 100
         },
         "experiment": {
-            "seed_offset": 0,
-            "video_length": 10000,
-            "video_every": 100000
+            "seed_offset": 0
         },
         "gamma": 0.99,
         "gae_lambda": 0.95,
@@ -32,7 +31,7 @@
         },
         "optimizer_critic": {
             "name": "Adam",
-            "lr_scale": 0.1,
+            "lr_scale": 1.0,
             "beta1": 0.9,
             "beta2": 0.999,
             "eps": 1e-05
