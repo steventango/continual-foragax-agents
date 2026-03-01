@@ -1,5 +1,5 @@
 {
-    "agent": "PPO_LN_128",
+    "agent": "PPO-RTU_LN_128_frozen_500K",
     "problem": "Foragax",
     "total_steps": 1000000,
     "metaParameters": {
@@ -25,14 +25,14 @@
         "entropy_coef": 0.1,
         "optimizer_actor": {
             "name": "Adam",
-            "alpha": 0.0001,
+            "alpha": 3e-05,
             "beta1": 0.9,
             "beta2": 0.999,
             "eps": 1e-05
         },
         "optimizer_critic": {
             "name": "Adam",
-            "lr_scale": 10.0,
+            "lr_scale": 1.0,
             "beta1": 0.9,
             "beta2": 0.999,
             "eps": 1e-05
@@ -42,6 +42,7 @@
             "d_hidden": 512,
             "use_layernorm": true,
             "conv": "PConv2DConv2D"
-        }
+        },
+        "freeze_steps": 500000
     }
 }
