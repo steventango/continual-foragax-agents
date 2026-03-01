@@ -173,7 +173,7 @@ if args.max_steps is not None:
 
 video_length = first_hypers.get("experiment", {}).get("video_length", 0)
 video_idxs = first_hypers.get("experiment", {}).get("video_idxs", [0])
-if not any(idx in video_idxs for idx in indices):
+if not any(idx in video_idxs for idx in indices) and num_indices > 1:
     video_length = 0
 
 # --------------------
