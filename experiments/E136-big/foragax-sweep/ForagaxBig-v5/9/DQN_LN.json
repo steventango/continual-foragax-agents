@@ -39,7 +39,8 @@
             "type": "ForagerNet",
             "hidden": 64,
             "layers": 2,
-            "use_layernorm": true
+            "use_layernorm": true,
+            "conv": "PConv2DConv2D"
         },
         "update_freq": 4
     }

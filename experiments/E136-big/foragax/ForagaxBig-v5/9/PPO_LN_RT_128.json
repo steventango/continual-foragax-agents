@@ -39,9 +39,10 @@
         },
         "representation": {
             "hidden": 64,
-            "d_hidden": 192,
+            "d_hidden": 512,
             "use_layernorm": true,
-            "use_reward_trace": true
+            "use_reward_trace": true,
+            "conv": "PConv2DConv2D"
         }
     }
 }

@@ -27,10 +27,10 @@
         ],
         "optimizer_actor": {
             "name": "Adam",
-        "alpha": [
-                0.0001,
-                3e-05,
-                1e-05
+            "alpha": [
+                1e-3,
+                3e-4,
+                1e-4
             ],
             "beta1": 0.9,
             "beta2": 0.999,
@@ -49,9 +49,10 @@
         },
         "representation": {
             "hidden": 64,
-            "d_hidden": 192,
+            "d_hidden": 512,
             "use_layernorm": true,
-            "use_reward_trace": true
+            "use_reward_trace": true,
+            "conv": "PConv2DConv2D"
         }
     }
 }

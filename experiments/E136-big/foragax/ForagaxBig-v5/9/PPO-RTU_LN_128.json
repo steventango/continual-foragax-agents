@@ -39,8 +39,9 @@
         },
         "representation": {
             "hidden": 64,
-            "d_hidden": 192,
-            "use_layernorm": true
+            "d_hidden": 512,
+            "use_layernorm": true,
+            "conv": "PConv2DConv2D"
         }
     }
 }
