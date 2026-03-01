@@ -1,7 +1,7 @@
 {
     "agent": "PPO_LN_HINT_128",
     "problem": "Foragax",
-    "total_steps": 10000000,
+    "total_steps": 1000000,
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxBig-v5",
@@ -10,7 +10,9 @@
             "hint_duration": 100
         },
         "experiment": {
-            "seed_offset": 0
+            "seed_offset": 0,
+            "video_length": 10000,
+            "video_every": 100000
         },
         "gamma": 0.99,
         "gae_lambda": 0.95,

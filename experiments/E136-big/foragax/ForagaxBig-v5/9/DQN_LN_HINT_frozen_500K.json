@@ -1,7 +1,7 @@
 {
     "agent": "DQN_LN_HINT_frozen_500K",
     "problem": "Foragax",
-    "total_steps": 10000000,
+    "total_steps": 1000000,
     "episode_cutoff": -1,
     "metaParameters": {
         "epsilon": 0.1,
@@ -16,7 +16,9 @@
             "hint_duration": 100
         },
         "experiment": {
-            "seed_offset": 0
+            "seed_offset": 0,
+            "video_length": 10000,
+            "video_every": 100000
         },
         "gamma": 0.99,
         "optimizer": {
