@@ -8,6 +8,7 @@ sys.path.append(str(Path.cwd() / "src"))
 import json
 
 import numpy as np
+import polars as pl
 import rlevaluation.hypers as Hypers
 from rlevaluation.config import data_definition
 from rlevaluation.statistics import Statistic
@@ -20,7 +21,8 @@ from utils.results import ResultCollection
 
 
 def main():
-    results = ResultCollection(Model=ExperimentModel, metrics=["mean_ewm_reward"])
+    metric = "mean_ewm_reward"
+    results = ResultCollection(Model=ExperimentModel, metrics=[metric])
     results.paths = [path for path in results.paths if "hypers" not in path]
     data_definition(
         hyper_cols=results.get_hyperparameter_columns(),
@@ -40,13 +42,16 @@ def main():
             if df is None:
                 continue
             df = df.sort(["seed", "id"])
+            df = df.with_columns(
+                pl.col(metric).cast(pl.Float32)
+            )
 
             print(f"{env} {alg}")
             print(df)
             np.random.seed(0)
             report = Hypers.select_best_hypers(
                 df,
-                metric="mean_ewm_reward",
+                metric=metric,
                 prefer=Hypers.Preference.high,
                 time_summary=TimeSummary.mean,
                 statistic=Statistic.mean,
