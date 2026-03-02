@@ -32,6 +32,8 @@ import utils.jax_compat
 from algorithms.nn.ACConv import ActorCriticConv
 from algorithms.nn.ACMLP import ActorCriticMLP
 from algorithms.nn.RealTimeACConv import RealTimeActorCriticConv
+from algorithms.nn.RealTimeACConvHint import RealTimeActorCriticConvHint
+from algorithms.nn.RealTimeACConvHintRTU import RealTimeActorCriticConvHintRTU
 from algorithms.nn.RealTimeACConvPooling import RealTimeActorCriticConvPooling
 from algorithms.nn.RealTimeACMLP import RealTimeActorCriticMLP
 from algorithms.nn.RealTimeACMLPMulti import RealTimeActorCriticMLPMulti
@@ -72,6 +74,7 @@ class TrainConfig:
     env_kwargs: Any = struct.field(pytree_node=False)
     use_sinusoidal_encoding: bool = struct.field(pytree_node=False)
     use_reward_trace: bool = struct.field(pytree_node=False)
+    use_hint_trace: bool = struct.field(pytree_node=False)
     use_layernorm: bool = struct.field(pytree_node=False)
     conv: str = struct.field(pytree_node=False)
     allocate_frames: bool = struct.field(pytree_node=False)
@@ -337,6 +340,7 @@ def env_step(runner_state, _):
         last_action,
         last_reward,
         reward_trace,
+        hint_trace,
         rng,
         hstate,
     ) = runner_state
@@ -350,6 +354,12 @@ def env_step(runner_state, _):
     if isinstance(last_obs, Mapping):
         obs_img = last_obs["image"]
         hint = last_obs["hint"]
+        if config.use_hint_trace:
+            hint_trace = (
+                config.reward_trace_decay * hint_trace
+                + (1.0 - config.reward_trace_decay) * hint
+            )
+            hint = hint_trace
         last_reward_encoded = jnp.concatenate((last_reward_encoded, hint), axis=-1)
     else:
         obs_img = last_obs
@@ -418,6 +428,7 @@ def env_step(runner_state, _):
         action.squeeze(),
         reward,
         reward_trace,
+        hint_trace,
         rng,
         last_hidden,
     )
@@ -607,15 +618,21 @@ def experiment(rng, config: TrainConfig):
     )
     action_dim = 4
 
-    agent = getAgent(config.agent_type)
+    _agent_class = getAgent(config.agent_type)
+    agent = _agent_class
 
     kwargs = {}
     if config.sparsity is not None:
         kwargs["sparsity"] = config.sparsity
     if config.spectral_radius is not None:
         kwargs["spectral_radius"] = config.spectral_radius
-    _agent_class = getAgent(config.agent_type)
-    if _agent_class in (ActorCriticConv, RealTimeActorCriticConv, RealTimeActorCriticConvPooling):
+    if _agent_class in (
+        ActorCriticConv,
+        RealTimeActorCriticConv,
+        RealTimeActorCriticConvPooling,
+        RealTimeActorCriticConvHint,
+        RealTimeActorCriticConvHintRTU,
+    ):
         kwargs["conv"] = config.conv
 
     # Create and initialize the network.
@@ -636,9 +653,11 @@ def experiment(rng, config: TrainConfig):
     if isinstance(obs, Mapping):
         obs_img_shape = obs["image"].shape
         hint_shape = (1 + obs["hint"].shape[-1],)
+        hint_dim = obs["hint"].shape[-1]
     else:
         obs_img_shape = obs.shape
         hint_shape = (1,)
+        hint_dim = 1  # placeholder; not used for non-hint envs
 
     init_x = (
         jnp.zeros((1, *obs_img_shape)),
@@ -649,11 +668,19 @@ def experiment(rng, config: TrainConfig):
         jnp.zeros((1, 1)),
     )
 
-    _is_conv_rtu = _agent_class in (RealTimeActorCriticConv, RealTimeActorCriticConvPooling)
+    _is_conv_rtu = _agent_class in (
+        RealTimeActorCriticConv,
+        RealTimeActorCriticConvPooling,
+        RealTimeActorCriticConvHint,
+    )
+    _is_conv_hint_rtu = _agent_class is RealTimeActorCriticConvHintRTU
     _is_mlp_rtu = _agent_class in (RealTimeActorCriticMLP, RealTimeActorCriticMLPMulti, ActorCriticMLP)
     if _is_conv_rtu:
-        # RTU receives Dense(hidden_size) output — action/reward/hint are folded in BEFORE the Dense
+        # RTU receives hidden_size-wide embedding; action/reward/hint folded in before the Dense
         d_input = config.hidden_size
+    elif _is_conv_hint_rtu:
+        # No main RTU — d_input is ignored by initialize_memory, pass hint input size
+        d_input = hint_dim
     elif _is_mlp_rtu:
         # RTU receives [Dense(hidden_size), action, last_reward+hint, ...]
         # hint_shape[0] = 1 + hint_dim (accounts for reward + hint)
@@ -664,7 +691,10 @@ def experiment(rng, config: TrainConfig):
             d_input += 1
     else:
         d_input = config.hidden_size
-    init_hstate = agent.initialize_memory(1, config.d_hidden, d_input)
+    if _is_conv_hint_rtu:
+        init_hstate = agent.initialize_memory(1, config.d_hidden, hint_dim)
+    else:
+        init_hstate = agent.initialize_memory(1, config.d_hidden, d_input)
     network_params = network.init(_rng, init_hstate, init_x)
 
     def make_label_tree(params):
@@ -789,6 +819,7 @@ def experiment(rng, config: TrainConfig):
         0,
         0,
         0,
+        jnp.zeros((hint_dim,)),  # hint_trace
         rng,
         init_hstate,
     )
@@ -805,6 +836,7 @@ def experiment(rng, config: TrainConfig):
             last_action,
             last_reward,
             reward_trace,
+            hint_trace,
             rng,
             hstate,
         ) = env_step_state
@@ -832,6 +864,7 @@ def experiment(rng, config: TrainConfig):
             last_action,
             last_reward,
             reward_trace,
+            hint_trace,
             rng,
             hstate,
         )
@@ -850,6 +883,7 @@ def experiment(rng, config: TrainConfig):
             last_action,
             last_reward,
             reward_trace,
+            hint_trace,
             rng,
             last_hstate,
         ) = env_step_state
@@ -862,6 +896,12 @@ def experiment(rng, config: TrainConfig):
         if isinstance(last_obs, Mapping):
             obs_img = last_obs["image"]
             hint = last_obs["hint"]
+            if config.use_hint_trace:
+                hint_trace = (
+                    config.reward_trace_decay * hint_trace
+                    + (1.0 - config.reward_trace_decay) * hint
+                )
+                hint = hint_trace
             last_reward_encoded = jnp.concatenate((last_reward_encoded, hint), axis=-1)
         else:
             obs_img = last_obs
@@ -975,6 +1015,7 @@ def experiment(rng, config: TrainConfig):
             last_action,
             last_reward,
             reward_trace,
+            hint_trace,
             rng,
             last_hstate,
         )
@@ -1149,22 +1190,35 @@ def main():
             adam_b2_vf=float(hypers["optimizer_critic"].get("beta2", 0.999)),
             l2_reg_pi=float(hypers.get("l2_reg_pi", hypers.get("l2_reg", 0.0))),
             l2_reg_vf=float(hypers.get("l2_reg_vf", hypers.get("l2_reg", 0.0))),
-            lambda_l2_init_pi=float(hypers.get("lambda_l2_init_pi", hypers.get("lambda_l2_init", 0.0))),
-            lambda_l2_init_vf=float(hypers.get("lambda_l2_init_vf", hypers.get("lambda_l2_init", 0.0))),
-            use_l2_init=bool(
-                hypers.get("lambda_l2_init_pi", hypers.get("lambda_l2_init", 0.0)) != 0.0
-                or hypers.get("lambda_l2_init_vf", hypers.get("lambda_l2_init", 0.0)) != 0.0
+            lambda_l2_init_pi=float(
+                hypers.get("lambda_l2_init_pi", hypers.get("lambda_l2_init", 0.0))
             ),
-            lambda_spectral_pi=float(hypers.get("lambda_spectral_pi", hypers.get("lambda_spectral", 0.0))),
-            lambda_spectral_vf=float(hypers.get("lambda_spectral_vf", hypers.get("lambda_spectral", 0.0))),
+            lambda_l2_init_vf=float(
+                hypers.get("lambda_l2_init_vf", hypers.get("lambda_l2_init", 0.0))
+            ),
+            use_l2_init=bool(
+                hypers.get("lambda_l2_init_pi", hypers.get("lambda_l2_init", 0.0))
+                != 0.0
+                or hypers.get("lambda_l2_init_vf", hypers.get("lambda_l2_init", 0.0))
+                != 0.0
+            ),
+            lambda_spectral_pi=float(
+                hypers.get("lambda_spectral_pi", hypers.get("lambda_spectral", 0.0))
+            ),
+            lambda_spectral_vf=float(
+                hypers.get("lambda_spectral_vf", hypers.get("lambda_spectral", 0.0))
+            ),
             use_spectral_reg=bool(
-                hypers.get("lambda_spectral_pi", hypers.get("lambda_spectral", 0.0)) != 0.0
-                or hypers.get("lambda_spectral_vf", hypers.get("lambda_spectral", 0.0)) != 0.0
+                hypers.get("lambda_spectral_pi", hypers.get("lambda_spectral", 0.0))
+                != 0.0
+                or hypers.get("lambda_spectral_vf", hypers.get("lambda_spectral", 0.0))
+                != 0.0
             ),
             sparsity=hypers["representation"].get("sparsity", None),
             spectral_radius=hypers["representation"].get("spectral_radius", None),
             use_sinusoidal_encoding=bool(hypers.get("use_sinusoidal_encoding", False)),
             use_reward_trace=bool(hypers.get("use_reward_trace", False)),
+            use_hint_trace=bool("_HT" in exp.agent),
             use_layernorm=bool(
                 hypers.get(
                     "use_layernorm",
@@ -1176,10 +1230,14 @@ def main():
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
             render_mode=hypers["environment"].get("render_mode", "world_reward"),
-            env_kwargs=tuple(sorted(
-                (k, v) for k, v in hypers["environment"].items()
-                if k not in ["aperture_size", "env_id", "render_mode"] and v is not None
-            )),
+            env_kwargs=tuple(
+                sorted(
+                    (k, v)
+                    for k, v in hypers["environment"].items()
+                    if k not in ["aperture_size", "env_id", "render_mode"]
+                    and v is not None
+                )
+            ),
             env_id=hypers["environment"]["env_id"],
             gamma=float(hypers["gamma"]),
             gae_lambda=float(hypers["gae_lambda"]),
