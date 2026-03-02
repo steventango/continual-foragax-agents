@@ -9,6 +9,7 @@ if str(SRC_PATH) not in sys.path:
 
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.stats import bootstrap
 from experiment.tools import parseCmdLineArgs
 from experiment.ExperimentModel import ExperimentModel
 from utils.results import ResultCollection
@@ -47,9 +48,10 @@ if __name__ == "__main__":
 
             print(alg)
             print(df)
+            metric = "ewm_reward"
             df = df.with_columns([
                 pl.col("mean_ewm_reward").cast(pl.Float32),
-                pl.col("ewm_reward").cast(pl.Float32),
+                pl.col(metric).cast(pl.Float32),
             ])
 
             report = Hypers.select_best_hypers(
@@ -65,24 +67,32 @@ if __name__ == "__main__":
             xs, ys = extract_learning_curves(
                 df,
                 hyper_vals=report.best_configuration,
-                metric='ewm_reward',
+                metric=metric,
             )
 
             xs = np.asarray(xs)
             ys = np.asarray(ys)
+            subsample = 500
+            step = xs[0].shape[0] // subsample
+            xs = xs[:, ::step]
+            ys = ys[:, ::step]
             assert np.all(np.isclose(xs[0], xs))
 
-            res = curve_percentile_bootstrap_ci(
-                rng=np.random.default_rng(0),
-                y=ys,
-                statistic=Statistic.mean,
-                iterations=10000,
+            res = bootstrap(
+                (ys,),
+                np.mean,
+                vectorized=True,
+                paired=False,
+                confidence_level=0.95,
+                method='percentile',
+                rng=0,
             )
 
-            line = ax.plot(xs[0], res.sample_stat, label=alg, linewidth=1.0)
+            sample_stat = np.mean(ys, axis=0)
+            line = ax.plot(xs[0], sample_stat, label=alg, linewidth=1.0)
             # for y in ys:
             #     ax.plot(xs[0], y, color=line[0].get_color(), alpha=0.2, linewidth=0.5)
-            ax.fill_between(xs[0], res.ci[0], res.ci[1], alpha=0.2)
+            ax.fill_between(xs[0], res.confidence_interval.low, res.confidence_interval.high, alpha=0.2)
 
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
