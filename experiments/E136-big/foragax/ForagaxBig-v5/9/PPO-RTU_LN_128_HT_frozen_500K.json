@@ -1,7 +1,7 @@
 {
-    "agent": "PPO-RTU_LN_128_frozen_500K",
+    "agent": "PPO-RTU_LN_128_HT_frozen_500K",
     "problem": "Foragax",
-    "total_steps": 10000000,
+    "total_steps": 1000000,
     "metaParameters": {
         "environment": {
             "env_id": "ForagaxBig-v5",
@@ -23,6 +23,7 @@
         "max_grad_norm": 0.5,
         "vf_coef": 0.5,
         "entropy_coef": 0.1,
+        "reward_trace_decay": 0.99,
         "optimizer_actor": {
             "name": "Adam",
             "alpha": 0.0001,
@@ -32,7 +33,7 @@
         },
         "optimizer_critic": {
             "name": "Adam",
-            "lr_scale": 0.1,
+            "lr_scale": 10.0,
             "beta1": 0.9,
             "beta2": 0.999,
             "eps": 1e-05
