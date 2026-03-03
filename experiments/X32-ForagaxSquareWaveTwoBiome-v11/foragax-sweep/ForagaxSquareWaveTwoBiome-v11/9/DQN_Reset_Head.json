@@ -39,7 +39,7 @@
             "use_layernorm": true
         },
         "update_freq": 4,
-        "reset_steps": 10000,
+        "reset_steps": 250000,
         "reset_head_only": true
     }
 }
