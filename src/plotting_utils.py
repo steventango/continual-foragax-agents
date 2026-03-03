@@ -62,7 +62,9 @@ LABEL_MAP: Dict[str, str] = {
     "PPO_L2": "PPO (L2)",
     "ActorCriticMLP": "PPO",
     "ActorCriticMLP-l2": "PPO (L2)",
+    "ActorCriticMLP-l2-init": "PPO (L2 Init)",
     "ActorCriticMLP-world": "PPO (World)",
+    "ActorCriticMLP-reward-trace": "PPO (RT)",
     "RealTimeActorCriticMLP": "RTU",
     "RealTimeActorCriticMLP-l2": "RTU (L2)",
     "PPO-RTU": "RTU",
@@ -76,6 +78,7 @@ LABEL_MAP: Dict[str, str] = {
     "DQN_L2": "DQN (L2)",
     "DQN_L2_Init": "DQN (L2 Init)",
     "DQN_LN": "DQN (LN)",
+    "DQN_reward_trace": "DQN (RT)",
     "DQN_Reset_Head": "DQN (Head Reset)",
     "DQN_Hare_and_Tortoise": "DQN (Hare & Tortoise)",
     "DQN_Shrink_and_Perturb": "DQN (Shrink & Perturb)",
@@ -86,6 +89,7 @@ LABEL_MAP: Dict[str, str] = {
     "DRQN_1_1": "DRQN (1-1)",
     "DRQN_LN_0_2": "DRQN (LN, 0-2)",
     "DRQN_0_2": "DRQN (0-2)",
+    "DRQN": "DRQN",
     "Search-Brown": "Search (Brown)",
     "Search-Brown-Avoid-Green": "Search (+B-G)",
     "Search-Morel": "Search (Morel)",
@@ -289,19 +293,24 @@ def format_metric_name(metric: str) -> str:
     return metric.replace("_", " ").title()
 
 
-def get_mapped_label(label: str, label_map: Optional[Dict[str, str]] = None) -> str:
+def get_mapped_label(label: str, label_map: Optional[Dict[str, str]] = None, disable_fov: bool = False) -> str:
     """Get the mapped label, handling apertures and frozen variants."""
     if label_map and label in label_map:
         return label_map[label]
     if ":" in label:
         alg, aperture = label.split(":", 1)
         base_label = label_map.get(alg, alg) if label_map else alg
-        if "Frozen" in base_label:
+        if "frozen" in base_label.lower():
             # For frozen variants, put FOV inline with DQN and Frozen on new line
             dqn_part = base_label.split(" (")[0]
             frozen_part = base_label.split(" (", 1)[1]
-            return f"{dqn_part} (FOV {aperture})\n({frozen_part}"
+            if disable_fov:
+                return f"{dqn_part}\n({frozen_part}"
+            else:
+                return f"{dqn_part} (FOV {aperture})\n({frozen_part}"
         else:
+            if disable_fov:
+                return base_label
             return f"{base_label} (FOV {aperture})"
     return label
 

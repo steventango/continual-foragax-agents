@@ -99,6 +99,11 @@ def main():
              "Example: --horizontal-lines 0.95:Upperbound 0.5:Random",
     )
     parser.add_argument(
+        "--plot-avg",
+        action="store_true",
+        help="Plot the Average Value alongside the learning curve.",
+    )
+    parser.add_argument(
         "--grid",
         type=str,
         nargs="+",
@@ -108,6 +113,19 @@ def main():
              "Example: '2,2 DQN EQRC DQN+EQRC PPO+A2C' creates a 2x2 grid where "
              "the first two cells show single algorithms, and the last two cells "
              "show comparisons of multiple algorithms.",
+    )
+    parser.add_argument(
+        "--color-algs",
+        type=str,
+        nargs="+",
+        default=None,
+        help="List of algorithms to determine the color of each algorithm for consistent coloring across plots.",
+    )
+
+    parser.add_argument(
+        "--disable-fov",
+        action="store_true",
+        help="Disable inserting the FOV (aperture) in the legend name.",
     )
 
     args = parse_plotting_args(parser)
@@ -259,18 +277,57 @@ def main():
         else:
             axes = axes.flatten() if nrows > 1 or ncols > 1 else [axes]
     elif num_metrics == 1:
-        fig, axes = plt.subplots(1, 1, layout="constrained")
-        axes = [axes]  # Make it a list for consistent handling
+        if args.plot_avg:
+            fig, axes = plt.subplots(1, 2, layout="constrained", gridspec_kw={'width_ratios': [3, 1]}, figsize=(10, 6))
+            axes = axes.reshape(1, 2)
+        else:
+            fig, axes = plt.subplots(1, 1, layout="constrained")
+            axes = [axes]  # Make it a list for consistent handling
     else:
-        fig, axes = plt.subplots(
-            num_metrics, 1, layout="constrained", figsize=(8, 6 * num_metrics)
-        )
+        if args.plot_avg:
+            fig, axes = plt.subplots(
+                num_metrics, 2, layout="constrained", figsize=(10, 6 * num_metrics), gridspec_kw={'width_ratios': [3, 1]}
+            )
+        else:
+            fig, axes = plt.subplots(
+                num_metrics, 1, layout="constrained", figsize=(8, 6 * num_metrics)
+            )
 
-    hue_order = df.select(hue_col).unique().to_series().to_list()
+    present_hues = df.select(hue_col).unique().to_series().to_list()
+    if args.color_algs:
+        hue_order = [h for h in args.color_algs if h in present_hues]
+        hue_order += [h for h in present_hues if h not in hue_order]
+    elif args.filter_alg_apertures:
+        hue_order = [h for h in args.filter_alg_apertures if h in present_hues]
+        hue_order += [h for h in present_hues if h not in hue_order]
+    elif args.filter_algs:
+        hue_order = [h for h in args.filter_algs if h in present_hues]
+        hue_order += [h for h in present_hues if h not in hue_order]
+    else:
+        hue_order = df.select(hue_col).unique(maintain_order=True).to_series().to_list()
 
     # Create color palette matching the order in filter_alg_apertures
+    import seaborn as sns
     vibrant_colors = list(tc.colorsets["vibrant"])
-    if args.filter_alg_apertures:
+    
+    # If we need more than 7 colors, use seaborn's default categorical palette or colorblind which has 10
+    total_algs_to_color = len(args.color_algs) if args.color_algs else (len(args.filter_alg_apertures) if args.filter_alg_apertures else len(hue_order))
+    if total_algs_to_color > len(vibrant_colors):
+        vibrant_colors = sns.color_palette("tab20", n_colors=20) # 20 colors should be enough
+
+    if args.color_algs:
+        # Map colors to algorithms in the order specified
+        palette = {
+            alg: vibrant_colors[i % len(vibrant_colors)]
+            for i, alg in enumerate(args.color_algs)
+        }
+        # Ensure all items in hue_order have a color
+        used_colors = len(args.color_algs)
+        for h in hue_order:
+            if h not in palette:
+                palette[h] = vibrant_colors[used_colors % len(vibrant_colors)]
+                used_colors += 1
+    elif args.filter_alg_apertures:
         # Map colors to alg-aperture combinations in the order specified
         palette = {
             alg_ap: vibrant_colors[i % len(vibrant_colors)]
@@ -329,7 +386,7 @@ def main():
             if not cell_df_list:
                 logger.warning(f"No algorithms found for cell {i}, skipping")
                 ax.text(0.5, 0.5, f"No data found", ha='center', va='center', transform=ax.transAxes)
-                title = " + ".join(get_mapped_label(a, LABEL_MAP) for a in cell_algs)
+                title = " + ".join(get_mapped_label(a, LABEL_MAP, disable_fov=args.disable_fov) for a in cell_algs)
                 ax.set_title(title)
                 despine(ax)
                 continue
@@ -383,7 +440,7 @@ def main():
                 ax.set_xlabel("")
             
             # Title: show algorithm names (mapped)
-            title = " + ".join(get_mapped_label(a, LABEL_MAP) for a in cell_algs if a not in missing_algs)
+            title = " + ".join(get_mapped_label(a, LABEL_MAP, disable_fov=args.disable_fov) for a in cell_algs if a not in missing_algs)
             ax.set_title(title)
             ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
             ax.xaxis.set_major_formatter(
@@ -395,7 +452,7 @@ def main():
             # Handle legend for multi-algorithm cells
             if len(cell_algs) > 1:
                 handles, labels = ax.get_legend_handles_labels()
-                mapped_labels = [get_mapped_label(label, LABEL_MAP) for label in labels]
+                mapped_labels = [get_mapped_label(label, LABEL_MAP, disable_fov=args.disable_fov) for label in labels]
                 ax.legend(handles, mapped_labels, title=None, frameon=False, loc='best')
 
             if args.vertical_lines:
@@ -498,15 +555,19 @@ def main():
 
         # Handle legend
         if not args.legend:
-            annotate_plot(axes[0], label_map=LABEL_MAP)
+            annotate_plot(axes[0], label_map=LABEL_MAP, disable_fov=args.disable_fov)
         else:
             handles, labels = axes[0].get_legend_handles_labels()
-            mapped_labels = [get_mapped_label(label, LABEL_MAP) for label in labels]
+            mapped_labels = [get_mapped_label(label, LABEL_MAP, disable_fov=args.disable_fov) for label in labels]
             axes[0].legend(handles, mapped_labels, title=None, frameon=False)
     else:
         # Original plotting logic for metrics
         for i, metric in enumerate(args.metrics):
-            ax = axes[i]
+            if args.plot_avg:
+                ax = axes[i][0]
+                ax_auc = axes[i][1]
+            else:
+                ax = axes[i] if num_metrics > 1 else axes[0]
 
             # Configure lineplot based on whether to show all seeds or confidence intervals
             lineplot_kwargs = {
@@ -568,13 +629,38 @@ def main():
             if args.ylim:
                 ax.set_ylim(args.ylim)
 
+            if args.plot_avg:
+                # Calculate the average over frames for each seed
+                avg_df = df.group_by([hue_col, "seed"]).agg(pl.col(metric).mean().alias("avg"))
+                sns.barplot(
+                    data=avg_df.to_pandas(),
+                    x=hue_col,
+                    y="avg",
+                    hue=hue_col,
+                    palette=palette,
+                    order=hue_order,
+                    ax=ax_auc,
+                    capsize=.1,
+                    errorbar=("ci", 95),
+                    n_boot=1000,
+                    legend=False
+                )
+                ax_auc.set_ylabel("")
+                ax_auc.set_xlabel("")
+                ax_auc.set_xticklabels([])
+                ax_auc.set_xticks([])
+                despine(ax_auc)
+
         # Handle legend
+        ax_for_legend = axes[0][0] if args.plot_avg else axes[0]
         if not args.legend:
-            annotate_plot(axes[0], label_map=LABEL_MAP)
+            annotate_plot(ax_for_legend, label_map=LABEL_MAP, disable_fov=args.disable_fov)
         else:
-            handles, labels = axes[0].get_legend_handles_labels()
-            mapped_labels = [get_mapped_label(label, LABEL_MAP) for label in labels]
-            axes[0].legend(handles, mapped_labels, title=None, frameon=False)
+            handles, labels = ax_for_legend.get_legend_handles_labels()
+            mapped_labels = [get_mapped_label(label, LABEL_MAP, disable_fov=args.disable_fov) for label in labels]
+            legend_obj = ax_for_legend.legend(handles, mapped_labels, title=None, frameon=True, loc='best')
+            legend_obj.get_frame().set_alpha(0.9)
+            legend_obj.get_frame().set_facecolor('white')
 
     # Save plot
     if args.grid:
