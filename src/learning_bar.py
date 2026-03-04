@@ -94,10 +94,6 @@ def main():
             bar_df = bar_df.limit(0)
 
         label = get_mapped_label(alg, LABEL_MAP)
-        if aperture is not None and ":" not in alg:
-            label += f" (FOV {aperture})"
-        # Wrap labels with new line
-        label = label.replace(" (FOV ", "\n(FOV ")
 
         metric_values = bar_df[args.metric].to_numpy()
         if len(metric_values) == 0:
@@ -136,32 +132,34 @@ def main():
     }
 
     # Plotting
-    fig, ax = plt.subplots(layout="constrained")
+    fig, ax = plt.subplots(layout="constrained", figsize=(3, 3))
 
-    yerr = [
+    xerr = [
         plot_df["metric"] - plot_df["ci_low"],
         plot_df["ci_high"] - plot_df["metric"],
     ]
 
     sns.barplot(
-        x="label",
-        y="metric",
+        x="metric",
+        y="label",
+        hue="label",
         data=plot_df.to_pandas(),
         ax=ax,
         palette=palette,
+        orient="h",
+        legend=False,
     )
     ax.errorbar(
-        x=plot_df["label"],
-        y=plot_df["metric"],
-        yerr=yerr,
+        x=plot_df["metric"],
+        y=plot_df["label"],
+        xerr=xerr,
         fmt="none",
         c="black",
         capsize=3,
     )
 
-    ax.set_xlabel("")
-    ax.set_ylabel(format_metric_name(args.metric))
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=0)
+    ax.set_xlabel(format_metric_name(args.metric))
+    ax.set_ylabel("")
     despine(ax)
 
     plot_name = args.plot_name or f"{env}_{args.metric}_bar"
