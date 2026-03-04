@@ -19,7 +19,7 @@ def save(save_path: str, plot_name: str, save_type: str, f: Figure, **kwargs):
 
     file_path = save_dir / f"{plot_name}.{save_type}"
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    f.savefig(file_path, bbox_inches="tight", **kwargs)
+    f.savefig(file_path, bbox_inches="tight", pad_inches=0, **kwargs)
     print(f"Plot saved to: {file_path}")
 
 
@@ -46,7 +46,7 @@ plt.rcParams.update(
 )
 
 # Set font sizes for better readability in papers
-FONTSIZE = 24
+FONTSIZE = 16
 plt.rcParams["axes.labelsize"] = FONTSIZE  # Axis labels
 plt.rcParams["xtick.labelsize"] = FONTSIZE  # X-tick labels
 plt.rcParams["ytick.labelsize"] = FONTSIZE  # Y-tick labels
@@ -57,8 +57,9 @@ plt.rcParams["ytick.labelsize"] = FONTSIZE  # Y-tick labels
 LABEL_MAP: Dict[str, str] = {
     "PPO": "PPO",
     "PPO_128": "PPO",
-    "PPO_LN_128": "PPO (LN)",
-    "PPO_LN_RT_128": "PPO (LN, RT)",
+    "PPO_LN_128": "PPO",
+    "PPO_LN_RT_128": "PPO (RT)",
+    "PPO_LN_HINT_128": "PPO (H)",
     "PPO_L2": "PPO (L2)",
     "ActorCriticMLP": "PPO",
     "ActorCriticMLP-l2": "PPO (L2)",
@@ -68,7 +69,8 @@ LABEL_MAP: Dict[str, str] = {
     "PPO-RTU": "RTU",
     "PPO-RTU_128": "RTU",
     "PPO-RTU_L2": "RTU (L2)",
-    "PPO-RTU_LN_128": "RTU (LN)",
+    "PPO-RTU_LN_128": "RTU",
+    "PPO-RTU_LN_HINT_128": "RTU (H)",
     "PPO-RTU_LN_128_512": "RTU (LN, H512)",
     "RealTimeActorCriticMLP-world": "RTU (World)",
     "DQN": "DQN",
@@ -86,6 +88,7 @@ LABEL_MAP: Dict[str, str] = {
     "DRQN_1_1": "DRQN (1-1)",
     "DRQN_LN_0_2": "DRQN (LN, 0-2)",
     "DRQN_0_2": "DRQN (0-2)",
+    "DQN_LN_HINT": "DQN (H)",
     "Search-Brown": "Search (Brown)",
     "Search-Brown-Avoid-Green": "Search (+B-G)",
     "Search-Morel": "Search (Morel)",
@@ -93,6 +96,7 @@ LABEL_MAP: Dict[str, str] = {
     "Search-Nearest": "Search (Nearest)",
     "Search-Oracle": "Search (Oracle)",
     "Search-Oyster": "Search (Oyster)",
+    "Search-9": "Search"
 }
 
 frozen_label_map = {}
@@ -110,6 +114,7 @@ LABEL_MAP.update(frozen_label_map)
 
 YLABEL_MAP: Dict[str, str] = {
     "Ewm Reward": "Average Reward",
+    "ewm_reward_9": "Average Reward",
 }
 
 
@@ -151,7 +156,9 @@ def get_object_mapping(env: str) -> Dict[int, str]:
 def get_ylabel_mapping(env: str) -> Dict[str, str]:
     """Get environment-specific ylabel mappings for metrics."""
     base_mapping = {
+        "Rolling Reward 1000000": "Average Reward (1 M)",
         "Ewm Reward": "Average Reward",
+        "Ewm Reward 9": "Average Reward",
         "Temperature": "Temperature",
     }
 
@@ -286,6 +293,7 @@ def save_plot(
 # ---------------------
 def format_metric_name(metric: str) -> str:
     """Formats a metric name for display."""
+    metric = YLABEL_MAP.get(metric, metric)
     return metric.replace("_", " ").title()
 
 
@@ -300,9 +308,9 @@ def get_mapped_label(label: str, label_map: Optional[Dict[str, str]] = None) -> 
             # For frozen variants, put FOV inline with DQN and Frozen on new line
             dqn_part = base_label.split(" (")[0]
             frozen_part = base_label.split(" (", 1)[1]
-            return f"{dqn_part} (FOV {aperture})\n({frozen_part}"
+            return f"{dqn_part} "#" (FOV {aperture})\n({frozen_part}"
         else:
-            return f"{base_label} (FOV {aperture})"
+            return f"{base_label}" # (FOV {aperture})"
     return label
 
 
