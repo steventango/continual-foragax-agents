@@ -216,14 +216,14 @@ def main():
         # If first element contains spaces, it was passed as a single quoted string
         if len(grid_args) == 1 and " " in grid_args[0]:
             grid_args = grid_args[0].split()
-        
+
         # First element is 'nrows,ncols', rest are cell specifications
         grid_dims = grid_args[0].split(",")
         grid_nrows = int(grid_dims[0])
         grid_ncols = int(grid_dims[1])
         # Each cell spec can have multiple algorithms separated by '+'
         grid_cells = [cell.split("+") for cell in grid_args[1:]]
-        
+
         if len(grid_cells) > grid_nrows * grid_ncols:
             raise ValueError(
                 f"Too many cells ({len(grid_cells)}) for grid size {grid_nrows}x{grid_ncols}"
@@ -259,7 +259,7 @@ def main():
         else:
             axes = axes.flatten() if nrows > 1 or ncols > 1 else [axes]
     elif num_metrics == 1:
-        fig, axes = plt.subplots(1, 1, layout="constrained")
+        fig, axes = plt.subplots(1, 1, layout="constrained", figsize=(4, 3))
         axes = [axes]  # Make it a list for consistent handling
     else:
         fig, axes = plt.subplots(
@@ -290,21 +290,21 @@ def main():
         assert grid_cells is not None and grid_nrows is not None and grid_ncols is not None
         # Grid plot with specified algorithms per cell
         metric = args.metrics[0]  # Use the first metric for all grid cells
-        
+
         # Determine if we're using alg_ap based on cell specifications
         # If any cell contains ':', we're using alg_ap format (e.g., "DQN:5")
         use_alg_ap = any(":" in alg for cell in grid_cells for alg in cell)
         grid_hue_col = "alg_ap" if use_alg_ap else "alg"
-        
+
         # Create alg_ap column if needed and it doesn't exist
         if use_alg_ap and "alg_ap" not in df.columns:
             df = df.with_columns(
                 (pl.col("alg") + ":" + pl.col("aperture").cast(pl.Utf8)).alias("alg_ap")
             )
-        
+
         for i, cell_algs in enumerate(grid_cells):
             ax = axes[i]
-            
+
             # Build cell-specific palette for algorithms in this cell
             cell_palette = {
                 alg: vibrant_colors[j % len(vibrant_colors)]
@@ -320,7 +320,7 @@ def main():
                     alg_df = df.filter(pl.col("alg_ap") == alg)
                 else:
                     alg_df = df.filter(pl.col("alg") == alg)
-                
+
                 if alg_df.is_empty():
                     missing_algs.append(alg)
                 else:
@@ -367,21 +367,21 @@ def main():
 
             if args.normalize:
                 ylabel = f"Normalized {ylabel}"
-            
+
             # Set y-label only on leftmost column
             col_idx = i % grid_ncols
             if col_idx == 0:
                 ax.set_ylabel(ylabel)
             else:
                 ax.set_ylabel("")
-            
+
             # Set x-label only on bottom row
             row_idx = i // grid_ncols
             if row_idx == grid_nrows - 1:
                 ax.set_xlabel(r"Time steps $(\times 10^6)$")
             else:
                 ax.set_xlabel("")
-            
+
             # Title: show algorithm names (mapped)
             title = " + ".join(get_mapped_label(a, LABEL_MAP) for a in cell_algs if a not in missing_algs)
             ax.set_title(title)
@@ -389,7 +389,7 @@ def main():
             ax.xaxis.set_major_formatter(
                 ticker.FuncFormatter(lambda x, _: f"{x / 1000000:g}")
             )
-            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
             despine(ax)
 
             # Handle legend for multi-algorithm cells
@@ -427,7 +427,7 @@ def main():
                     ylim = ax.get_ylim()
                     y_mins.append(ylim[0])
                     y_maxs.append(ylim[1])
-            
+
             if y_mins and y_maxs:
                 global_ylim = (min(y_mins), max(y_maxs))
                 for j in range(len(grid_cells)):
@@ -471,7 +471,7 @@ def main():
             ax.xaxis.set_major_formatter(
                 ticker.FuncFormatter(lambda x, _: f"{x / 1000000:g}")
             )
-            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
             despine(ax)
 
             if args.vertical_lines:
@@ -547,7 +547,7 @@ def main():
             ax.xaxis.set_major_formatter(
                 ticker.FuncFormatter(lambda x, _: f"{x / 1000000:g}")
             )
-            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=4))
             despine(ax)
 
             if args.vertical_lines:
