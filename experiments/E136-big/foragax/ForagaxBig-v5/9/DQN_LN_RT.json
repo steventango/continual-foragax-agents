@@ -24,7 +24,7 @@
             "name": "Adam",
             "alpha": 0.001,
             "beta1": 0.9,
-            "beta2": 0.9,
+            "beta2": 0.999,
             "eps": 1e-05
         },
         "representation": {
@@ -32,7 +32,8 @@
             "hidden": 64,
             "layers": 2,
             "use_layernorm": true,
-            "scalar_features": "hint,last_action,last_reward,reward_trace"
+            "scalar_features": "hint,last_action,last_reward,reward_trace",
+            "conv": "PConv2DConv2D"
         },
         "update_freq": 4
     }

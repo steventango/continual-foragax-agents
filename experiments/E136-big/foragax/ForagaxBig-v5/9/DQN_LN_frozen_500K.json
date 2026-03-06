@@ -24,14 +24,15 @@
             "name": "Adam",
             "alpha": 0.001,
             "beta1": 0.9,
-            "beta2": 0.9,
+            "beta2": 0.999,
             "eps": 1e-05
         },
         "representation": {
             "type": "ForagerNet",
             "hidden": 64,
             "layers": 2,
-            "use_layernorm": true
+            "use_layernorm": true,
+            "conv": "PConv2DConv2D"
         },
         "update_freq": 4,
         "freeze_steps": 500000
