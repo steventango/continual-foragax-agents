@@ -8,6 +8,7 @@ import tol_colors as tc
 
 from annotate_plot import annotate_plot
 from plotting_utils import (
+    COLOR_MAP,
     LABEL_MAP,
     PlottingArgumentParser,
     despine,
@@ -259,7 +260,7 @@ def main():
         else:
             axes = axes.flatten() if nrows > 1 or ncols > 1 else [axes]
     elif num_metrics == 1:
-        fig, axes = plt.subplots(1, 1, layout="constrained", figsize=(4, 3))
+        fig, axes = plt.subplots(1, 1, layout="constrained", figsize=(4.5, 3))
         axes = [axes]  # Make it a list for consistent handling
     else:
         fig, axes = plt.subplots(
@@ -270,18 +271,33 @@ def main():
 
     # Create color palette matching the order in filter_alg_apertures
     vibrant_colors = list(tc.colorsets["vibrant"])
+
+    def lookup_color(key: str, fallback_idx_ref: list):
+        """Look up color by exact key, then base alg (strip aperture), then mapped label."""
+        if key in COLOR_MAP:
+            return COLOR_MAP[key]
+        base = key.split(":")[0] if ":" in key else key
+        if base in COLOR_MAP:
+            return COLOR_MAP[base]
+        mapped = get_mapped_label(key, LABEL_MAP)
+        if mapped in COLOR_MAP:
+            return COLOR_MAP[mapped]
+        color = vibrant_colors[fallback_idx_ref[0] % len(vibrant_colors)]
+        fallback_idx_ref[0] += 1
+        return color
+
     if args.filter_alg_apertures:
-        # Map colors to alg-aperture combinations in the order specified
-        palette = {
-            alg_ap: vibrant_colors[i % len(vibrant_colors)]
-            for i, alg_ap in enumerate(args.filter_alg_apertures)
-        }
+        # Map colors: use COLOR_MAP if available, else fall back to cycling
+        palette = {}
+        fallback_idx = [0]
+        for alg_ap in args.filter_alg_apertures:
+            palette[alg_ap] = lookup_color(alg_ap, fallback_idx)
     elif args.filter_algs:
-        # Map colors to algorithms in the order specified
-        palette = {
-            alg: vibrant_colors[i % len(vibrant_colors)]
-            for i, alg in enumerate(args.filter_algs)
-        }
+        # Map colors: use COLOR_MAP if available, else fall back to cycling
+        palette = {}
+        fallback_idx = [0]
+        for alg in args.filter_algs:
+            palette[alg] = lookup_color(alg, fallback_idx)
     else:
         # Use default palette ordering
         palette = None
@@ -497,9 +513,9 @@ def main():
             axes[j].axis("off")
 
         # Handle legend
-        if not args.legend:
+        if False and not args.legend:
             annotate_plot(axes[0], label_map=LABEL_MAP)
-        else:
+        elif False and args.legend:
             handles, labels = axes[0].get_legend_handles_labels()
             mapped_labels = [get_mapped_label(label, LABEL_MAP) for label in labels]
             axes[0].legend(handles, mapped_labels, title=None, frameon=False)
@@ -517,7 +533,7 @@ def main():
                 "hue_order": hue_order,
                 "palette": palette,
                 "ax": ax,
-                "legend": "full" if i == 0 else False,
+                "legend": False,
             }
 
             if args.plot_all_seeds:
@@ -569,9 +585,9 @@ def main():
                 ax.set_ylim(args.ylim)
 
         # Handle legend
-        if not args.legend:
+        if False and not args.legend:
             annotate_plot(axes[0], label_map=LABEL_MAP)
-        else:
+        elif False and args.legend:
             handles, labels = axes[0].get_legend_handles_labels()
             mapped_labels = [get_mapped_label(label, LABEL_MAP) for label in labels]
             axes[0].legend(handles, mapped_labels, title=None, frameon=False)

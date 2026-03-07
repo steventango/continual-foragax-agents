@@ -6,6 +6,7 @@ import tol_colors as tc
 from scipy.stats import bootstrap
 
 from plotting_utils import (
+    COLOR_MAP,
     LABEL_MAP,
     PlottingArgumentParser,
     despine,
@@ -124,15 +125,21 @@ def main():
     if args.sort_by_metric:
         plot_df = plot_df.sort("metric", descending=True)
 
-    # Create custom palette for each algorithm
+    # Create palette: use COLOR_MAP if available, else fall back to cycling vibrant colors.
     vibrant_colors = list(tc.colorsets["vibrant"])
-    palette = {
-        label: vibrant_colors[i % len(vibrant_colors)]
-        for i, label in enumerate(plot_df["label"].unique())
-    }
+    palette = {}
+    fallback_idx = 0
+    for entry in plot_data:
+        label = entry["label"]
+        if label not in palette:
+            if label in COLOR_MAP:
+                palette[label] = COLOR_MAP[label]
+            else:
+                palette[label] = vibrant_colors[fallback_idx % len(vibrant_colors)]
+                fallback_idx += 1
 
     # Plotting
-    fig, ax = plt.subplots(layout="constrained", figsize=(3, 3))
+    fig, ax = plt.subplots(layout="constrained", figsize=(4.5, 3))
 
     xerr = [
         plot_df["metric"] - plot_df["ci_low"],
