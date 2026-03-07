@@ -1,0 +1,2 @@
+python src/learning_curve.py experiments/E136-big/foragax-sweep/ForagaxBig-v5 --plot-name fig_big_ppo_regret --filter-alg-apertures PPO_128:5 PPO_128:7 PPO_128:9 PPO_128:15 --metric rolling_biome_regret_100000
+python src/learning_curve.py experiments/E136-big/foragax-sweep/ForagaxBig-v5 --plot-name fig_big_rtu_regret --filter-alg-apertures PPO-RTU_128:5 PPO-RTU_128:7 PPO-RTU_128:9 PPO-RTU_128:15 --metric rolling_biome_regret_100000

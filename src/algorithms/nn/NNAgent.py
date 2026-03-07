@@ -113,9 +113,10 @@ class NNAgent(BaseAgent):
         self.reward_scale = params.get("reward_scale")
         self.reward_trace_decay = params.get("reward_trace_decay", 0.9)
         self.hint_trace_decay = params.get("hint_trace_decay", 0.9)
-        self.scalar_features = params.get("representation", {}).get(
-            "scalar_features", ["hint", "last_action", "last_reward"]
+        scalar_features_str = params.get("representation", {}).get(
+            "scalar_features", "hint,last_action,last_reward"
         )
+        self.scalar_features = scalar_features_str.split(",")
 
         self.scalars_size = 0
         self.hint_size = 0

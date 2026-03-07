@@ -30,5 +30,5 @@ python src/learning_curve.py experiments/X32-ForagaxSquareWaveTwoBiome-v11/forag
 python src/learning_curve.py experiments/X32-ForagaxSquareWaveTwoBiome-v11/foragax/ForagaxSquareWaveTwoBiome-v11 --plot-name dqn-ln --filter-alg-apertures Search-Oracle DQN_LN:5 DQN_LN:9 DQN_LN:15 --legend
 python src/learning_curve.py experiments/X32-ForagaxSquareWaveTwoBiome-v11/foragax/ForagaxSquareWaveTwoBiome-v11 --plot-name dqn-hare-and-tortoise --filter-alg-apertures Search-Oracle DQN_Hare_and_Tortoise:5 DQN_Hare_and_Tortoise:9 DQN_Hare_and_Tortoise:15 --legend
 python src/learning_curve.py experiments/X32-ForagaxSquareWaveTwoBiome-v11/foragax/ForagaxSquareWaveTwoBiome-v11 --plot-name dqn-crelu --filter-alg-apertures Search-Oracle DQN_CReLU:5 DQN_CReLU:9 DQN_CReLU:15 --legend
-python src/learning_curve.py experiments/X32-ForagaxSquareWaveTwoBiome-v11/foragax/ForagaxSquareWaveTwoBiome-v11 --plot-name dqn-reset-head --filter-alg-apertures Search-Oracle DQN_Reset_Head:5 DQN_Reset_Head:9 DQN_Reset_Head:15 --legend
-python src/learning_curve.py experiments/X32-ForagaxSquareWaveTwoBiome-v11/foragax/ForagaxSquareWaveTwoBiome-v11 --plot-name dqn-shrink-and-perturb --filter-alg-apertures Search-Oracle DQN_Shrink_and_Perturb:5 DQN_Shrink_and_Perturb:9 DQN_Shrink_and_Perturb:15 --legend
+
+python src/learning_curve.py experiments/X32-ForagaxSquareWaveTwoBiome-v11/foragax/ForagaxSquareWaveTwoBiome-v11 --plot-name pt-dqn --filter-alg-apertures PT_DQN:9

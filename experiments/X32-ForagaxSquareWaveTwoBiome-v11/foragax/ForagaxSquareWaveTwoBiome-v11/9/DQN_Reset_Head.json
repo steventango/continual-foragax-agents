@@ -4,7 +4,7 @@
     "total_steps": 10000000,
     "episode_cutoff": -1,
     "metaParameters": {
-        "epsilon": 0.05,
+        "epsilon": 0.1,
         "target_refresh": 128,
         "buffer_size": 1000,
         "buffer_min_size": 50,
@@ -12,8 +12,8 @@
         "environment": {
             "env_id": "ForagaxSquareWaveTwoBiome-v11",
             "aperture_size": 9,
-			"random_shift_max_steps": 10000000,
-			"observation_type": "rgb"
+            "random_shift_max_steps": 10000000,
+            "observation_type": "rgb"
         },
         "experiment": {
             "seed_offset": 0

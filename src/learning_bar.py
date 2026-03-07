@@ -6,6 +6,7 @@ import tol_colors as tc
 from scipy.stats import bootstrap
 
 from plotting_utils import (
+    COLOR_MAP,
     LABEL_MAP,
     PlottingArgumentParser,
     despine,
@@ -94,10 +95,6 @@ def main():
             bar_df = bar_df.limit(0)
 
         label = get_mapped_label(alg, LABEL_MAP)
-        if aperture is not None and ":" not in alg:
-            label += f" (FOV {aperture})"
-        # Wrap labels with new line
-        label = label.replace(" (FOV ", "\n(FOV ")
 
         metric_values = bar_df[args.metric].to_numpy()
         if len(metric_values) == 0:
@@ -128,40 +125,48 @@ def main():
     if args.sort_by_metric:
         plot_df = plot_df.sort("metric", descending=True)
 
-    # Create custom palette for each algorithm
+    # Create palette: use COLOR_MAP if available, else fall back to cycling vibrant colors.
     vibrant_colors = list(tc.colorsets["vibrant"])
-    palette = {
-        label: vibrant_colors[i % len(vibrant_colors)]
-        for i, label in enumerate(plot_df["label"].unique())
-    }
+    palette = {}
+    fallback_idx = 0
+    for entry in plot_data:
+        label = entry["label"]
+        if label not in palette:
+            if label in COLOR_MAP:
+                palette[label] = COLOR_MAP[label]
+            else:
+                palette[label] = vibrant_colors[fallback_idx % len(vibrant_colors)]
+                fallback_idx += 1
 
     # Plotting
-    fig, ax = plt.subplots(layout="constrained")
+    fig, ax = plt.subplots(layout="constrained", figsize=(4.5, 3))
 
-    yerr = [
+    xerr = [
         plot_df["metric"] - plot_df["ci_low"],
         plot_df["ci_high"] - plot_df["metric"],
     ]
 
     sns.barplot(
-        x="label",
-        y="metric",
+        x="metric",
+        y="label",
+        hue="label",
         data=plot_df.to_pandas(),
         ax=ax,
         palette=palette,
+        orient="h",
+        legend=False,
     )
     ax.errorbar(
-        x=plot_df["label"],
-        y=plot_df["metric"],
-        yerr=yerr,
+        x=plot_df["metric"],
+        y=plot_df["label"],
+        xerr=xerr,
         fmt="none",
         c="black",
         capsize=3,
     )
 
-    ax.set_xlabel("")
-    ax.set_ylabel(format_metric_name(args.metric))
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=0)
+    ax.set_xlabel(format_metric_name(args.metric))
+    ax.set_ylabel("")
     despine(ax)
 
     plot_name = args.plot_name or f"{env}_{args.metric}_bar"

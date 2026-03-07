@@ -11,6 +11,7 @@ if str(SRC_PATH) not in sys.path:
 import json
 
 import numpy as np
+import polars as pl
 import rlevaluation.hypers as Hypers
 from rlevaluation.config import data_definition
 from rlevaluation.statistics import Statistic
@@ -42,6 +43,9 @@ def main():
             df = alg_result.load()
             if df is None:
                 continue
+            df = df.with_columns(
+                pl.col("mean_ewm_reward").cast(pl.Float32).alias("mean_ewm_reward")
+            )
             df = df.sort(["seed", "id"])
 
             print(f"{env} {alg}")
