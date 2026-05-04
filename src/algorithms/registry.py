@@ -13,6 +13,7 @@ from algorithms.nn.DQN_Reset import DQN_Reset
 from algorithms.nn.DQN_Shrink_and_Perturb import DQN_Shrink_and_Perturb
 from algorithms.nn.DQN_Spectral_Reg import DQN_Spectral_Reg
 from algorithms.nn.DRQN import DRQN
+from algorithms.nn.DRQN_RTU import DRQN_RTU
 from algorithms.nn.PT_DQN import PT_DQN
 from algorithms.nn.EQRC import EQRC
 from algorithms.nn.MADRQN import MADRQN
@@ -34,6 +35,9 @@ def getAgent(name) -> Type[BaseAgent]:
 
     if name == "DQN":
         return DQN
+
+    if name.startswith("DRQN_RTU"):
+        return DRQN_RTU
 
     if name.startswith("DRQN"):
         return DRQN

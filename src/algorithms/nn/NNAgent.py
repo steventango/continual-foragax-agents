@@ -145,10 +145,7 @@ class NNAgent(BaseAgent):
         # ---------------------
         # -- NN Architecture --
         # ---------------------
-        self.builder = NetworkBuilder(image_shape, self.rep_params, self.key)
-        self._build_heads(self.builder)
-        self.phi = self.get_feature_function(self.builder)
-        net_params = self.builder.getParams()
+        net_params = self._setup_network(image_shape)
 
         # ---------------
         # -- Optimizer --
@@ -172,7 +169,6 @@ class NNAgent(BaseAgent):
                 decay_rate=swr_params.get("decay_rate", 0.0),
                 seed=seed,
             )
-        self.initializers = self.builder.getInitializers()
         optimizer = self._build_optimizer(optimizer_hypers, swr_hypers)
         opt_state = optimizer.init(net_params)
 
@@ -276,6 +272,19 @@ class NNAgent(BaseAgent):
 
     def get_feature_function(self, builder: NetworkBuilder):
         return builder.getFeatureFunction()
+
+    def _setup_network(self, image_shape):
+        """Build the network and populate `self.phi`, `self.initializers`.
+
+        Default implementation uses Haiku via `NetworkBuilder`. Subclasses that
+        use other frameworks (e.g. Flax) override this hook and supply their
+        own `phi` / `q` / `initializers` plus return the param tree.
+        """
+        self.builder = NetworkBuilder(image_shape, self.rep_params, self.key)
+        self._build_heads(self.builder)
+        self.phi = self.get_feature_function(self.builder)
+        self.initializers = self.builder.getInitializers()
+        return self.builder.getParams()
 
     def _build_optimizer(
         self,
