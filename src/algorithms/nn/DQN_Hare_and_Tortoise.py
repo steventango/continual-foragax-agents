@@ -55,21 +55,15 @@ class DQN_Hare_and_Tortoise(DQN):
         return target_params
 
     @partial(jax.jit, static_argnums=0)
-    def _step(
-        self,
-        state: AgentState,
-        reward: jax.Array,
-        obs: jax.Array,
-        extra: Dict[str, jax.Array],
-    ):
-        state, a = super()._step(state, reward, obs, extra)
+    def _advance_update_clock(self, state: AgentState) -> AgentState:
+        state = super()._advance_update_clock(state)
         state = jax.lax.cond(
             state.steps % state.hypers.ht_steps == 0,
             self._reset,
             lambda s: s,
             state,
         )
-        return state, a
+        return state
 
     @partial(jax.jit, static_argnums=0)
     def _reset(self, state: AgentState):
