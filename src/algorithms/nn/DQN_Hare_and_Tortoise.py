@@ -58,7 +58,7 @@ class DQN_Hare_and_Tortoise(DQN):
     def _advance_update_clock(self, state: AgentState) -> AgentState:
         state = super()._advance_update_clock(state)
         state = jax.lax.cond(
-            state.steps % state.hypers.ht_steps == 0,
+            (state.steps % state.hypers.ht_steps == 0) & (state.steps > 0),
             self._reset,
             lambda s: s,
             state,

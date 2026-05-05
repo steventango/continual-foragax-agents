@@ -49,7 +49,7 @@ class DQN_Reset(DQN):
     def _advance_update_clock(self, state: AgentState) -> AgentState:
         state = super()._advance_update_clock(state)
         state = jax.lax.cond(
-            state.steps % state.hypers.reset_steps == 0,
+            (state.steps % state.hypers.reset_steps == 0) & (state.steps > 0),
             self._reset,
             lambda s: s,
             state,
