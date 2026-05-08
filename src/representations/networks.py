@@ -252,7 +252,6 @@ def buildFeatureNetwork(inputs: Tuple, params: Dict[str, Any], rng: Any):
                 ),
                 post_core_layers=post_core_layers,
                 use_layernorm=params.get("use_layernorm", False),
-                preactivation_layer_norm=params.get("preactivation_layer_norm", True),
                 balanced=params.get("balanced", False),
                 activation=params.get("activation", "relu"),
                 name="phi",
@@ -1629,7 +1628,6 @@ class ForagerNet(hk.Module):
         core_layers: int = 0,
         post_core_layers: int = 0,
         use_layernorm=False,
-        preactivation_layer_norm: bool = True,
         balanced=False,
         name: str = "",
         conv: str = "Conv2D",
@@ -1650,7 +1648,6 @@ class ForagerNet(hk.Module):
             else pre_core_layers + core_layers + post_core_layers
         )
         self.use_layernorm = use_layernorm
-        self.preactivation_layer_norm = preactivation_layer_norm
         self.balanced = balanced
         self.coord_conv = coord
         if activation == "crelu":
@@ -1704,16 +1701,12 @@ class ForagerNet(hk.Module):
             mlp_layers = []
             for width in widths:
                 mlp_layers.append(hk.Linear(width, w_init=w_init))
-                if use_layernorm and self.preactivation_layer_norm:
+                if use_layernorm:
                     mlp_layers.append(
                         hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
                     )
                 mlp_layers.append(self.activation_fn)
-                if use_layernorm and not self.preactivation_layer_norm:
-                    mlp_layers.append(
-                        hk.LayerNorm(axis=-1, create_scale=True, create_offset=True)
-                    )
-            return hku.accumulatingSequence(mlp_layers)
+            return hk.Sequential(mlp_layers)
 
         if layers is not None:
             self.core_mlp = make_mlp([self.hidden] * layers)
@@ -1759,13 +1752,8 @@ class ForagerNet(hk.Module):
         if self.balanced:
             h = self.vision_proj(h)
 
-        mlp_acts: Dict[str, jnp.ndarray] = {}
-
         if self.pre_core_layers > 0 and hasattr(self, "pre_core_mlp"):
-            pre_out = self.pre_core_mlp(h)
-            h = pre_out.out
-            for k, v in pre_out.activations.items():
-                mlp_acts[f"pre_core/{k}"] = v
+            h = self.pre_core_mlp(h)
 
         if self.scalars > 0:
             if self.balanced:
@@ -1778,27 +1766,14 @@ class ForagerNet(hk.Module):
             h = jnp.concatenate([h, scalars], axis=-1)
 
         if hasattr(self, "core_mlp"):
-            core_out = self.core_mlp(h)
-            h = core_out.out
-            prefix = (
-                ""
-                if (self.pre_core_layers == 0 and self.post_core_layers == 0)
-                else "core/"
-            )
-            for k, v in core_out.activations.items():
-                mlp_acts[f"{prefix}{k}"] = v
+            h = self.core_mlp(h)
 
         if self.post_core_layers > 0 and hasattr(self, "post_core_mlp"):
-            post_out = self.post_core_mlp(h)
-            h = post_out.out
-            for k, v in post_out.activations.items():
-                mlp_acts[f"post_core/{k}"] = v
+            h = self.post_core_mlp(h)
 
         out = self.phi(h)
 
-        return hku.AccumulatedOutput(
-            activations={self.name: out, **mlp_acts}, out=out
-        )
+        return hku.AccumulatedOutput(activations={self.name: out}, out=out)
 
 
 def make_standalone_initializer(hk_initializer) -> Callable:
