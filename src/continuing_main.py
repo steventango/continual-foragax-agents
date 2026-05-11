@@ -525,6 +525,22 @@ while current_step < n:
                     blocks_per_macro = periodic_freq // update_freq
 
                 if blocks_per_macro is not None and block_count >= blocks_per_macro:
+                    # The macro-block scan fires `_periodic_step` every
+                    # `periodic_freq` env steps measured from `current_step`,
+                    # so for fire-step parity with the old per-step cond
+                    # (which keyed off `state.steps % periodic_freq == 0`),
+                    # `current_step` must already be a multiple of
+                    # `periodic_freq`. This holds automatically when
+                    # `save_every` and `video_every` are multiples of
+                    # `periodic_freq` (the only thing that can leave
+                    # `current_step` mid-period is a milestone break or a
+                    # checkpoint resume at a non-aligned step).
+                    assert current_step % periodic_freq == 0, (
+                        f"current_step ({current_step}) is not aligned to "
+                        f"periodic_freq ({periodic_freq}); set save_every and "
+                        f"video_every to multiples of periodic_freq, and only "
+                        f"resume from checkpoints at multiples of periodic_freq"
+                    )
                     v_periodic = jax.vmap(glues[0].agent._periodic_step)
 
                     def macro_block(carry, _):
