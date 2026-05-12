@@ -15,6 +15,7 @@
             "observation_type": "color"
         },
         "experiment": {
+            "save_every": 100000,
             "seed_offset": 1000000
         },
         "gamma": 0.99,
