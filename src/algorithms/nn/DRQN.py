@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 import haiku as hk
 import jax
 import jax.numpy as jnp
+import numpy as np
 import optax
 from ml_instrumentation.Collector import Collector
 
@@ -115,7 +116,7 @@ class DRQN(NNAgent):
             hypers=hypers,
         )
 
-        self.burn_in_steps = self.state.hypers.burn_in_steps
+        self.burn_in_steps = int(params.get("burn_in_steps", 0))
 
     # ------------------------
     # -- NN agent interface --
@@ -142,9 +143,10 @@ class DRQN(NNAgent):
         return carry[:, start:end]
 
     def _split_carry(self, carry: Any, split: int):
+        split_idx = np.array([split])
         if isinstance(carry, tuple):
             def _split(x):
-                left, right = jnp.hsplit(x, jnp.array([split]))
+                left, right = jnp.hsplit(x, split_idx)
                 return left, right
 
             split_tree = jax.tree.map(_split, carry)
@@ -152,7 +154,7 @@ class DRQN(NNAgent):
             right = jax.tree.map(lambda x: x[1], split_tree)
             return left, right
 
-        left, right = jnp.hsplit(carry, jnp.array([split]))
+        left, right = jnp.hsplit(carry, split_idx)
         return left, right
 
     def _set_carry_start(self, carry: Any, new_carry: Any):
@@ -263,7 +265,7 @@ class DRQN(NNAgent):
 
         # Perform burn-in
         if self.burn_in_steps > 0:
-            split_idx = jnp.array([self.burn_in_steps])
+            split_idx = np.array([self.burn_in_steps])
             b_x, x = jnp.hsplit(x, split_idx)
             b_xp, xp = jnp.hsplit(xp, split_idx)
             b_reset, reset = jnp.hsplit(reset, split_idx)
