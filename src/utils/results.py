@@ -213,7 +213,9 @@ def load_all_results_from_data(
         metrics = tables - {"_metadata_"}
 
     meta = (
-        pl.read_database("SELECT * FROM _metadata_", con).lazy()
+        pl.read_database(
+            "SELECT * FROM _metadata_", con, infer_schema_length=None
+        ).lazy()
         if "_metadata_" in tables
         else None
     )
