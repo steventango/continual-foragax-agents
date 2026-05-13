@@ -41,7 +41,7 @@
             "post_gru_layers": 1
         },
         "update_freq": 4,
-        "sequence_length": [32, 64],
+        "sequence_length": 32,
         "burn_in_steps": 16
     }
 }
