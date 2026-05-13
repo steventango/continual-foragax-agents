@@ -1,0 +1,3 @@
+python scripts/slurm.py --cluster clusters/vulcan-cpu-16G.json --time 03:00:00 --runs 30 --entry src/continuing_main.py --force -e experiments/X33-ForagaxSquareWaveTwoBiome-v11/foragax/ForagaxSquareWaveTwoBiome-v11/Baselines/Search-9.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-16G.json --time 03:00:00 --runs 30 --entry src/continuing_main.py --force -e experiments/X33-ForagaxSquareWaveTwoBiome-v11/foragax/ForagaxSquareWaveTwoBiome-v11/Baselines/Search-Nearest.json
+python scripts/slurm.py --cluster clusters/vulcan-cpu-16G.json --time 03:00:00 --runs 30 --entry src/continuing_main.py --force -e experiments/X33-ForagaxSquareWaveTwoBiome-v11/foragax/ForagaxSquareWaveTwoBiome-v11/Baselines/Search-Oracle.json
