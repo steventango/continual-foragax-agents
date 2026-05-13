@@ -22,7 +22,7 @@
         "lambda_l2": 1e-05,
         "optimizer": {
             "name": "Adam",
-            "alpha": 0.003,
+            "alpha": 0.001,
             "beta1": 0.9,
             "beta2": 0.999,
             "eps": 1e-05
