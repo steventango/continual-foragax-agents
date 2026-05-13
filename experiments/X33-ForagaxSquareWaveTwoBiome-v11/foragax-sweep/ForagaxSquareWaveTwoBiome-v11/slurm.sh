@@ -21,5 +21,5 @@ do
     python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-32G.json --time 03:00:00 --runs 10 --entry src/rtu_ppo.py --force -e experiments/X33-ForagaxSquareWaveTwoBiome-v11/foragax-sweep/ForagaxSquareWaveTwoBiome-v11/${fov}/ActorCriticMLP-shrink-and-perturb.json
     python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-32G.json --time 03:00:00 --runs 10 --entry src/rtu_ppo.py --force -e experiments/X33-ForagaxSquareWaveTwoBiome-v11/foragax-sweep/ForagaxSquareWaveTwoBiome-v11/${fov}/ActorCriticMLP-reset.json
     python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-32G.json --time 03:00:00 --runs 10 --entry src/rtu_ppo.py --force -e experiments/X33-ForagaxSquareWaveTwoBiome-v11/foragax-sweep/ForagaxSquareWaveTwoBiome-v11/${fov}/ActorCriticMLP-reward-trace.json
-    python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-32G.json --time 03:00:00 --runs 10 --entry src/rtu_ppo.py --force -e experiments/X33-ForagaxSquareWaveTwoBiome-v11/foragax-sweep/ForagaxSquareWaveTwoBiome-v11/${fov}/RealTimeActorCriticMLP.json
+    python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap-32G.json --tasks 24 --time 03:00:00 --runs 10 --entry src/rtu_ppo.py --force -e experiments/X33-ForagaxSquareWaveTwoBiome-v11/foragax-sweep/ForagaxSquareWaveTwoBiome-v11/${fov}/RealTimeActorCriticMLP.json
 done
