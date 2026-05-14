@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parent
 FROZEN_LIST = [
     "DQN",
     "DRQN",
+    "DRQN_B32",
     "DQN_reward_trace",
     "RealTimeActorCriticMLP",
     "ActorCriticMLP",
@@ -21,7 +22,7 @@ def main():
 
         if src.stem not in FROZEN_LIST:
             continue
-        
+
         if src.name.endswith(f"{SUFFIX}.json"):
             continue
 
