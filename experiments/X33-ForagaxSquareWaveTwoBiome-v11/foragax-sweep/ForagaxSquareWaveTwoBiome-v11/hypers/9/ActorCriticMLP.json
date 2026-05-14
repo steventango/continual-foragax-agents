@@ -1,6 +1,6 @@
 {
     "clip_eps": 0.2,
-    "entropy_coef": 0.01,
+    "entropy_coef": 0.1,
     "environment.aperture_size": 9,
     "environment.env_id": "ForagaxSquareWaveTwoBiome-v11",
     "environment.observation_type": "color",
