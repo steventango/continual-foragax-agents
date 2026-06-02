@@ -452,9 +452,8 @@ if freeze_steps is None:
     freeze_steps = np.inf
 freeze_steps = float(freeze_steps)
 
-# Storage for tracking churn predictions and agent states at metric steps
+# Storage for tracking churn predictions
 pred_before_churn = {}  # Maps agent_idx -> predictions before update
-agent_states_at_steps = {}  # Maps (agent_idx, step) -> agent_state at that step
 
 
 def compute_and_store_ntk_metrics(agent_idx, step_idx, glue_state, x_ref, pred_before_churn):
@@ -479,8 +478,12 @@ def compute_and_store_ntk_metrics(agent_idx, step_idx, glue_state, x_ref, pred_b
             x_ref_batch = x_ref
 
         # Create dummy scalars (zeros) for reference data
-        num_scalar_features = 4  # last_action, reward, reward_trace, hint_trace
-        scalars_batch = jnp.zeros((n_samples, num_scalar_features))
+        # Get actual scalars size from agent's last_timestep
+        if hasattr(glue.agent.state, 'last_timestep') and 'scalars' in glue.agent.state.last_timestep:
+            scalars_size = glue.agent.state.last_timestep['scalars'].shape[-1]
+        else:
+            scalars_size = 4  # fallback default
+        scalars_batch = jnp.zeros((n_samples, scalars_size))
 
         # Compute current predictions for churn
         pred_current = glue.agent._values(glue.agent.state, x_ref_batch, scalars_batch)
@@ -490,11 +493,8 @@ def compute_and_store_ntk_metrics(agent_idx, step_idx, glue_state, x_ref, pred_b
         # Compute churn if we have previous predictions
         if agent_idx in pred_before_churn:
             pred_prev = pred_before_churn[agent_idx]
-            pred_diff = np.asarray(pred_current) - np.asarray(pred_prev)
-            churn_norm = np.linalg.norm(pred_diff)
+            churn_norm = np.linalg.norm(np.asarray(pred_current) - np.asarray(pred_prev))
             datas["churn_norm"][agent_idx, step_idx] = np.float16(churn_norm)
-            logger.debug(f"Churn computation: prev_shape={pred_prev.shape}, curr_shape={np.asarray(pred_current).shape}, "
-                        f"diff_range=[{pred_diff.min():.6e}, {pred_diff.max():.6e}], norm={churn_norm:.6e}")
 
         # Store current predictions for next churn computation
         pred_before_churn[agent_idx] = np.asarray(pred_current)
@@ -503,6 +503,7 @@ def compute_and_store_ntk_metrics(agent_idx, step_idx, glue_state, x_ref, pred_b
         rank, cond = compute_ntk_metrics(glue.agent, x_ref_batch, scalars_batch)
         datas["ntk_rank"][agent_idx, step_idx] = np.float16(rank)
         datas["ntk_cond"][agent_idx, step_idx] = np.float32(cond)
+        logger.debug(f"Computed NTK metrics at step {step_idx}: rank={rank}, cond={cond:.2e}")
 
     except Exception as e:
         logger.error(f"Failed to compute NTK metrics at step {step_idx} for agent {agent_idx}: {e}", exc_info=True)
@@ -586,7 +587,9 @@ if use_explicit_update_steps:
 while current_step < n:
     next_save = ((current_step // save_every) + 1) * save_every
     next_video = ((current_step // video_every) + 1) * video_every
-    next_milestone = min(next_save, next_video, n)
+    # Add ntk_freq as a milestone so metrics are computed with exact per-step states
+    next_ntk = ((current_step // ntk_freq) + 1) * ntk_freq if ntk_freq > 0 else n + 1
+    next_milestone = min(next_save, next_video, next_ntk, n)
     steps_in_iter = next_milestone - current_step
 
     if steps_in_iter <= 0:
@@ -745,14 +748,11 @@ while current_step < n:
         else:
             glue_state_idx = glue_states
 
-        # Compute metrics at regular intervals
-        # IMPORTANT: All metrics in this loop use glue_state_idx from the END of the chunk.
-        # This means metrics for step 1000 use the state at current_step + steps_in_iter,
-        # not the state at step 1000. For accurate per-step metrics, compute during scan.
-        for metric_step in range(current_step, current_step + steps_in_iter):
-            if ntk_freq > 0 and metric_step > 0 and metric_step % ntk_freq == 0 and metric_step < n:
-                logger.info(f"Computing NTK metrics at step {metric_step}")
-                compute_and_store_ntk_metrics(i, metric_step, glue_state_idx, x_ref, pred_before_churn)
+        # Compute metrics at ntk_freq boundaries
+        # Because next_milestone is now aligned to ntk_freq, glue_state_idx is the correct state at this step
+        if ntk_freq > 0 and next_milestone % ntk_freq == 0 and next_milestone > 0 and next_milestone < n:
+            logger.info(f"Computing NTK metrics at step {next_milestone}")
+            compute_and_store_ntk_metrics(i, next_milestone, glue_state_idx, x_ref, pred_before_churn)
 
         if next_milestone % save_every == 0 and next_milestone < n:
             checkpoint_start_time = time.time()

@@ -17,7 +17,7 @@
         },
         "experiment": {
             "seed_offset": 0,
-            "ntk_freq": 1000,
+            "ntk_freq": 500,
             "x_ref_steps": 500
         },
         "gamma": 0.99,
