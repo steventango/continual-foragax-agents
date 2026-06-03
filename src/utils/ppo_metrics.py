@@ -1,208 +1,224 @@
-"""NTK and churn metrics computation for PPO agents."""
+"""NTK and churn plasticity metrics for PPO agents.
+
+Unlike the DQN path in ``continuing_main.py`` -- where a Python-level milestone
+loop can pause training and call into numpy -- the PPO training loop in
+``rtu_ppo.py`` runs entirely inside a single ``jax.lax.scan`` that is then
+``jax.vmap``'d across runs.  Every metric therefore has to be a *pure JAX*
+function with statically-shaped outputs so it can be traced inside the scan and
+gated with ``jax.lax.cond``.
+
+The PPO network ``apply_fn`` has the signature::
+
+    hidden, pi, value = apply_fn(params, hidden, obs)
+
+where ``obs`` is the 6-tuple
+``(image, action_encoded, last_reward, sine, cosine, reward_trace)`` (each with
+a leading batch axis), ``pi`` is a ``distrax.Categorical`` over ``action_dim``
+actions, and ``value`` has shape ``(batch,)``.
+
+Two heads are measured separately:
+
+* **value (critic)** -- scalar value output, the direct analogue of the DQN
+  Q-value metrics.
+* **policy (actor)** -- the ``action_dim`` policy logits.
+
+For each head we report the NTK Gram-matrix rank and condition number, plus the
+per-update *churn*: the norm of the change in the head's predictions on a fixed
+reference batch from immediately before to immediately after one PPO update.
+"""
+
+from typing import Any, Callable, Tuple
 
 import jax
 import jax.numpy as jnp
-import numpy as np
-import logging
-from typing import Tuple, Callable, NamedTuple, Any
-
-logger = logging.getLogger(__name__)
 
 
-def compute_ppo_value_metrics(
-    agent_fn: Callable,
-    params: Any,
+def build_ref_obs_tuple(x: jnp.ndarray, action_dim: int, reward_dim: int) -> Tuple:
+    """Build the 6-tuple obs the PPO network expects for a single reference obs.
+
+    Scalar / context features (action encoding, last reward, sinusoidal time
+    encoding, reward trace) are zeroed, mirroring the DQN reference-metric setup
+    in ``utils.metrics.compute_ntk_metrics`` which feeds zero scalars.  A leading
+    batch axis of size 1 is added so the convolutional / dense layers see the
+    rank they expect.
+
+    Args:
+        x: A single reference observation image (no batch axis).
+        action_dim: Number of discrete actions (size of the action encoding).
+        reward_dim: Width of the ``last_reward`` feature (1 for plain envs,
+            ``1 + hint_dim`` for hint envs).
+
+    Returns:
+        The 6-tuple ``(image, action_encoded, last_reward, sine, cosine,
+        reward_trace)``, each with a leading batch axis of size 1.
+    """
+    image = jnp.expand_dims(x, 0)
+    action_encoded = jnp.zeros((1, action_dim))
+    last_reward = jnp.zeros((1, reward_dim))
+    sine = jnp.zeros((1, 1))
+    cosine = jnp.zeros((1, 1))
+    reward_trace = jnp.zeros((1, 1))
+    return (image, action_encoded, last_reward, sine, cosine, reward_trace)
+
+
+def _flatten_jacobian(jac_tree: Any, n_rows: int) -> jnp.ndarray:
+    """Flatten a Jacobian pytree to a dense ``[n_rows, n_params]`` matrix."""
+    leaves = jax.tree_util.tree_leaves(jac_tree)
+    flat_leaves = [leaf.reshape(n_rows, -1) for leaf in leaves]
+    return jnp.concatenate(flat_leaves, axis=1)
+
+
+def _ntk_rank_cond(jac_flat: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    """NTK Gram-matrix rank and condition number from a flat Jacobian.
+
+    The NTK Gram matrix is ``J Jᵀ`` (shape ``[n_rows, n_rows]``).  Parameter
+    columns that do not influence the head (e.g. actor params for the value
+    output) contribute zero rows to ``J`` and so leave ``J Jᵀ`` unchanged.
+    """
+    ntk = jac_flat @ jac_flat.T
+    rank = jnp.linalg.matrix_rank(ntk).astype(jnp.float32)
+    cond = jnp.linalg.cond(ntk)
+    return rank, cond
+
+
+def value_metrics(
+    apply_fn: Callable,
+    params_before: Any,
+    params_after: Any,
     init_hstate: Any,
     x_ref: jnp.ndarray,
     action_dim: int,
-    ntk_freq: int,
-    update_idx: int,
-    pred_before_churn: dict,
-) -> Tuple[float, float, float]:
-    """Compute NTK rank, condition number, and churn for PPO agents.
+    reward_dim: int,
+) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    """NTK rank / condition number and per-update churn for the value head.
 
-    Args:
-        agent_fn: The network apply function (network.apply)
-        params: Current network parameters (pytree)
-        init_hstate: Initial hidden state for RNNs (None for feedforward)
-        x_ref: Reference observations for metric computation, shape [n_samples, ...]
-        action_dim: Number of actions (for encoding)
-        ntk_freq: Frequency of metric computation (in updates)
-        update_idx: Current update index (for determining if we should compute)
-        pred_before_churn: Dict mapping to previous predictions for churn computation
+    NTK is measured on the post-update parameters (the network's current state,
+    matching the DQN convention).  Churn is the norm of the value change on
+    ``x_ref`` from ``params_before`` to ``params_after``.
 
     Returns:
-        Tuple of (rank, condition_number, churn_norm) - use NaN for unavailable metrics
+        ``(rank, cond, churn)`` as scalar arrays.
     """
 
-    if ntk_freq <= 0 or update_idx % ntk_freq != 0:
-        return np.nan, np.nan, np.nan
+    def value_of(params, x):
+        obs = build_ref_obs_tuple(x, action_dim, reward_dim)
+        _, _, value = apply_fn(params, init_hstate, obs)
+        return value[0]
 
-    try:
-        # Cap at 100 samples for memory
-        n_samples = min(100, len(x_ref))
-        if n_samples < len(x_ref):
-            sample_indices = np.linspace(0, len(x_ref) - 1, n_samples, dtype=int)
-            x_ref_batch = x_ref[sample_indices]
-        else:
-            x_ref_batch = x_ref
+    # Per-sample predictions before / after the update -> churn.
+    pred_before = jax.vmap(value_of, in_axes=(None, 0))(params_before, x_ref)
+    pred_after = jax.vmap(value_of, in_axes=(None, 0))(params_after, x_ref)
+    churn = jnp.linalg.norm(pred_after - pred_before)
 
-        # Create dummy action encodings and reward traces (zeros)
-        action_encoded_batch = jnp.zeros((n_samples, action_dim))
-        reward_batch = jnp.zeros((n_samples, 1))
-        sine_batch = jnp.zeros((n_samples, 1))
-        cosine_batch = jnp.zeros((n_samples, 1))
-        reward_trace_batch = jnp.zeros((n_samples, 1))
-
-        # Create obs tuple in the format expected by PPO networks
-        obs_tuple = (
-            x_ref_batch,
-            action_encoded_batch,
-            reward_batch,
-            sine_batch,
-            cosine_batch,
-            reward_trace_batch,
-        )
-
-        # Get value predictions
-        _, pi, values = agent_fn(params, init_hstate, obs_tuple)
-        pred_current = np.asarray(values)  # shape [n_samples]
-
-        # Compute churn if we have previous predictions
-        churn_norm = np.nan
-        if 0 in pred_before_churn:
-            pred_prev = pred_before_churn[0]
-            churn_norm = float(np.linalg.norm(pred_current - pred_prev))
-            logger.debug(f"Churn at update {update_idx}: {churn_norm:.6e}")
-
-        # Store current predictions for next churn computation
-        pred_before_churn[0] = pred_current
-
-        # Compute NTK metrics using value function
-        rank, cond = _compute_ntk_for_ppo(agent_fn, params, init_hstate, x_ref_batch,
-                                          action_dim)
-
-        logger.debug(f"PPO metrics at update {update_idx}: rank={rank}, cond={cond:.2e}, churn={churn_norm:.2e}")
-
-        return float(rank), float(cond), churn_norm
-
-    except Exception as e:
-        logger.error(f"Failed to compute PPO metrics at update {update_idx}: {e}", exc_info=True)
-        return np.nan, np.nan, np.nan
+    # NTK on the current (post-update) params.
+    n_ref = x_ref.shape[0]
+    jac = jax.vmap(jax.jacrev(value_of, argnums=0), in_axes=(None, 0))(
+        params_after, x_ref
+    )
+    jac_flat = _flatten_jacobian(jac, n_ref)
+    rank, cond = _ntk_rank_cond(jac_flat)
+    return rank, cond, churn
 
 
-def _compute_ntk_for_ppo(
-    agent_fn: Callable,
-    params: Any,
+def policy_metrics(
+    apply_fn: Callable,
+    params_before: Any,
+    params_after: Any,
     init_hstate: Any,
-    x_ref_batch: jnp.ndarray,
+    x_ref: jnp.ndarray,
     action_dim: int,
-) -> Tuple[int, float]:
-    """Compute NTK matrix rank and condition number for PPO value function.
+    reward_dim: int,
+) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    """NTK rank / condition number and per-update churn for the policy head.
 
-    Args:
-        agent_fn: The network apply function
-        params: Current network parameters
-        init_hstate: Initial hidden state
-        x_ref_batch: Reference batch of observations, shape [n_samples, ...]
-        action_dim: Number of actions
+    The policy output is the ``action_dim`` logit vector, so the Jacobian has
+    ``n_ref * action_dim`` rows.  Churn is measured on the action probabilities
+    (softmax of the logits), the interpretable notion of how much the policy
+    moved on the reference set in one update.
 
     Returns:
-        Tuple of (rank, condition_number)
+        ``(rank, cond, churn)`` as scalar arrays.
     """
 
-    n_samples = len(x_ref_batch)
+    def logits_of(params, x):
+        obs = build_ref_obs_tuple(x, action_dim, reward_dim)
+        _, pi, _ = apply_fn(params, init_hstate, obs)
+        return pi.logits[0]  # (action_dim,)
 
-    # Create the value function as a function of parameters
-    def values_fn(p, x):
-        """Compute value for a single sample."""
-        action_encoded = jnp.zeros((action_dim,))
-        reward = jnp.zeros((1,))
-        sine = jnp.zeros((1,))
-        cosine = jnp.zeros((1,))
-        reward_trace = jnp.zeros((1,))
+    def probs_of(params, x):
+        obs = build_ref_obs_tuple(x, action_dim, reward_dim)
+        _, pi, _ = apply_fn(params, init_hstate, obs)
+        return pi.probs[0]  # (action_dim,)
 
-        obs_tuple = (
-            jnp.expand_dims(x, 0),  # Add batch dim
-            jnp.expand_dims(action_encoded, 0),
-            jnp.expand_dims(reward, 0),
-            jnp.expand_dims(sine, 0),
-            jnp.expand_dims(cosine, 0),
-            jnp.expand_dims(reward_trace, 0),
-        )
+    pred_before = jax.vmap(probs_of, in_axes=(None, 0))(params_before, x_ref)
+    pred_after = jax.vmap(probs_of, in_axes=(None, 0))(params_after, x_ref)
+    churn = jnp.linalg.norm(pred_after - pred_before)
 
-        _, _, value = agent_fn(p, init_hstate, obs_tuple)
-        return value[0]  # Remove batch dim
-
-    # Compute Jacobians over the batch
-    jacobian_fn = jax.vmap(jax.jacrev(values_fn, argnums=0), in_axes=(None, 0))
-    jacobians = jacobian_fn(params, x_ref_batch)
-
-    # Flatten jacobians to [n_samples, n_params]
-    def flatten_jacobians(jac_tree):
-        leaves = jax.tree_util.tree_leaves(jac_tree)
-        flat_leaves = [leaf.reshape(leaf.shape[0], -1) for leaf in leaves]
-        return jnp.concatenate(flat_leaves, axis=1)
-
-    jacobians_flat = flatten_jacobians(jacobians)
-
-    # Compute NTK matrix
-    ntk_matrix = jacobians_flat @ jacobians_flat.T
-
-    # Compute rank and condition number
-    rank = int(jnp.linalg.matrix_rank(ntk_matrix))
-    cond_number = float(jnp.linalg.cond(ntk_matrix))
-
-    return rank, cond_number
+    n_ref = x_ref.shape[0]
+    # jacrev of a vector output -> leaves carry a leading action_dim axis;
+    # vmap over samples adds the n_ref axis in front: [n_ref, action_dim, ...].
+    jac = jax.vmap(jax.jacrev(logits_of, argnums=0), in_axes=(None, 0))(
+        params_after, x_ref
+    )
+    jac_flat = _flatten_jacobian(jac, n_ref * action_dim)
+    rank, cond = _ntk_rank_cond(jac_flat)
+    return rank, cond, churn
 
 
-def collect_ppo_reference_observations(
-    env,
-    env_params,
-    agent_fn: Callable,
-    network_params: Any,
+def compute_ppo_metrics(
+    apply_fn: Callable,
+    params_before: Any,
+    params_after: Any,
     init_hstate: Any,
-    rng: jnp.ndarray,
-    n_steps: int = 500,
-    action_dim: int = 4,
-) -> jnp.ndarray:
-    """Collect reference observations from random environment rollouts.
+    x_ref: jnp.ndarray,
+    action_dim: int,
+    reward_dim: int,
+    compute_value: bool = True,
+    compute_policy: bool = True,
+) -> Tuple[jnp.ndarray, ...]:
+    """Compute value- and policy-head NTK + churn metrics.
+
+    Pure JAX and statically shaped so it can be traced inside ``jax.lax.scan``
+    / ``jax.lax.cond`` and vmapped across runs.  Heads that are disabled (or
+    when this is called on a non-metric step via ``lax.cond``) report ``NaN``.
 
     Args:
-        env: Foragax environment
-        env_params: Environment parameters
-        agent_fn: Network apply function
-        network_params: Initial network parameters
-        init_hstate: Initial hidden state
-        rng: Random number generator key
-        n_steps: Number of environment steps to collect
-        action_dim: Number of actions
+        apply_fn: The network ``apply`` function.
+        params_before: Parameters before the current PPO update (for churn).
+        params_after: Parameters after the current PPO update (NTK + churn).
+        init_hstate: Initial hidden state sized for batch 1 (zeros for RTUs).
+        x_ref: Reference observation images, shape ``[n_ref, ...]``.
+        action_dim: Number of discrete actions.
+        reward_dim: Width of the ``last_reward`` feature.
+        compute_value: Whether to measure the value head.
+        compute_policy: Whether to measure the policy head.
 
     Returns:
-        Array of observations, shape [n_steps, ...]
+        ``(value_rank, value_cond, value_churn, policy_rank, policy_cond,
+        policy_churn)`` as scalar arrays.
     """
-    observations = []
-    obs, env_state = env.reset(rng, env_params)
+    nan = jnp.float32(jnp.nan)
 
-    for _ in range(n_steps):
-        # Extract observation image
-        if isinstance(obs, dict):
-            obs_img = obs["image"]
-        else:
-            obs_img = obs
-
-        observations.append(np.asarray(obs_img))
-
-        # Random action
-        rng, action_rng = jax.random.split(rng)
-        action = jax.random.randint(action_rng, (), 0, action_dim)
-
-        # Step environment
-        obs, env_state, reward, terminated, truncated, info = env.step(
-            env_state, int(action), env_params
+    if compute_value:
+        v_rank, v_cond, v_churn = value_metrics(
+            apply_fn, params_before, params_after, init_hstate,
+            x_ref, action_dim, reward_dim,
         )
+    else:
+        v_rank, v_cond, v_churn = nan, nan, nan
 
-        if terminated or truncated:
-            obs, env_state = env.reset(jax.random.fold_in(rng, _), env_params)
+    if compute_policy:
+        p_rank, p_cond, p_churn = policy_metrics(
+            apply_fn, params_before, params_after, init_hstate,
+            x_ref, action_dim, reward_dim,
+        )
+    else:
+        p_rank, p_cond, p_churn = nan, nan, nan
 
-    return jnp.stack(observations)
+    return v_rank, v_cond, v_churn, p_rank, p_cond, p_churn
+
+
+def nan_ppo_metrics() -> Tuple[jnp.ndarray, ...]:
+    """The all-``NaN`` metric tuple emitted on non-metric updates."""
+    nan = jnp.float32(jnp.nan)
+    return nan, nan, nan, nan, nan, nan
