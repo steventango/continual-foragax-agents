@@ -173,6 +173,9 @@ for idx in indices:
 
 assert first_hypers is not None
 
+# Check if ntk metrics should be computed (only if explicitly specified in config)
+compute_ntk_enabled = "ntk_freq" in first_hypers.get("experiment", {})
+
 render_mode = first_hypers.get("experiment", {}).get("render_mode", "world_reward")
 
 
@@ -261,9 +264,10 @@ def reset_datas():
     fresh_datas = {"rewards": np.empty((len(indices), n), dtype=np.float16)}
     for k in METRIC_NAMES:
         fresh_datas[k] = np.empty((len(indices), n), dtype=np.float16)
-    fresh_datas["churn_norm"] = np.full((len(indices), n), np.nan, dtype=np.float16)
-    fresh_datas["ntk_rank"] = np.full((len(indices), n), np.nan, dtype=np.float16)
-    fresh_datas["ntk_cond"] = np.full((len(indices), n), np.nan, dtype=np.float32)
+    if compute_ntk_enabled:
+        fresh_datas["churn_norm"] = np.full((len(indices), n), np.nan, dtype=np.float16)
+        fresh_datas["ntk_rank"] = np.full((len(indices), n), np.nan, dtype=np.float16)
+        fresh_datas["ntk_cond"] = np.full((len(indices), n), np.nan, dtype=np.float32)
     if isinstance(glues[0].environment, Foragax):
         fresh_datas["pos"] = np.empty((len(indices), n, 2), dtype=np.int32)
         fresh_datas["biome_id"] = np.empty((len(indices), n), dtype=np.int32)
@@ -378,19 +382,23 @@ if start_step is None:
 else:
     logger.debug(f"Loaded checkpoints, resuming from step {start_step}")
 
-# Collect x_ref from random initialization steps
-ntk_freq = int(first_hypers.get("experiment", {}).get("ntk_freq", 1000))
-x_ref_steps = first_hypers.get("experiment", {}).get("x_ref_steps", 500)
-x_ref_observations = []
-temp_glue_states = glue_states
-for _ in range(x_ref_steps):
-    temp_glue_states, interaction = v_step(temp_glue_states)
-    # Extract observations from first agent (index 0)
-    # v_step is always vmapped, so we always need to extract [0]
-    obs = interaction.obs[0] if isinstance(interaction.obs, jnp.ndarray) else interaction.obs["image"][0]
-    x_ref_observations.append(np.asarray(obs))
-x_ref = jnp.stack(x_ref_observations)
-del x_ref_observations, temp_glue_states
+# Extract ntk_freq from config (only if explicitly specified)
+ntk_freq = int(first_hypers.get("experiment", {}).get("ntk_freq")) if compute_ntk_enabled else 0
+x_ref = None
+
+# Collect x_ref from random initialization steps (only if ntk metrics are enabled)
+if compute_ntk_enabled:
+    x_ref_steps = first_hypers.get("experiment", {}).get("x_ref_steps", 500)
+    x_ref_observations = []
+    temp_glue_states = glue_states
+    for _ in range(x_ref_steps):
+        temp_glue_states, interaction = v_step(temp_glue_states)
+        # Extract observations from first agent (index 0)
+        # v_step is always vmapped, so we always need to extract [0]
+        obs = interaction.obs[0] if isinstance(interaction.obs, jnp.ndarray) else interaction.obs["image"][0]
+        x_ref_observations.append(np.asarray(obs))
+    x_ref = jnp.stack(x_ref_observations)
+    del x_ref_observations, temp_glue_states
 
 current_step = start_step
 training_pbar = tqdm(
@@ -503,7 +511,6 @@ def compute_and_store_ntk_metrics(agent_idx, step_idx, glue_state, x_ref, pred_b
         rank, cond = compute_ntk_metrics(glue.agent, x_ref_batch, scalars_batch)
         datas["ntk_rank"][agent_idx, step_idx] = np.float16(rank)
         datas["ntk_cond"][agent_idx, step_idx] = np.float32(cond)
-        logger.debug(f"Computed NTK metrics at step {step_idx}: rank={rank}, cond={cond:.2e}")
 
     except Exception as e:
         logger.error(f"Failed to compute NTK metrics at step {step_idx} for agent {agent_idx}: {e}", exc_info=True)
@@ -751,7 +758,6 @@ while current_step < n:
         # Compute metrics at ntk_freq boundaries
         # Because next_milestone is now aligned to ntk_freq, glue_state_idx is the correct state at this step
         if ntk_freq > 0 and next_milestone % ntk_freq == 0 and next_milestone > 0 and next_milestone < n:
-            logger.info(f"Computing NTK metrics at step {next_milestone}")
             compute_and_store_ntk_metrics(i, next_milestone, glue_state_idx, x_ref, pred_before_churn)
 
         if next_milestone % save_every == 0 and next_milestone < n:

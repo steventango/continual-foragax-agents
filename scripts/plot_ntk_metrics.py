@@ -9,7 +9,10 @@ sys.path.insert(0, str(ROOT / "src"))
 from utils.results import read_metrics_from_data
 
 # Correct path to your results
-data_path = ROOT / "results/E138-two-biome-large/foragax/ForagaxTwoBiomeLarge-v1/9/DQN/data"
+TWO_BIOME_LARGE_V1 = "results/E138-two-biome-large/foragax/ForagaxTwoBiomeLarge-v1/9/DQN/data"
+SQUARE_WAVE_TWO_BIOME_V11 = "results/X33-ForagaxSquareWaveTwoBiome-v11/foragax/ForagaxSquareWaveTwoBiome-v11/9/DQN/data"
+FORAGAX_BIG_V5 = "results/E136-big/foragax/ForagaxBig-v5/9/DQN/data"
+data_path = ROOT / FORAGAX_BIG_V5
 
 print(f"Data path: {data_path}")
 print(f"Data path exists: {data_path.exists()}")
