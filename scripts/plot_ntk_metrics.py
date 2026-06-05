@@ -14,8 +14,9 @@ DQN_SQUARE_WAVE_TWO_BIOME_V11 = "results/X33-ForagaxSquareWaveTwoBiome-v11/forag
 DQN_FORAGAX_BIG_V5 = "results/E136-big/foragax/ForagaxBig-v5/9/DQN/data"
 
 PPO_SQUARE_WAVE_TWO_BIOME_V11 = "results/X33-ForagaxSquareWaveTwoBiome-v11/foragax/ForagaxSquareWaveTwoBiome-v11/9/ActorCriticMLP/data"
+PPO_FORAGAX_BIG_V5 = "results/E136-big/foragax/ForagaxBig-v5/9/PPO_LN_128/data"
 
-data_path = ROOT / PPO_SQUARE_WAVE_TWO_BIOME_V11
+data_path = ROOT / PPO_FORAGAX_BIG_V5
 
 # Each panel lists every column that could supply it, paired with a series
 # label.  DQN runs write `churn_norm` / `ntk_rank` / `ntk_cond`; PPO runs write
