@@ -57,6 +57,7 @@ def main():
     args = parse_args()
     exp = _normalize_exp(args.exp)
     data_path = ROOT / "results" / exp / str(args.fov) / args.agent / "data"
+    metrics_dir = ROOT / "experiments" / exp / "metrics"
 
     # Each panel lists every column that could supply it, paired with a series
     # label.  DQN runs write `churn_norm` / `ntk_rank` / `ntk_cond`; PPO runs write
@@ -195,9 +196,11 @@ def main():
             ax.legend()
 
     plt.tight_layout()
-    plt.savefig("ntk_metrics.png")
-    plt.show()
-    print("Saved plot to ntk_metrics.png")
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    out = metrics_dir / f"ntk_metrics_{args.agent}_{args.fov}.png"
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved plot to {out}")
 
 
 if __name__ == "__main__":
