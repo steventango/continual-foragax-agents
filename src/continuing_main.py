@@ -30,7 +30,7 @@ from environments.Foragax import Foragax
 from experiment import ExperimentModel
 from problems.registry import getProblem
 from utils.checkpoint import Checkpoint
-from utils.metrics import compute_ntk_metrics
+from utils.dqn_metrics import DQNMetricsComputer
 from utils.preempt import TimeoutHandler
 from utils.rlglue import RlGlue
 
@@ -173,9 +173,6 @@ for idx in indices:
 
 assert first_hypers is not None
 
-# Check if ntk metrics should be computed (only if explicitly specified in config)
-compute_ntk_enabled = "ntk_freq" in first_hypers.get("experiment", {})
-
 render_mode = first_hypers.get("experiment", {}).get("render_mode", "world_reward")
 
 
@@ -245,6 +242,7 @@ if not any(idx in video_idxs for idx in indices) and num_indices > 1:
 start_step = None
 save_every = first_hypers.get("experiment", {}).get("save_every", 10_001_000)
 video_every = first_hypers.get("experiment", {}).get("video_every", save_every)
+ntk_freq = int(first_hypers.get("experiment", {}).get("ntk_freq", 0))
 agent_metrics_obj = getattr(glues[0].agent.state, "metrics", None)
 METRIC_NAMES: tuple[str, ...] = (
     tuple(f.name for f in fields(agent_metrics_obj))
@@ -264,7 +262,7 @@ def reset_datas():
     fresh_datas = {"rewards": np.empty((len(indices), n), dtype=np.float16)}
     for k in METRIC_NAMES:
         fresh_datas[k] = np.empty((len(indices), n), dtype=np.float16)
-    if compute_ntk_enabled:
+    if ntk_freq > 0:
         fresh_datas["churn_norm"] = np.full((len(indices), n), np.nan, dtype=np.float16)
         fresh_datas["ntk_rank"] = np.full((len(indices), n), np.nan, dtype=np.float16)
         fresh_datas["ntk_cond"] = np.full((len(indices), n), np.nan, dtype=np.float32)
@@ -382,23 +380,11 @@ if start_step is None:
 else:
     logger.debug(f"Loaded checkpoints, resuming from step {start_step}")
 
-# Extract ntk_freq from config (only if explicitly specified)
-ntk_freq = int(first_hypers.get("experiment", {}).get("ntk_freq")) if compute_ntk_enabled else 0
-x_ref = None
-
-# Collect x_ref from random initialization steps (only if ntk metrics are enabled)
-if compute_ntk_enabled:
+# Initialize DQN metrics computer and collect reference observations
+metrics_computer = DQNMetricsComputer(glues, datas, ntk_freq)
+if ntk_freq > 0:
     x_ref_steps = first_hypers.get("experiment", {}).get("x_ref_steps", 500)
-    x_ref_observations = []
-    temp_glue_states = glue_states
-    for _ in range(x_ref_steps):
-        temp_glue_states, interaction = v_step(temp_glue_states)
-        # Extract observations from first agent (index 0)
-        # v_step is always vmapped, so we always need to extract [0]
-        obs = interaction.obs[0] if isinstance(interaction.obs, jnp.ndarray) else interaction.obs["image"][0]
-        x_ref_observations.append(np.asarray(obs))
-    x_ref = jnp.stack(x_ref_observations)
-    del x_ref_observations, temp_glue_states
+    metrics_computer.collect_x_ref(glue_states, v_step, x_ref_steps)
 
 current_step = start_step
 training_pbar = tqdm(
@@ -459,64 +445,6 @@ freeze_steps = first_hypers.get("freeze_steps", np.inf)
 if freeze_steps is None:
     freeze_steps = np.inf
 freeze_steps = float(freeze_steps)
-
-# Storage for tracking churn predictions
-pred_before_churn = {}  # Maps agent_idx -> predictions before update
-
-
-def compute_and_store_ntk_metrics(agent_idx, step_idx, glue_state, x_ref, pred_before_churn):
-    """Compute churn and NTK metrics for a single agent at a specific step."""
-    glue = glues[agent_idx]
-
-    # Temporarily update agent state to current state
-    old_agent_state = glue.agent.state
-    if hasattr(glue_state, 'agent_state'):
-        glue.agent.state = glue_state.agent_state
-    else:
-        glue.agent.state = glue_state
-
-    try:
-        # Use full x_ref for computation (cap at 100 for memory)
-        n_samples = min(100, len(x_ref))
-        if n_samples < len(x_ref):
-            # If x_ref is large, sample uniformly
-            sample_indices = np.linspace(0, len(x_ref) - 1, n_samples, dtype=int)
-            x_ref_batch = x_ref[sample_indices]
-        else:
-            x_ref_batch = x_ref
-
-        # Create dummy scalars (zeros) for reference data
-        # Get actual scalars size from agent's last_timestep
-        if hasattr(glue.agent.state, 'last_timestep') and 'scalars' in glue.agent.state.last_timestep:
-            scalars_size = glue.agent.state.last_timestep['scalars'].shape[-1]
-        else:
-            scalars_size = 4  # fallback default
-        scalars_batch = jnp.zeros((n_samples, scalars_size))
-
-        # Compute current predictions for churn
-        pred_current = glue.agent._values(glue.agent.state, x_ref_batch, scalars_batch)
-        if isinstance(pred_current, dict):
-            pred_current = pred_current.get("values", pred_current.get("v", list(pred_current.values())[0]))
-
-        # Compute churn if we have previous predictions
-        if agent_idx in pred_before_churn:
-            pred_prev = pred_before_churn[agent_idx]
-            churn_norm = np.linalg.norm(np.asarray(pred_current) - np.asarray(pred_prev))
-            datas["churn_norm"][agent_idx, step_idx] = np.float16(churn_norm)
-
-        # Store current predictions for next churn computation
-        pred_before_churn[agent_idx] = np.asarray(pred_current)
-
-        # Compute NTK metrics
-        rank, cond = compute_ntk_metrics(glue.agent, x_ref_batch, scalars_batch)
-        datas["ntk_rank"][agent_idx, step_idx] = np.float16(rank)
-        datas["ntk_cond"][agent_idx, step_idx] = np.float32(cond)
-
-    except Exception as e:
-        logger.error(f"Failed to compute NTK metrics at step {step_idx} for agent {agent_idx}: {e}", exc_info=True)
-    finally:
-        # Restore original state
-        glue.agent.state = old_agent_state
 
 
 def step(carry, _):
@@ -756,9 +684,8 @@ while current_step < n:
             glue_state_idx = glue_states
 
         # Compute metrics at ntk_freq boundaries
-        # Because next_milestone is now aligned to ntk_freq, glue_state_idx is the correct state at this step
-        if ntk_freq > 0 and next_milestone % ntk_freq == 0 and next_milestone > 0 and next_milestone < n:
-            compute_and_store_ntk_metrics(i, next_milestone, glue_state_idx, x_ref, pred_before_churn)
+        if metrics_computer.should_compute(next_milestone):
+            metrics_computer.compute_and_store(i, next_milestone, glue_state_idx)
 
         if next_milestone % save_every == 0 and next_milestone < n:
             checkpoint_start_time = time.time()
