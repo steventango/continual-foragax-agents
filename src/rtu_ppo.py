@@ -1504,7 +1504,7 @@ def main():
                 )
             ),
             conv=str(hypers.get("representation", {}).get("conv", "Conv2D")),
-            reward_trace_decay=float(hypers.get("reward_trace_decay", 1.0)),
+            reward_trace_decay=float(hypers.get("reward_trace_decay", hypers.get("representation", {}).get("reward_trace_decay", 1.0))),
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
             render_mode=hypers["environment"].get("render_mode", "world_reward"),
