@@ -19,4 +19,4 @@ export XLA_FLAGS="--xla_cpu_multi_thread_eigen=false intra_op_parallelism_thread
 export XLA_PYTHON_CLIENT_MEM_FRACTION=0.95
 export JAX_PLATFORMS=cpu
 
-$SLURM_TMPDIR/.venv/bin/python src/process_data.py experiments/XN37/foragax/ForagaxBig-v5
+$SLURM_TMPDIR/.venv/bin/python src/process_data.py experiments/XN37/foragax/ForagaxBig-v5-no-hint
