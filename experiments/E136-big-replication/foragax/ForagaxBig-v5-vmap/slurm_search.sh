@@ -1,0 +1,1 @@
+python scripts/slurm.py --cluster clusters/vulcan-gpu-vmap.json --time 09:00:00 --runs 30 --entry src/continuing_main.py --force -e experiments/E136-big-replication/foragax/ForagaxBig-v5-vmap/Baselines/Search-Oracle.json
