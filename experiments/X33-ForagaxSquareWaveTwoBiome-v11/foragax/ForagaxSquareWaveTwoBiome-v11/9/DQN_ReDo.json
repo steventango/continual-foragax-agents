@@ -21,7 +21,7 @@
         "gamma": 0.99,
         "optimizer": {
             "name": "Adam",
-            "alpha": 0.003,
+            "alpha": 0.001,
             "beta1": 0.9,
             "beta2": 0.999,
             "eps": 1e-05
@@ -38,7 +38,7 @@
         },
         "update_freq": 4,
         "redo_freq": 2500,
-        "redo_threshold": 0.0,
+        "redo_threshold": 0.025,
         "redo_reset_layernorm": true
     }
 }
