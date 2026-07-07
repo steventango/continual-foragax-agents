@@ -9,7 +9,6 @@ import time
 import logging
 import os
 import sys
-import zlib
 from collections.abc import Mapping
 from functools import partial
 from typing import Any, Callable, NamedTuple, Tuple
@@ -43,17 +42,13 @@ from experiment import ExperimentModel
 from utils.checkpoint import Checkpoint
 from utils.ml_instrumentation.Sampler import Mean
 from utils.ml_instrumentation.utils import Last
+from utils.ppo_metrics import compute_ppo_metrics, nan_ppo_metrics
 from utils.preempt import TimeoutHandler
 
 sys.path.insert(0, os.path.abspath("/tmp/src"))
 from foragax.registry import make
 
 PERIOD = 182500
-
-
-def _keypath_crc32(path) -> int:
-    path_str = "/".join(str(getattr(entry, "key", entry)) for entry in path)
-    return zlib.crc32(path_str.encode("utf-8"))
 
 
 def parse_indices(index_specs: list[str], total: int | None = None) -> list[int]:
@@ -97,6 +92,7 @@ class TrainConfig:
     # ---- STATIC (uniform across vmapped runs) ----
     d_hidden: int = struct.field(pytree_node=False)
     hidden_size: int = struct.field(pytree_node=False)
+    activation: str = struct.field(pytree_node=False)
     agent_type: str = struct.field(pytree_node=False)
     rollout_steps: int = struct.field(pytree_node=False)
     epochs: int = struct.field(pytree_node=False)
@@ -118,6 +114,10 @@ class TrainConfig:
     use_spectral_reg: bool = struct.field(pytree_node=False)
     use_reset: bool = struct.field(pytree_node=False)
     use_shrink_and_perturb: bool = struct.field(pytree_node=False)
+    # NTK / churn plasticity metrics (computed inside the jitted scan)
+    compute_ntk: bool = struct.field(pytree_node=False)
+    ntk_freq: int = struct.field(pytree_node=False)
+    n_ref: int = struct.field(pytree_node=False)
     # ---- DYNAMIC (may vary per idx; arithmetic only) ----
     max_grad_norm: float
     l2_reg_pi: float
@@ -662,6 +662,18 @@ def experiment(rng, config: TrainConfig):
     _agent_class = getAgent(config.agent_type)
     agent = _agent_class
 
+    if config.activation == "crelu" and _agent_class not in (
+        ActorCriticConv,
+        ActorCriticMLP,
+        RealTimeActorCriticConv,
+        RealTimeActorCriticMLP,
+    ):
+        raise NotImplementedError(
+            "CReLU activation is currently wired for ActorCriticConv, "
+            "ActorCriticMLP, RealTimeActorCriticConv, and "
+            "RealTimeActorCriticMLP."
+        )
+
     kwargs = {}
     if config.sparsity is not None:
         kwargs["sparsity"] = config.sparsity
@@ -679,7 +691,7 @@ def experiment(rng, config: TrainConfig):
     # Create and initialize the network.
     network = agent(
         action_dim=action_dim,
-        activation="tanh",
+        activation=config.activation,
         hidden_size=config.hidden_size,
         d_hidden=config.d_hidden,
         cont=False,
@@ -714,18 +726,34 @@ def experiment(rng, config: TrainConfig):
         RealTimeActorCriticConvPooling,
         RealTimeActorCriticConvHint,
     )
+    _is_plain_conv_rtu = _agent_class is RealTimeActorCriticConv
     _is_conv_hint_rtu = _agent_class is RealTimeActorCriticConvHintRTU
-    _is_mlp_rtu = _agent_class in (RealTimeActorCriticMLP, RealTimeActorCriticMLPMulti, ActorCriticMLP)
-    if _is_conv_rtu:
-        # RTU receives hidden_size-wide embedding; action/reward/hint folded in before the Dense
-        d_input = config.hidden_size
+    _is_mlp_rtu = _agent_class in (
+        RealTimeActorCriticMLP,
+        RealTimeActorCriticMLPMulti,
+        ActorCriticMLP,
+    )
+    activation_multiplier = 2 if config.activation == "crelu" else 1
+    if _is_plain_conv_rtu:
+        # RTU receives [conv Dense(hidden_size), action, last_reward+hint, ...]
+        d_input = (
+            config.hidden_size * activation_multiplier + action_dim + hint_shape[0]
+        )
+        if config.use_sinusoidal_encoding:
+            d_input += 2
+        if config.use_reward_trace:
+            d_input += 1
+    elif _is_conv_rtu:
+        d_input = config.hidden_size * activation_multiplier
     elif _is_conv_hint_rtu:
         # No main RTU — d_input is ignored by initialize_memory, pass hint input size
         d_input = hint_dim
     elif _is_mlp_rtu:
         # RTU receives [Dense(hidden_size), action, last_reward+hint, ...]
         # hint_shape[0] = 1 + hint_dim (accounts for reward + hint)
-        d_input = config.hidden_size + action_dim + hint_shape[0]
+        d_input = (
+            config.hidden_size * activation_multiplier + action_dim + hint_shape[0]
+        )
         if config.use_sinusoidal_encoding:
             d_input += 2
         if config.use_reward_trace:
@@ -910,14 +938,17 @@ def experiment(rng, config: TrainConfig):
     if config.use_shrink_and_perturb:
         def _shrink_and_perturb(train_state, rng):
             """Apply shrink-and-perturb to all network parameters."""
-            rng, noise_rng = jax.random.split(rng)
+            rng, subkey = jax.random.split(rng)
 
-            def sp(path, p):
-                leaf_rng = jax.random.fold_in(noise_rng, _keypath_crc32(path))
-                noise = jax.random.normal(leaf_rng, shape=p.shape, dtype=p.dtype)
+            leaves, treedef = jax.tree_util.tree_flatten(train_state.params)
+            leaf_keys = jax.random.split(subkey, len(leaves))
+            keys_tree = jax.tree_util.tree_unflatten(treedef, leaf_keys)
+
+            def sp(k, p):
+                noise = jax.random.normal(k, shape=p.shape, dtype=p.dtype)
                 return p * config.shrink_factor + noise * config.noise_scale
 
-            new_params = jax.tree_util.tree_map_with_path(sp, train_state.params)
+            new_params = jax.tree_util.tree_map(sp, keys_tree, train_state.params)
 
             # Reinitialize optimizer state for the perturbed parameters
             new_opt_state = tx.init(new_params)
@@ -927,6 +958,32 @@ def experiment(rng, config: TrainConfig):
                 opt_state=new_opt_state,
             )
             return train_state, rng
+
+    # NTK / churn metrics: collect a fixed batch of reference observations from a
+    # short random-policy rollout.  This branches off the env at its reset state
+    # via a derived key (rng is not consumed, so the training stream is
+    # unaffected) and the rollout's terminal state is discarded.  `reward_dim`
+    # is the width of the `last_reward` feature (1, or 1 + hint_dim for hint
+    # envs), needed to build zero-padded reference obs tuples.
+    reward_dim = hint_shape[0]
+    if config.compute_ntk:
+        ref_rng = jax.random.fold_in(rng, 7919)
+
+        def _ref_step(carry, _):
+            r, st = carry
+            r, a_rng, s_rng = jax.random.split(r, 3)
+            ref_action = jax.random.randint(a_rng, (), 0, action_dim)
+            ref_obs, st, _, _, _ = env.step(
+                s_rng, st, ref_action, env.default_params
+            )
+            ref_img = ref_obs["image"] if isinstance(ref_obs, Mapping) else ref_obs
+            return (r, st), ref_img
+
+        (_, _), x_ref = jax.lax.scan(
+            _ref_step, (ref_rng, env_state), None, length=config.n_ref
+        )
+    else:
+        x_ref = None
 
     env_step_state = (
         train_state,
@@ -942,7 +999,7 @@ def experiment(rng, config: TrainConfig):
         init_hstate,
     )
 
-    @scan_tqdm(config.num_updates, print_rate=min(100, config.num_updates//20))
+    @scan_tqdm(config.num_updates, print_rate=max(1, min(100, config.num_updates // 20)))
     def experiment_step(carry, iteration_idx):
         env_step_state, train_state, rng, initial_params, l2_init_multipliers, spectral_reg_multipliers = carry
         (
@@ -1097,6 +1154,12 @@ def experiment(rng, config: TrainConfig):
             should_update, update_step, skip_update, update_state
         )
 
+        # Capture params around the PPO update for per-update churn.  Taken
+        # before the (rare) reset / shrink-and-perturb interventions below so
+        # churn reflects the gradient update itself, not those resets.
+        ntk_params_before = update_state[0].params
+        ntk_params_after = train_state.params
+
         # Periodically reset last layer (actor_mean + critic_value) params and optimizer
         # states.  Guarded at trace time by config.use_reset so no overhead when disabled.
         if config.use_reset:
@@ -1124,6 +1187,37 @@ def experiment(rng, config: TrainConfig):
                 train_state,
                 rng,
             )
+
+        # NTK rank / condition number and per-update churn for the value and
+        # policy heads, evaluated on the fixed reference batch whenever this
+        # update's env-step window crosses a multiple of ntk_freq.  ntk_freq is
+        # in *env steps* (matching the DQN ntk_freq and this file's
+        # reset_interval / sp_interval), but metrics can only be produced at
+        # update boundaries, so the finest achievable spacing is rollout_steps.
+        # lax.cond skips the (expensive) Jacobian work on non-metric updates;
+        # disabled updates / heads report NaN.  Emitted as per-update scalars.
+        if config.compute_ntk:
+            def _do_ntk(_):
+                return compute_ppo_metrics(
+                    train_state.apply_fn,
+                    ntk_params_before,
+                    ntk_params_after,
+                    init_hstate,
+                    x_ref,
+                    action_dim,
+                    reward_dim,
+                    compute_value=True,
+                    compute_policy=True,
+                )
+
+            is_metric_step = _crossed_interval(
+                start_timestep, log_env_state.timestep, config.ntk_freq
+            )
+            ntk_metrics = jax.lax.cond(
+                is_metric_step, _do_ntk, lambda _: nan_ppo_metrics(), operand=None
+            )
+        else:
+            ntk_metrics = nan_ppo_metrics()
 
         # Collect a scalar reward summary for this iteration (mean reward over rollout)
         rewards = traj_batch.reward
@@ -1177,6 +1271,7 @@ def experiment(rng, config: TrainConfig):
             object_collected_id,
             biome_regret,
             biome_rank,
+            ntk_metrics,
         )
 
     # Run training loop with lax.scan (collect per-iteration rewards)
@@ -1186,9 +1281,16 @@ def experiment(rng, config: TrainConfig):
         PBar(id=config.id, carry=init_carry),
         xs=jnp.arange(int(config.num_updates)),
     )
-    rewards, pos, loss_info, biome_id, object_collected_id, biome_regret, biome_rank = (
-        info
-    )
+    (
+        rewards,
+        pos,
+        loss_info,
+        biome_id,
+        object_collected_id,
+        biome_regret,
+        biome_rank,
+        ntk_metrics,
+    ) = info
     rewards = rewards.reshape((-1))
     pos = pos.reshape((-1, pos.shape[-1]))
     total_loss = jnp.mean(loss_info[0], axis=(-1, -2))
@@ -1199,6 +1301,16 @@ def experiment(rng, config: TrainConfig):
     object_collected_id = object_collected_id.reshape((-1))
     biome_regret = biome_regret.reshape((-1))
     biome_rank = biome_rank.reshape((-1))
+    # Per-update NTK / churn metrics, one scalar per update (NaN on non-metric
+    # updates).  Kept at per-update resolution; consumers subsample as needed.
+    (
+        value_ntk_rank,
+        value_ntk_cond,
+        value_churn,
+        policy_ntk_rank,
+        policy_ntk_cond,
+        policy_churn,
+    ) = ntk_metrics
     env_step_state = last_carry.carry[0]
     frames = env_step_state[2].frames
     return (
@@ -1209,6 +1321,14 @@ def experiment(rng, config: TrainConfig):
         object_collected_id,
         biome_regret,
         biome_rank,
+        (
+            value_ntk_rank,
+            value_ntk_cond,
+            value_churn,
+            policy_ntk_rank,
+            policy_ntk_cond,
+            policy_churn,
+        ),
         frames,
     )
 
@@ -1310,10 +1430,23 @@ def main():
             num_updates = args.max_steps
         reset_interval = hypers.get("reset_interval", hypers.get("reset_steps", -1))
         sp_interval = hypers.get("sp_interval", hypers.get("sp_steps", -1))
+        # NTK / churn metrics: only computed when experiment.ntk_freq is set.
+        # ntk_freq is in env steps (like the DQN ntk_freq), but metrics can only
+        # be emitted at update boundaries, so the effective spacing is rounded
+        # up to a multiple of rollout_steps.
+        ntk_freq = int(hypers.get("experiment", {}).get("ntk_freq", 0))
+        compute_ntk = ntk_freq > 0
+        n_ref = int(hypers.get("experiment", {}).get("x_ref_steps", 128))
+        activation = str(
+            hypers.get("representation", {}).get("activation", "tanh")
+        ).lower()
+        if "crelu" in exp.agent.lower():
+            activation = "crelu"
         config = TrainConfig(
             d_hidden=int(hypers["representation"]["d_hidden"]),
             agent_type=exp.agent,
             hidden_size=int(hypers["representation"]["hidden"]),
+            activation=activation,
             rollout_steps=int(hypers["rollout_steps"]),
             epochs=int(hypers["epochs"]),
             num_mini_batch=int(hypers["num_mini_batch"]),
@@ -1371,7 +1504,7 @@ def main():
                 )
             ),
             conv=str(hypers.get("representation", {}).get("conv", "Conv2D")),
-            reward_trace_decay=float(hypers.get("reward_trace_decay", 1.0)),
+            reward_trace_decay=float(hypers.get("reward_trace_decay", hypers.get("representation", {}).get("reward_trace_decay", 1.0))),
             num_updates=num_updates,
             aperture_size=int(hypers["environment"]["aperture_size"]),
             render_mode=hypers["environment"].get("render_mode", "world_reward"),
@@ -1399,6 +1532,9 @@ def main():
             sp_interval=int(sp_interval),
             shrink_factor=float(hypers.get("shrink_factor", 1.0)),
             noise_scale=float(hypers.get("noise_scale", 0.0)),
+            compute_ntk=compute_ntk,
+            ntk_freq=max(ntk_freq, 1),
+            n_ref=n_ref,
         )
         configs.append(config)
 
@@ -1414,6 +1550,14 @@ def main():
         object_collected_id,
         biome_regret,
         biome_rank,
+        (
+            value_ntk_rank,
+            value_ntk_cond,
+            value_churn,
+            policy_ntk_rank,
+            policy_ntk_cond,
+            policy_churn,
+        ),
         frames,
     ) = results
 
@@ -1439,6 +1583,12 @@ def main():
         run_object_collected_id = object_collected_id[i]
         run_biome_regret = biome_regret[i]
         run_biome_rank = biome_rank[i]
+        run_value_ntk_rank = value_ntk_rank[i]
+        run_value_ntk_cond = value_ntk_cond[i]
+        run_value_churn = value_churn[i]
+        run_policy_ntk_rank = policy_ntk_rank[i]
+        run_policy_ntk_cond = policy_ntk_cond[i]
+        run_policy_churn = policy_churn[i]
         run_frames = frames[i]
         start_time = time.time()
         # for reward in run_rewards:
@@ -1483,6 +1633,12 @@ def main():
             object_collected_id=run_object_collected_id,
             biome_regret=run_biome_regret,
             biome_rank=run_biome_rank,
+            value_ntk_rank=run_value_ntk_rank,
+            value_ntk_cond=run_value_ntk_cond,
+            value_churn=run_value_churn,
+            policy_ntk_rank=run_policy_ntk_rank,
+            policy_ntk_cond=run_policy_ntk_cond,
+            policy_churn=run_policy_churn,
         )
         total_numpy_time += time.time() - start_time
 
