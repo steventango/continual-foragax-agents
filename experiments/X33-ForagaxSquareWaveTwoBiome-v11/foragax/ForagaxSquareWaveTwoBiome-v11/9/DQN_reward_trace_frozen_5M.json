@@ -20,7 +20,7 @@
         },
         "gamma": 0.99,
         "use_reward_trace": true,
-        "reward_trace_decay": 0.99,
+        "reward_trace_decay": 0.9,
         "optimizer": {
             "name": "Adam",
             "alpha": 0.001,

@@ -19,7 +19,7 @@
     "representation.scalar_features": "hint,last_action,last_reward,reward_trace",
     "representation.type": "ForagerNet",
     "representation.use_layernorm": 1,
-    "reward_trace_decay": 0.99,
+    "reward_trace_decay": 0.9,
     "target_refresh": 128,
     "update_freq": 4,
     "use_reward_trace": 1
