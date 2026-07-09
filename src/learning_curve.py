@@ -27,7 +27,7 @@ from plotting_utils import (
 def _max_bar_label_width(hue_order, args):
     max_label_len = max(
         (
-            len(get_mapped_label(h, LABEL_MAP, disable_fov=args.disable_fov))
+            len(get_mapped_label(h, args.label_map, disable_fov=args.disable_fov))
             for h in hue_order
         ),
         default=0,
@@ -232,8 +232,23 @@ def main():
         action="store_true",
         help="Turn off all legends and annotations completely.",
     )
+    parser.add_argument(
+        "--rename",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Override the display label for specific algorithms in this plot only "
+             "(does not affect the shared LABEL_MAP used by other plots). "
+             "Format: 'alg:New Label'. Example: --rename DQN_ReDo_PostLNScore:'DQN (ReDo)'",
+    )
 
     args = parse_plotting_args(parser)
+
+    args.label_map = dict(LABEL_MAP)
+    if args.rename:
+        for spec in args.rename:
+            alg, new_label = spec.split(":", 1)
+            args.label_map[alg] = new_label
 
     # Parse horizontal lines specification
     horizontal_lines = []
@@ -606,7 +621,7 @@ def main():
             if not cell_df_list:
                 logger.warning(f"No algorithms found for cell {i}, skipping")
                 ax.text(0.5, 0.5, f"No data found", ha='center', va='center', transform=ax.transAxes)
-                title = " + ".join(get_mapped_label(a, LABEL_MAP, disable_fov=args.disable_fov) for a in cell_algs)
+                title = " + ".join(get_mapped_label(a, args.label_map, disable_fov=args.disable_fov) for a in cell_algs)
                 ax.set_title(title)
                 despine(ax)
                 continue
@@ -672,7 +687,7 @@ def main():
                 ax.set_xlabel("")
 
             # Title: show algorithm names (mapped)
-            title = " + ".join(get_mapped_label(a, LABEL_MAP, disable_fov=args.disable_fov) for a in cell_algs if a not in missing_algs)
+            title = " + ".join(get_mapped_label(a, args.label_map, disable_fov=args.disable_fov) for a in cell_algs if a not in missing_algs)
             ax.set_title(title)
             ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
             ax.xaxis.set_major_formatter(
@@ -684,7 +699,7 @@ def main():
             # Handle legend for multi-algorithm cells
             if len(cell_algs) > 1:
                 handles, labels = ax.get_legend_handles_labels()
-                mapped_labels = [get_mapped_label(label, LABEL_MAP, disable_fov=args.disable_fov) for label in labels]
+                mapped_labels = [get_mapped_label(label, args.label_map, disable_fov=args.disable_fov) for label in labels]
                 ax.legend(handles, mapped_labels, title=None, frameon=False, loc='best')
 
             if args.vertical_lines:
@@ -803,10 +818,10 @@ def main():
 
         # Handle legend
         if not args.legend:
-            annotate_plot(axes[0], label_map=LABEL_MAP, disable_fov=args.disable_fov)
+            annotate_plot(axes[0], label_map=args.label_map, disable_fov=args.disable_fov)
         else:
             handles, labels = axes[0].get_legend_handles_labels()
-            mapped_labels = [get_mapped_label(label, LABEL_MAP, disable_fov=args.disable_fov) for label in labels]
+            mapped_labels = [get_mapped_label(label, args.label_map, disable_fov=args.disable_fov) for label in labels]
             axes[0].legend(handles, mapped_labels, title=None, frameon=False)
     else:
         # Original plotting logic for metrics
@@ -995,7 +1010,7 @@ def main():
                     ax_auc.set_xlabel(ylabel)
                     ax_auc.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
                     if args.legend_on_bar:
-                        mapped_labels = [get_mapped_label(label, LABEL_MAP, disable_fov=args.disable_fov) for label in hue_order]
+                        mapped_labels = [get_mapped_label(label, args.label_map, disable_fov=args.disable_fov) for label in hue_order]
                         ax_auc.set_yticks(range(len(hue_order)))
                         ax_auc.set_yticklabels(mapped_labels)
                     else:
@@ -1006,7 +1021,7 @@ def main():
                     ax_auc.set_xlabel("")
                     ax_auc.yaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
                     if args.legend_on_bar:
-                        mapped_labels = [get_mapped_label(label, LABEL_MAP, disable_fov=args.disable_fov) for label in hue_order]
+                        mapped_labels = [get_mapped_label(label, args.label_map, disable_fov=args.disable_fov) for label in hue_order]
                         ax_auc.set_xticks(range(len(hue_order)))
                         ax_auc.set_xticklabels(mapped_labels, rotation=45, ha='right', va='center', rotation_mode='anchor')
                         ax_auc.tick_params(axis='x')
@@ -1047,14 +1062,14 @@ def main():
                 leg.remove()
         elif not args.legend:
             if not args.plot_bar_only:
-                annotate_plot(ax_for_legend, label_map=LABEL_MAP, disable_fov=args.disable_fov)
+                annotate_plot(ax_for_legend, label_map=args.label_map, disable_fov=args.disable_fov)
         else:
             handles, labels = ax_for_legend.get_legend_handles_labels()
             # If lineplot was not drawn, grab the handles from the barplot
             if not handles and args.plot_bar_only and ax_auc:
                 handles, labels = ax_auc.get_legend_handles_labels()
 
-            mapped_labels = [get_mapped_label(label, LABEL_MAP, disable_fov=args.disable_fov) for label in labels]
+            mapped_labels = [get_mapped_label(label, args.label_map, disable_fov=args.disable_fov) for label in labels]
             if handles:
                 legend_obj = ax_for_legend.legend(handles, mapped_labels, title=None, frameon=True, loc='best')
                 legend_obj.get_frame().set_alpha(0.9)
