@@ -98,6 +98,7 @@ LABEL_MAP: Dict[str, str] = {
     "DRQN_LN_0_2": "DRQN (LN, 0-2)",
     "DRQN_0_2": "DRQN (0-2)",
     "PT_DQN": "PT DQN",
+    "PT_DQN_64": "PT DQN (64)",
     "Search-Brown": "Search (Brown)",
     "Search-Brown-Avoid-Green": "Search (+B-G)",
     "Search-Morel": "Search (Morel)",
