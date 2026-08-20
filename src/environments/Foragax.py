@@ -31,16 +31,16 @@ class Foragax(BaseEnvironment):
         return state, obs
 
     def step(self, action: jax.Array):
-        self.state, (obs, reward, done, done, info) = self._step(
+        self.state, (obs, reward, terminated, truncated, info) = self._step(
             self.state,
             action,
         )
-        return (obs, reward, done, done, info)
+        return (obs, reward, terminated, truncated, info)
 
     @partial(jax.jit, static_argnums=0)
     def _step(self, state: EnvState, action: jax.Array):
         state.key, env_step_key = jax.random.split(state.key)
-        obs, state.state, reward, done, info = self.env.step(
+        obs, state.state, reward, terminated, truncated, info = self.env.step(
             env_step_key, state.state, action
         )
-        return state, (obs, reward, done, done, info)
+        return state, (obs, reward, terminated, truncated, info)

@@ -797,7 +797,7 @@ def env_step(runner_state, _):
         last_obs_encoded, train_state, _rng, hstate
     )
     # STEP ENV
-    obs, env_state, reward, done, info = gymnax_state.env_step(
+    obs, env_state, reward, _terminated, _truncated, info = gymnax_state.env_step(
         _rng, gymnax_state.env_state, action.squeeze(), gymnax_state.env_params
     )
     step = log_env_state.timestep + 1
